@@ -1,10 +1,27 @@
 <?php
+
+/**
+ * Portal de Recursos Humanos — Intellihelp
+ *
+ * Pantalla de inicio según el rol del usuario.
+ *
+ * @author    Brian Gabriel Sierra <bsierra@intellihelp.tech>
+ * @copyright 2026 Intellihelp
+ */
+
 declare(strict_types=1);
 
-const REQ_SELECT = "SELECT r.*, t.name AS type_name, t.code AS type_code, t.color, t.counting, u.name AS user_name, u.department
-    FROM leave_requests r JOIN leave_types t ON t.id = r.type_id JOIN users u ON u.id = r.user_id";
+/**
+ * Consulta base de solicitudes con tipo y colaborador.
+ */
+const REQ_SELECT = 'SELECT r.*, t.name AS type_name, t.code AS type_code, t.color, t.counting, u.name AS user_name, u.department
+    FROM leave_requests r JOIN leave_types t ON t.id = r.type_id JOIN users u ON u.id = r.user_id';
 
-/** Condición SQL de solicitudes que el usuario puede decidir. */
+/**
+ * Condición SQL de las solicitudes que el usuario puede decidir.
+ *
+ * @return array{0: string, 1: array} Condición y parámetros.
+ */
 function pending_scope(array $u): array
 {
     if ($u['role'] === 'admin') {
@@ -13,16 +30,27 @@ function pending_scope(array $u): array
     if ($u['role'] === 'hr') {
         return ["r.status = 'pending' AND r.user_id <> ?", [$u['id']]];
     }
+
     return ["r.status = 'pending' AND r.approver_id = ?", [$u['id']]];
 }
 
-/** Condición SQL de solicitudes visibles para supervisión (equipo o toda la empresa). */
+/**
+ * Condición SQL de las solicitudes que el usuario puede supervisar.
+ *
+ * @return array{0: string, 1: array} Condición y parámetros.
+ */
 function team_scope(array $u): array
 {
-    if (is_hr()) return ['1=1', []];
+    if (is_hr()) {
+        return ['1=1', []];
+    }
+
     return ['(u.manager_id = ? OR r.approver_id = ?)', [$u['id'], $u['id']]];
 }
 
+/**
+ * Inicio: saldos, solicitudes propias y, según el rol, pendientes, ausentes y documentación.
+ */
 function dashboard(): void
 {
     $u = require_login();

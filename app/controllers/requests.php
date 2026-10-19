@@ -1,6 +1,19 @@
 <?php
+
+/**
+ * Portal de Recursos Humanos — Intellihelp
+ *
+ * Ciclo de vida de las solicitudes: alta, consulta, decisión, cancelación y adjuntos.
+ *
+ * @author    Brian Gabriel Sierra <bsierra@intellihelp.tech>
+ * @copyright 2026 Intellihelp
+ */
+
 declare(strict_types=1);
 
+/**
+ * Historial de solicitudes propias.
+ */
 function my_requests(): void
 {
     $u = require_login();
@@ -21,6 +34,9 @@ function my_requests(): void
     ]);
 }
 
+/**
+ * Formulario de nueva solicitud.
+ */
 function request_form(): void
 {
     $u = require_login();
@@ -36,6 +52,9 @@ function request_form(): void
     ]);
 }
 
+/**
+ * Crea una solicitud (o la carga RRHH en nombre de un colaborador).
+ */
 function request_submit(): void
 {
     $me = require_login();
@@ -46,7 +65,7 @@ function request_submit(): void
         redirect('/solicitudes/nueva');
     }
 
-    // RRHH puede cargar en nombre de otra persona
+    // RRHH puede cargar una licencia en nombre de otro colaborador.
     $onBehalf = is_hr() && (int) post('user_id') && (int) post('user_id') !== (int) $me['id'];
     $owner = $onBehalf ? row('SELECT * FROM users WHERE id = ? AND active = 1', [(int) post('user_id')]) : $me;
     if (!$owner) {
@@ -62,7 +81,9 @@ function request_submit(): void
         $errors[] = 'Para ' . mb_strtolower($type['name']) . ' es obligatorio adjuntar: ' . mb_strtolower($type['document_label'] ?: 'documentación') . '.';
     }
     if ($errors) {
-        foreach ($errors as $err) flash('error', $err);
+        foreach ($errors as $err) {
+            flash('error', $err);
+        }
         redirect('/solicitudes/nueva?tipo=' . $type['code']);
     }
 
@@ -85,25 +106,39 @@ function request_submit(): void
     [$saved, $upErrors, $paths] = store_uploads($id, (int) $me['id'], $_FILES['documents'] ?? []);
     if ($type['requires_document'] && $saved === 0) {
         db()->rollBack();
-        foreach ($paths as $p) @unlink($p);
-        foreach ($upErrors ?: ['No se pudo guardar la documentación.'] as $err) flash('error', $err);
+        foreach ($paths as $p) {
+            @unlink($p);
+        }
+        foreach ($upErrors ?: ['No se pudo guardar la documentación.'] as $err) {
+            flash('error', $err);
+        }
         redirect('/solicitudes/nueva?tipo=' . $type['code']);
     }
-    if ($saved) update('leave_requests', $id, ['doc_status' => 'uploaded']);
+    if ($saved) {
+        update('leave_requests', $id, ['doc_status' => 'uploaded']);
+    }
     log_event($id, $onBehalf ? 'created_by_hr' : ($status === 'registered' ? 'registered' : 'created'), $warnings ? implode(' ', $warnings) : null);
-    if ($autoApprove) log_event($id, 'approved', 'Aprobada al cargarla RRHH.');
-    if ($saved) log_event($id, 'doc_uploaded', $saved . ' archivo(s)');
+    if ($autoApprove) {
+        log_event($id, 'approved', 'Aprobada al cargarla RRHH.');
+    }
+    if ($saved) {
+        log_event($id, 'doc_uploaded', $saved . ' archivo(s)');
+    }
     db()->commit();
     forget_input();
 
-    foreach ($upErrors as $err) flash('error', $err);
-    foreach ($warnings as $w) flash('warning', $w);
+    foreach ($upErrors as $err) {
+        flash('error', $err);
+    }
+    foreach ($warnings as $w) {
+        flash('warning', $w);
+    }
 
     if ($autoApprove) {
-        defer(fn() => on_request_decided($id));
+        defer(fn () => on_request_decided($id));
         flash('success', 'Licencia cargada y aprobada. Se notificó al colaborador/a.');
     } else {
-        defer(fn() => on_request_created($id));
+        defer(fn () => on_request_created($id));
         flash('success', $status === 'pending'
             ? 'Solicitud enviada. Le avisamos a quien tiene que autorizarla y te notificamos cuando la resuelva.'
             : 'Licencia informada. RRHH y tu responsable ya fueron notificados.');
@@ -111,19 +146,26 @@ function request_submit(): void
     redirect('/solicitudes/' . $id);
 }
 
+/**
+ * Detalle de una solicitud.
+ */
 function request_show(int $id): void
 {
     require_login();
     $r = load_request($id);
-    if (!$r || !can_view_request($r)) abort(404, 'La solicitud no existe o no tenés acceso.');
+    if (!$r || !can_view_request($r)) {
+        abort(404, 'La solicitud no existe o no tenés acceso.');
+    }
     $owner = row('SELECT * FROM users WHERE id = ?', [$r['user_id']]);
     $year = (int) substr($r['start_date'], 0, 4);
     $overlaps = [];
     if (can_decide($r) || is_hr()) {
-        // Quién más del equipo/área falta en esas fechas
-        $overlaps = rows(REQ_SELECT . " WHERE r.id <> ? AND r.user_id <> ? AND r.status IN ('approved','registered','pending')
+        // Otras ausencias del mismo equipo o área en esas fechas.
+        $overlaps = rows(
+            REQ_SELECT . " WHERE r.id <> ? AND r.user_id <> ? AND r.status IN ('approved','registered','pending')
             AND r.start_date <= ? AND r.end_date >= ? AND (u.manager_id = ? OR u.department = ?) ORDER BY r.start_date",
-            [$r['id'], $r['user_id'], $r['end_date'], $r['start_date'], $owner['manager_id'], $owner['department']]);
+            [$r['id'], $r['user_id'], $r['end_date'], $r['start_date'], $owner['manager_id'], $owner['department']]
+        );
     }
     view('requests/show', [
         'title' => 'Solicitud #' . $r['id'],
@@ -139,70 +181,107 @@ function request_show(int $id): void
     ]);
 }
 
+/**
+ * Indica si el usuario actual puede cancelar la solicitud.
+ */
 function can_cancel(array $r): bool
 {
-    if (in_array($r['status'], ['cancelled', 'rejected'], true)) return false;
-    if (is_hr()) return true;
-    if ((int) $r['user_id'] !== uid()) return false;
+    if (in_array($r['status'], ['cancelled', 'rejected'], true)) {
+        return false;
+    }
+    if (is_hr()) {
+        return true;
+    }
+    if ((int) $r['user_id'] !== uid()) {
+        return false;
+    }
+
     return $r['status'] === 'pending' || $r['start_date'] > date('Y-m-d');
 }
 
+/**
+ * Indica si el usuario actual puede adjuntar documentación.
+ */
 function can_upload(array $r): bool
 {
-    if (in_array($r['status'], ['cancelled', 'rejected'], true)) return false;
+    if (in_array($r['status'], ['cancelled', 'rejected'], true)) {
+        return false;
+    }
+
     return (int) $r['user_id'] === uid() || is_hr();
 }
 
+/**
+ * Autoriza o rechaza una solicitud.
+ */
 function request_decide(int $id): void
 {
     $me = require_login();
     $r = load_request($id);
-    if (!$r || !can_decide($r)) abort(403, 'No podés decidir sobre esta solicitud.');
+    if (!$r || !can_decide($r)) {
+        abort(403, 'No podés decidir sobre esta solicitud.');
+    }
     $decision = post('decision');
     $comment = mb_substr(post('comment'), 0, 2000);
-    if (!in_array($decision, ['approved', 'rejected'], true)) redirect('/solicitudes/' . $id);
+    if (!in_array($decision, ['approved', 'rejected'], true)) {
+        redirect('/solicitudes/' . $id);
+    }
     if ($decision === 'rejected' && $comment === '') {
         flash('error', 'Contale al colaborador/a el motivo del rechazo.');
         redirect('/solicitudes/' . $id);
     }
-    // Evita doble decisión concurrente
-    $n = q("UPDATE leave_requests SET status = ?, decided_by = ?, decided_at = NOW(), decision_comment = ? WHERE id = ? AND status = 'pending'",
-        [$decision, $me['id'], $comment ?: null, $id])->rowCount();
+    // La condición sobre el estado evita decisiones duplicadas concurrentes.
+    $n = q(
+        "UPDATE leave_requests SET status = ?, decided_by = ?, decided_at = NOW(), decision_comment = ? WHERE id = ? AND status = 'pending'",
+        [$decision, $me['id'], $comment ?: null, $id]
+    )->rowCount();
     if (!$n) {
         flash('warning', 'Esta solicitud ya había sido resuelta.');
         redirect('/solicitudes/' . $id);
     }
-    q("UPDATE notifications SET read_at = NOW() WHERE request_id = ? AND user_id = ? AND read_at IS NULL", [$id, $me['id']]);
+    q('UPDATE notifications SET read_at = NOW() WHERE request_id = ? AND user_id = ? AND read_at IS NULL', [$id, $me['id']]);
     log_event($id, $decision, $comment ?: null);
-    defer(fn() => on_request_decided($id));
+    defer(fn () => on_request_decided($id));
     flash('success', $decision === 'approved' ? 'Solicitud aprobada. Avisamos al colaborador/a.' : 'Solicitud rechazada. Avisamos al colaborador/a.');
     redirect(post('back') === 'aprobaciones' ? '/aprobaciones' : '/solicitudes/' . $id);
 }
 
+/**
+ * Cancela una solicitud.
+ */
 function request_cancel(int $id): void
 {
     require_login();
     $r = load_request($id);
-    if (!$r || !can_view_request($r) || !can_cancel($r)) abort(403, 'No podés cancelar esta solicitud.');
+    if (!$r || !can_view_request($r) || !can_cancel($r)) {
+        abort(403, 'No podés cancelar esta solicitud.');
+    }
     $prev = $r['status'];
     q("UPDATE leave_requests SET status = 'cancelled' WHERE id = ?", [$id]);
     log_event($id, 'cancelled', mb_substr(post('comment'), 0, 1000) ?: null);
-    defer(fn() => on_request_cancelled($id, $prev));
+    defer(fn () => on_request_cancelled($id, $prev));
     flash('success', 'Solicitud cancelada.');
     redirect('/solicitudes/' . $id);
 }
 
+/**
+ * Adjunta documentación a una solicitud existente.
+ */
 function request_upload(int $id): void
 {
     $me = require_login();
     $r = load_request($id);
-    if (!$r || !can_view_request($r) || !can_upload($r)) abort(403);
+    if (!$r || !can_view_request($r) || !can_upload($r)) {
+        abort(403);
+    }
     [$saved, $errors] = store_uploads($id, (int) $me['id'], $_FILES['documents'] ?? []);
-    foreach ($errors as $err) flash('error', $err);
+    foreach ($errors as $err) {
+        flash('error', $err);
+    }
     if ($saved) {
         update('leave_requests', $id, ['doc_status' => 'uploaded']);
         log_event($id, 'doc_uploaded', $saved . ' archivo(s)');
-        defer(fn() => on_document_uploaded($id, $saved));
+        defer(fn () => on_document_uploaded($id, $saved));
         flash('success', 'Documentación subida. RRHH fue notificado.');
     } elseif (!$errors) {
         flash('error', 'Elegí al menos un archivo.');
@@ -210,12 +289,17 @@ function request_upload(int $id): void
     redirect('/solicitudes/' . $id);
 }
 
+/**
+ * Verificación u observación de la documentación por RRHH.
+ */
 function request_review_doc(int $id): void
 {
     require_role('hr', 'admin');
     $r = load_request($id);
     $result = post('result');
-    if (!$r || !in_array($result, ['verified', 'observed'], true)) abort(400);
+    if (!$r || !in_array($result, ['verified', 'observed'], true)) {
+        abort(400);
+    }
     $comment = mb_substr(post('comment'), 0, 1000);
     if ($result === 'observed' && $comment === '') {
         flash('error', 'Indicá qué hay que corregir en la documentación.');
@@ -223,19 +307,26 @@ function request_review_doc(int $id): void
     }
     update('leave_requests', $id, ['doc_status' => $result]);
     log_event($id, $result === 'verified' ? 'doc_verified' : 'doc_observed', $comment ?: null);
-    defer(fn() => on_document_reviewed($id, $result, $comment));
+    defer(fn () => on_document_reviewed($id, $result, $comment));
     flash('success', $result === 'verified' ? 'Documentación verificada.' : 'Documentación observada. Avisamos al colaborador/a.');
     redirect('/solicitudes/' . $id);
 }
 
+/**
+ * Sirve un adjunto a usuarios autorizados.
+ */
 function file_download(int $id): void
 {
     require_login();
     $d = row('SELECT * FROM documents WHERE id = ?', [$id]);
     $r = $d ? load_request((int) $d['request_id']) : null;
-    if (!$r || !can_view_request($r)) abort(404);
+    if (!$r || !can_view_request($r)) {
+        abort(404);
+    }
     $path = STORAGE . '/uploads/' . $d['stored_name'];
-    if (!is_file($path)) abort(404, 'El archivo ya no está disponible.');
+    if (!is_file($path)) {
+        abort(404, 'El archivo ya no está disponible.');
+    }
     $inline = in_array($d['mime'], ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'], true) && !isset($_GET['descargar']);
     header('Content-Type: ' . $d['mime']);
     header('Content-Length: ' . filesize($path));
@@ -246,10 +337,15 @@ function file_download(int $id): void
     exit;
 }
 
+/**
+ * Bandeja de solicitudes por autorizar.
+ */
 function approvals(): void
 {
     $u = require_login();
-    if (!is_approver()) abort(403, 'Esta sección es para responsables y RRHH.');
+    if (!is_approver()) {
+        abort(403, 'Esta sección es para responsables y RRHH.');
+    }
     [$w, $p] = pending_scope($u);
     view('requests/approvals', [
         'title' => 'Por autorizar',
@@ -258,10 +354,15 @@ function approvals(): void
     ]);
 }
 
+/**
+ * Listado de licencias del equipo o de toda la empresa, con filtros y exportación CSV.
+ */
 function team_requests(): void
 {
     $u = require_login();
-    if (!is_approver()) abort(403, 'Esta sección es para responsables y RRHH.');
+    if (!is_approver()) {
+        abort(403, 'Esta sección es para responsables y RRHH.');
+    }
     [$w, $p] = team_scope($u);
     $f = [
         'q' => trim((string) ($_GET['q'] ?? '')),
@@ -320,6 +421,9 @@ function team_requests(): void
     ]);
 }
 
+/**
+ * API JSON: cálculo de días, validaciones y fecha de regreso para el formulario.
+ */
 function api_days(): void
 {
     $me = require_login();
@@ -336,7 +440,7 @@ function api_days(): void
         exit;
     }
     [$errors, $warnings, $days] = validate_request($owner, $type, $from, $to, null, is_hr());
-    $hol = array_map(fn($h) => fdate($h['date'], false) . ' ' . $h['name'], rows('SELECT * FROM holidays WHERE date BETWEEN ? AND ? ORDER BY date', [$from, $to]));
+    $hol = array_map(fn ($h) => fdate($h['date'], false) . ' ' . $h['name'], rows('SELECT * FROM holidays WHERE date BETWEEN ? AND ? ORDER BY date', [$from, $to]));
     echo json_encode([
         'days' => $days,
         'label' => fdays_kind($days, $type['counting']),
@@ -348,12 +452,18 @@ function api_days(): void
     exit;
 }
 
+/**
+ * Próximo día hábil posterior a una fecha.
+ */
 function next_working_day(string $date): string
 {
     $d = new DateTimeImmutable($date);
     for ($i = 0; $i < 20; $i++) {
         $d = $d->modify('+1 day');
-        if ((int) $d->format('N') < 6 && !val('SELECT 1 FROM holidays WHERE date = ?', [$d->format('Y-m-d')])) break;
+        if ((int) $d->format('N') < 6 && !val('SELECT 1 FROM holidays WHERE date = ?', [$d->format('Y-m-d')])) {
+            break;
+        }
     }
+
     return $d->format('Y-m-d');
 }

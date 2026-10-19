@@ -1,6 +1,18 @@
 <?php
-// Tarea programada (Hostinger → Avanzado → Cron Jobs), cada hora:
-//   /usr/bin/php /home/u566451014/domains/rrhh.intellihelp.tech/app/cron.php
+
+/**
+ * Portal de Recursos Humanos — Intellihelp
+ *
+ * Tarea programada: recordatorios de solicitudes pendientes, resincronización con
+ * Google Calendar y limpieza de datos temporales.
+ *
+ * Ejecución recomendada: cada hora.
+ *   /usr/bin/php /home/<usuario>/domains/rrhh.intellihelp.tech/app/cron.php
+ *
+ * @author    Brian Gabriel Sierra <bsierra@intellihelp.tech>
+ * @copyright 2026 Intellihelp
+ */
+
 declare(strict_types=1);
 
 if (PHP_SAPI !== 'cli') {
@@ -25,12 +37,16 @@ if ($hours > 0) {
     echo count($list) . " recordatorio(s) enviados\n";
 }
 
-// Google Calendar: reintenta eventos que no se pudieron crear
-if ($n = gcal_backfill()) echo "$n evento(s) sincronizados con Google Calendar\n";
+// Reintenta la creación de eventos de Google Calendar pendientes.
+if ($n = gcal_backfill()) {
+    echo "$n evento(s) sincronizados con Google Calendar\n";
+}
 
-// Limpieza
+// Limpieza de datos temporales.
 q('DELETE FROM password_resets WHERE expires_at < NOW() - INTERVAL 7 DAY');
 q('DELETE FROM notifications WHERE read_at IS NOT NULL AND read_at < NOW() - INTERVAL 180 DAY');
 foreach (glob(STORAGE . '/sessions/sess_*') ?: [] as $f) {
-    if (filemtime($f) < time() - 86400) @unlink($f);
+    if (filemtime($f) < time() - 86400) {
+        @unlink($f);
+    }
 }

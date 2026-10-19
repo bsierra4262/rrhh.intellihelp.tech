@@ -1,7 +1,22 @@
 <?php
+
+/**
+ * Portal de Recursos Humanos — Intellihelp
+ *
+ * Calendario de ausencias y feed iCal suscribible.
+ *
+ * @author    Brian Gabriel Sierra <bsierra@intellihelp.tech>
+ * @copyright 2026 Intellihelp
+ */
+
 declare(strict_types=1);
 
-/** Ausencias visibles para $u en un rango. Para colaboradores, las de otros se muestran como "Ausente". */
+/**
+ * Ausencias visibles para un usuario en un rango.
+ *
+ * RRHH ve todo; los responsables, su equipo y área; los colaboradores ven las propias y,
+ * de sus compañeros, solo que están ausentes (sin el motivo).
+ */
 function visible_absences(array $u, string $from, string $to, bool $withPending = true): array
 {
     $statuses = $withPending ? "'approved','registered','pending'" : "'approved','registered'";
@@ -15,8 +30,10 @@ function visible_absences(array $u, string $from, string $to, bool $withPending 
         $where = '(r.user_id = ? OR (u.manager_id IS NOT NULL AND u.manager_id = ?) OR (u.department IS NOT NULL AND u.department = ?))';
         $p = [$u['id'], $u['manager_id'], $u['department']];
     }
-    $list = rows(REQ_SELECT . " WHERE $where AND r.status IN ($statuses) AND r.start_date <= ? AND r.end_date >= ? ORDER BY r.start_date, u.name",
-        [...$p, $to, $from]);
+    $list = rows(
+        REQ_SELECT . " WHERE $where AND r.status IN ($statuses) AND r.start_date <= ? AND r.end_date >= ? ORDER BY r.start_date, u.name",
+        [...$p, $to, $from]
+    );
     $full = in_array($u['role'], ['manager', 'hr', 'admin'], true);
     foreach ($list as &$r) {
         $mine = (int) $r['user_id'] === (int) $u['id'];
@@ -28,14 +45,20 @@ function visible_absences(array $u, string $from, string $to, bool $withPending 
         }
     }
     unset($r);
+
     return $list;
 }
 
+/**
+ * Calendario mensual de ausencias.
+ */
 function calendar_page(): void
 {
     $u = require_login();
     $ym = (string) ($_GET['mes'] ?? date('Y-m'));
-    if (!preg_match('/^\d{4}-\d{2}$/', $ym)) $ym = date('Y-m');
+    if (!preg_match('/^\d{4}-\d{2}$/', $ym)) {
+        $ym = date('Y-m');
+    }
     $first = new DateTimeImmutable($ym . '-01');
     $gridStart = $first->modify('-' . ((int) $first->format('N') - 1) . ' days');
     $last = $first->modify('last day of this month');
@@ -67,17 +90,23 @@ function calendar_page(): void
     ]);
 }
 
-/** Feed iCal para suscribirse desde Google Calendar (Otros calendarios → Desde URL). */
+/**
+ * Feed iCal personal para suscribirse desde Google Calendar u otros clientes.
+ */
 function ical_feed(string $token): void
 {
     $u = row('SELECT * FROM users WHERE calendar_token = ? AND active = 1', [$token]);
-    if (!$u) abort(404);
+    if (!$u) {
+        abort(404);
+    }
     $from = date('Y-m-d', strtotime('-3 months'));
     $to = date('Y-m-d', strtotime('+12 months'));
     $events = [];
     foreach (visible_absences($u, $from, $to) as $r) {
         $ev = request_ics_event($r, $r['status'] === 'pending' ? 'TENTATIVE' : 'CONFIRMED');
-        if ($r['status'] === 'pending') $ev['summary'] = '[Pendiente] ' . $ev['summary'];
+        if ($r['status'] === 'pending') {
+            $ev['summary'] = '[Pendiente] ' . $ev['summary'];
+        }
         if ($r['private']) {
             $ev['summary'] = 'Ausente — ' . $r['user_name'];
             $ev['description'] = '';

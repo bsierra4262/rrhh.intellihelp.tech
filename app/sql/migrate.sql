@@ -1,4 +1,5 @@
--- Migraciones idempotentes (se ejecutan con install.php)
+-- Portal de Recursos Humanos — Intellihelp
+-- Migraciones idempotentes. Se aplican automáticamente con install.php.
 ALTER TABLE users ADD COLUMN IF NOT EXISTS pending_activation TINYINT(1) NOT NULL DEFAULT 0 AFTER must_change_password;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS pending_approval TINYINT(1) NOT NULL DEFAULT 0 AFTER pending_activation;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS company VARCHAR(120) NULL AFTER department;

@@ -1,63 +1,109 @@
 <?php
+
+/**
+ * Portal de Recursos Humanos — Intellihelp
+ *
+ * Utilidades generales: vistas, redirecciones, CSRF, formato de fechas e íconos.
+ *
+ * @author    Brian Gabriel Sierra <bsierra@intellihelp.tech>
+ * @copyright 2026 Intellihelp
+ */
+
 declare(strict_types=1);
 
+/**
+ * Escapa un valor para salida HTML.
+ */
 function e(mixed $v): string
 {
     return htmlspecialchars((string) $v, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 }
 
+/**
+ * URL absoluta de la aplicación.
+ */
 function url(string $path = '/', array $query = []): string
 {
     $u = rtrim(config('app_url'), '/') . '/' . ltrim($path, '/');
+
     return $query ? $u . '?' . http_build_query($query) : $u;
 }
 
+/**
+ * Redirige y finaliza la petición.
+ */
 function redirect(string $path): never
 {
     header('Location: ' . (str_starts_with($path, 'http') ? $path : url($path)));
     exit;
 }
 
+/**
+ * Agrega un mensaje para mostrar en la próxima vista.
+ */
 function flash(string $type, string $msg): void
 {
     $_SESSION['flash'][] = ['type' => $type, 'msg' => $msg];
 }
 
+/**
+ * Devuelve y consume los mensajes pendientes.
+ */
 function take_flashes(): array
 {
     $f = $_SESSION['flash'] ?? [];
     unset($_SESSION['flash']);
+
     return $f;
 }
 
+/**
+ * Valor enviado en el último formulario (para repoblarlo tras un error).
+ */
 function old(string $key, mixed $default = ''): string
 {
     return (string) ($_SESSION['old'][$key] ?? $default);
 }
 
+/**
+ * Conserva los datos del formulario actual, excepto contraseñas y token CSRF.
+ */
 function remember_input(): void
 {
     $_SESSION['old'] = array_diff_key($_POST, ['password' => 1, 'csrf' => 1, 'password_confirm' => 1]);
 }
 
+/**
+ * Descarta los datos conservados del formulario.
+ */
 function forget_input(): void
 {
     unset($_SESSION['old']);
 }
 
+/**
+ * Token CSRF de la sesión.
+ */
 function csrf_token(): string
 {
     if (empty($_SESSION['csrf'])) {
         $_SESSION['csrf'] = bin2hex(random_bytes(32));
     }
+
     return $_SESSION['csrf'];
 }
 
+/**
+ * Campo oculto con el token CSRF.
+ */
 function csrf_field(): string
 {
     return '<input type="hidden" name="csrf" value="' . e(csrf_token()) . '">';
 }
 
+/**
+ * Valida el token CSRF de la petición POST actual.
+ */
 function verify_csrf(): void
 {
     if (!hash_equals($_SESSION['csrf'] ?? '', (string) ($_POST['csrf'] ?? ''))) {
@@ -67,22 +113,35 @@ function verify_csrf(): void
     }
 }
 
+/**
+ * Renderiza una vista dentro de un layout.
+ *
+ * Los parámetros usan prefijo doble guion bajo para que las variables de la vista
+ * no colisionen con ellos.
+ */
 function view(string $__view, array $__data = [], string $__layout = 'layout'): void
 {
-    extract($__data, EXTR_SKIP); // nombres con __ para que los datos no pisen los parámetros
+    extract($__data, EXTR_SKIP);
     ob_start();
     require APP_ROOT . '/views/' . $__view . '.php';
     $content = ob_get_clean();
     require APP_ROOT . '/views/' . $__layout . '.php';
-    forget_input(); // los valores viejos solo sobreviven a una vista
+    // Los datos del formulario anterior solo se conservan para una vista.
+    forget_input();
 }
 
+/**
+ * Renderiza una vista parcial.
+ */
 function partial(string $__partial, array $__data = []): void
 {
     extract($__data, EXTR_SKIP);
     require APP_ROOT . '/views/partials/' . $__partial . '.php';
 }
 
+/**
+ * Muestra una página de error y finaliza la petición.
+ */
 function abort(int $code, string $msg = ''): never
 {
     http_response_code($code);
@@ -96,78 +155,140 @@ function abort(int $code, string $msg = ''): never
     exit;
 }
 
+/**
+ * Valor POST recortado.
+ */
 function post(string $key, string $default = ''): string
 {
     return trim((string) ($_POST[$key] ?? $default));
 }
 
+/**
+ * IP del cliente.
+ */
 function client_ip(): string
 {
     return $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
 }
 
-// ---------- fechas ----------
+/**
+ * Nombres de meses en español (índice 1 a 12).
+ */
 const MESES = ['', 'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+/**
+ * Nombres de días en español (índice 0 = domingo).
+ */
 const DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
 
+/**
+ * Fecha corta en español (ej. "4 dic 2026").
+ */
 function fdate(?string $d, bool $withYear = true): string
 {
-    if (!$d) return '—';
+    if (!$d) {
+        return '—';
+    }
     $t = strtotime($d);
+
     return date('j', $t) . ' ' . substr(MESES[(int) date('n', $t)], 0, 3) . ($withYear ? ' ' . date('Y', $t) : '');
 }
 
+/**
+ * Fecha larga en español (ej. "viernes 4 de diciembre de 2026").
+ */
 function flongdate(string $d): string
 {
     $t = strtotime($d);
+
     return DIAS[(int) date('w', $t)] . ' ' . date('j', $t) . ' de ' . MESES[(int) date('n', $t)] . ' de ' . date('Y', $t);
 }
 
+/**
+ * Rango de fechas abreviado.
+ */
 function frange(string $a, string $b): string
 {
-    if ($a === $b) return fdate($a);
-    if (substr($a, 0, 4) === substr($b, 0, 4)) return fdate($a, false) . ' → ' . fdate($b);
+    if ($a === $b) {
+        return fdate($a);
+    }
+    if (substr($a, 0, 4) === substr($b, 0, 4)) {
+        return fdate($a, false) . ' → ' . fdate($b);
+    }
+
     return fdate($a) . ' → ' . fdate($b);
 }
 
+/**
+ * Fecha y hora corta.
+ */
 function fdatetime(?string $d): string
 {
-    if (!$d) return '—';
+    if (!$d) {
+        return '—';
+    }
+
     return fdate($d) . ' ' . date('H:i', strtotime($d));
 }
 
+/**
+ * Tiempo relativo (ej. "hace 3 h").
+ */
 function ago(string $d): string
 {
     $s = time() - strtotime($d);
-    if ($s < 60) return 'recién';
-    if ($s < 3600) return 'hace ' . intdiv($s, 60) . ' min';
-    if ($s < 86400) return 'hace ' . intdiv($s, 3600) . ' h';
-    if ($s < 172800) return 'ayer';
-    if ($s < 604800) return 'hace ' . intdiv($s, 86400) . ' días';
+    if ($s < 60) {
+        return 'recién';
+    }
+    if ($s < 3600) {
+        return 'hace ' . intdiv($s, 60) . ' min';
+    }
+    if ($s < 86400) {
+        return 'hace ' . intdiv($s, 3600) . ' h';
+    }
+    if ($s < 172800) {
+        return 'ayer';
+    }
+    if ($s < 604800) {
+        return 'hace ' . intdiv($s, 86400) . ' días';
+    }
+
     return fdate($d);
 }
 
+/**
+ * Cantidad de días con su unidad (ej. "1 día", "2,5 días").
+ */
 function fdays(float|string $n): string
 {
     $n = (float) $n;
     $s = rtrim(rtrim(number_format($n, 1, ',', ''), '0'), ',');
+
     return $s . ' ' . ($n == 1.0 ? 'día' : 'días');
 }
 
-/** "1 día hábil", "3 días corridos"… */
+/**
+ * Cantidad de días con su tipo de conteo (ej. "1 día hábil", "3 días corridos").
+ */
 function fdays_kind(float|string $n, string $counting): string
 {
     $one = (float) $n == 1.0;
+
     return fdays($n) . ' ' . ($counting === 'habiles' ? ($one ? 'hábil' : 'hábiles') : ($one ? 'corrido' : 'corridos'));
 }
 
+/**
+ * Valida una fecha en formato Y-m-d.
+ */
 function valid_date(string $d): bool
 {
     $dt = DateTime::createFromFormat('Y-m-d', $d);
+
     return $dt && $dt->format('Y-m-d') === $d;
 }
 
-// ---------- etiquetas ----------
+/**
+ * Estados de una solicitud.
+ */
 const STATUS_LABELS = [
     'pending' => 'Pendiente',
     'approved' => 'Aprobada',
@@ -176,6 +297,9 @@ const STATUS_LABELS = [
     'registered' => 'Informada',
 ];
 
+/**
+ * Estados de la documentación respaldatoria.
+ */
 const DOC_LABELS = [
     'none' => 'Sin documentación',
     'uploaded' => 'Documentación subida',
@@ -183,6 +307,9 @@ const DOC_LABELS = [
     'observed' => 'Documentación observada',
 ];
 
+/**
+ * Roles de usuario.
+ */
 const ROLE_LABELS = [
     'employee' => 'Colaborador/a',
     'manager' => 'Responsable de equipo',
@@ -190,36 +317,58 @@ const ROLE_LABELS = [
     'admin' => 'Administrador/a',
 ];
 
+/**
+ * Etiqueta HTML del estado de una solicitud.
+ */
 function status_badge(string $s): string
 {
     return '<span class="badge badge-' . e($s) . '">' . e(STATUS_LABELS[$s] ?? $s) . '</span>';
 }
 
+/**
+ * Etiqueta HTML del estado de la documentación.
+ */
 function doc_badge(string $s): string
 {
-    if ($s === 'none') return '';
+    if ($s === 'none') {
+        return '';
+    }
+
     return '<span class="badge badge-doc-' . e($s) . '">' . icon('paperclip', 12) . ' ' . e(DOC_LABELS[$s]) . '</span>';
 }
 
+/**
+ * Iniciales de un nombre.
+ */
 function initials(string $name): string
 {
     $parts = preg_split('/\s+/', trim($name));
     $i = mb_substr($parts[0] ?? '', 0, 1) . mb_substr($parts[count($parts) - 1] ?? '', 0, 1);
+
     return mb_strtoupper(count($parts) > 1 ? $i : mb_substr($name, 0, 2));
 }
 
+/**
+ * Avatar con iniciales y color derivado del nombre.
+ */
 function avatar(string $name, string $size = ''): string
 {
     $hue = crc32($name) % 360;
+
     return '<span class="avatar ' . e($size) . '" style="--h:' . $hue . '">' . e(initials($name)) . '</span>';
 }
 
+/**
+ * Indicador de color de un tipo de licencia.
+ */
 function type_dot(string $color): string
 {
     return '<span class="dot" style="background:' . e($color) . '"></span>';
 }
 
-// Íconos SVG en línea (trazo estilo Lucide)
+/**
+ * Ícono SVG en línea.
+ */
 function icon(string $name, int $size = 18): string
 {
     static $paths = [
@@ -267,9 +416,13 @@ function icon(string $name, int $size = 18): string
         'key' => '<circle cx="7.5" cy="15.5" r="4.5"/><path d="m10.7 12.3 8.8-8.8M16 7l3 3M19 4l2 2"/>',
     ];
     $p = $paths[$name] ?? $paths['info'];
+
     return '<svg class="icon" width="' . $size . '" height="' . $size . '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' . $p . '</svg>';
 }
 
+/**
+ * Ícono asociado a un tipo de licencia.
+ */
 function type_icon(string $code): string
 {
     return match ($code) {
@@ -281,16 +434,25 @@ function type_icon(string $code): string
     };
 }
 
-/** Ejecuta tareas lentas (emails, WhatsApp) después de enviar la respuesta al navegador. */
+/**
+ * Programa una tarea para ejecutarse después de enviar la respuesta al navegador.
+ *
+ * Se usa para notificaciones (SMTP, APIs externas) y evitar demoras en la interfaz.
+ */
 function defer(callable $fn): void
 {
     static $queue = null;
     if ($queue === null) {
         $queue = [];
         register_shutdown_function(function () use (&$queue) {
-            if (session_status() === PHP_SESSION_ACTIVE) session_write_close();
-            if (function_exists('litespeed_finish_request')) litespeed_finish_request();
-            elseif (function_exists('fastcgi_finish_request')) fastcgi_finish_request();
+            if (session_status() === PHP_SESSION_ACTIVE) {
+                session_write_close();
+            }
+            if (function_exists('litespeed_finish_request')) {
+                litespeed_finish_request();
+            } elseif (function_exists('fastcgi_finish_request')) {
+                fastcgi_finish_request();
+            }
             ignore_user_abort(true);
             @set_time_limit(180);
             foreach ($queue as $task) {
@@ -305,6 +467,9 @@ function defer(callable $fn): void
     $queue[] = $fn;
 }
 
+/**
+ * Correo de soporte de la plataforma.
+ */
 function support_email(): string
 {
     try {
@@ -314,6 +479,9 @@ function support_email(): string
     }
 }
 
+/**
+ * Agrega una línea a un archivo de log de la aplicación.
+ */
 function log_line(string $file, string $msg): void
 {
     @file_put_contents(STORAGE . '/logs/' . $file, '[' . date('Y-m-d H:i:s') . '] ' . $msg . PHP_EOL, FILE_APPEND);

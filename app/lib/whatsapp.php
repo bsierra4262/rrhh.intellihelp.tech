@@ -1,26 +1,42 @@
 <?php
+
+/**
+ * Portal de Recursos Humanos — Intellihelp
+ *
+ * Conectores opcionales de WhatsApp (CallMeBot, Cloud API de Meta, Evolution API, WAHA).
+ *
+ * @author    Brian Gabriel Sierra <bsierra@intellihelp.tech>
+ * @copyright 2026 Intellihelp
+ */
+
 declare(strict_types=1);
 
+/**
+ * Normaliza un teléfono a solo dígitos (formato internacional).
+ */
 function wa_phone(string $phone): string
 {
     return preg_replace('/\D+/', '', $phone);
 }
 
 /**
- * Envía un WhatsApp según el driver configurado:
- *  - callmebot: gratis, cada destinatario activa su apikey (ver Mi perfil).
- *  - cloud: WhatsApp Cloud API de Meta (token + phone number id; plantilla aprobada con 1 parámetro).
- *  - evolution / waha: gateway propio y gratuito (Evolution API o WAHA) vinculado por QR a un número de la empresa.
+ * Envía un mensaje de WhatsApp con el proveedor configurado.
+ *
+ * Proveedores: callmebot (apikey por destinatario), cloud (Cloud API de Meta con plantilla
+ * aprobada), evolution / waha (gateway propio vinculado por QR).
  */
 function send_whatsapp(array $user, string $text, ?string &$error = null): bool
 {
     $driver = setting('wa_driver', 'off');
-    if ($driver === 'off' || empty($user['notify_whatsapp']) || empty($user['phone'])) return false;
+    if ($driver === 'off' || empty($user['notify_whatsapp']) || empty($user['phone'])) {
+        return false;
+    }
     $phone = wa_phone($user['phone']);
 
     if ($driver === 'callmebot') {
         if (empty($user['wa_apikey'])) {
             $error = 'El usuario no tiene apikey de CallMeBot.';
+
             return false;
         }
         [$code, $body] = http_request('https://api.callmebot.com/whatsapp.php?' . http_build_query([
@@ -40,14 +56,14 @@ function send_whatsapp(array $user, string $text, ?string &$error = null): bool
             ['Authorization: Bearer ' . setting('wa_cloud_token'), 'Content-Type: application/json']
         );
     } elseif ($driver === 'evolution') {
-        // Evolution API: POST {url}/message/sendText/{instancia}  header apikey
+        // Evolution API: POST {url}/message/sendText/{instancia} con encabezado apikey.
         [$code, $body] = http_request(
             rtrim(setting('wa_gw_url'), '/') . '/message/sendText/' . rawurlencode(setting('wa_gw_instance', 'rrhh')),
             json_encode(['number' => $phone, 'text' => $text]),
             ['apikey: ' . setting('wa_gw_key'), 'Content-Type: application/json']
         );
     } elseif ($driver === 'waha') {
-        // WAHA: POST {url}/api/sendText  header X-Api-Key
+        // WAHA: POST {url}/api/sendText con encabezado X-Api-Key.
         [$code, $body] = http_request(
             rtrim(setting('wa_gw_url'), '/') . '/api/sendText',
             json_encode(['session' => setting('wa_gw_instance', 'default'), 'chatId' => $phone . '@c.us', 'text' => $text]),
@@ -58,39 +74,10 @@ function send_whatsapp(array $user, string $text, ?string &$error = null): bool
     }
 
     $ok = $code >= 200 && $code < 300;
-    if (!$ok) $error = "HTTP $code: " . mb_substr((string) $body, 0, 300);
-    log_line('whatsapp.log', ($ok ? 'OK ' : 'ERROR ') . $phone . ($ok ? '' : ' — ' . $error));
-    return $ok;
-}
-
-function http_request(string $url, ?string $postBody = null, array $headers = []): array
-{
-    $ch = curl_init($url);
-    curl_setopt_array($ch, [
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_TIMEOUT => 12,
-        CURLOPT_CONNECTTIMEOUT => 6,
-        CURLOPT_HTTPHEADER => $headers,
-    ]);
-    if ($postBody !== null) {
-        curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, $postBody);
+    if (!$ok) {
+        $error = "HTTP $code: " . mb_substr((string) $body, 0, 300);
     }
-    $body = curl_exec($ch);
-    $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    if ($body === false) $body = curl_error($ch);
-    curl_close($ch);
-    return [$code, $body];
-}
+    log_line('whatsapp.log', ($ok ? 'OK ' : 'ERROR ') . $phone . ($ok ? '' : ' — ' . $error));
 
-/** Publica un mensaje en un espacio de Google Chat (webhook entrante). Gratis con Google Workspace. */
-function send_gchat(string $text, ?string &$error = null): bool
-{
-    $hook = setting('gchat_webhook');
-    if ($hook === '') return false;
-    [$code, $body] = http_request($hook, json_encode(['text' => $text], JSON_UNESCAPED_UNICODE), ['Content-Type: application/json; charset=UTF-8']);
-    $ok = $code >= 200 && $code < 300;
-    if (!$ok) $error = "HTTP $code: " . mb_substr((string) $body, 0, 300);
-    log_line('gchat.log', ($ok ? 'OK' : 'ERROR ' . $error));
     return $ok;
 }

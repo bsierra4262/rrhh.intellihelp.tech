@@ -1,3 +1,6 @@
+-- Portal de Recursos Humanos — Intellihelp
+-- Datos iniciales: tipos de licencia, feriados y configuración por defecto.
+
 -- Tipos de licencia (basados en la LCT argentina; editables desde Administración > Tipos de licencia)
 INSERT IGNORE INTO leave_types
  (code, name, description, color, requires_approval, requires_document, document_label, max_days_per_year, max_days_per_request, counting, uses_vacation_balance, min_notice_days, sort) VALUES

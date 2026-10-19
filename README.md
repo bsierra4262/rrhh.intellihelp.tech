@@ -180,8 +180,10 @@ Aplicación **PHP 8.3 sin framework**, pensada para hosting compartido: sin proc
 │   │   ├── notify.php      # Orquestación de notificaciones por evento
 │   │   ├── gcal.php        # Cliente de Google Calendar (JWT de cuenta de servicio)
 │   │   ├── mailer.php      # Envío SMTP y plantilla de email
+│   │   ├── gchat.php       # Notificaciones a Google Chat
+│   │   ├── http.php        # Cliente HTTP (cURL)
 │   │   ├── ics.php         # Invitaciones y feeds iCalendar
-│   │   └── whatsapp.php    # Google Chat y conectores opcionales de WhatsApp
+│   │   └── whatsapp.php    # Conectores opcionales de WhatsApp
 │   ├── views/              # Plantillas PHP
 │   ├── sql/                # Esquema, datos iniciales y migraciones idempotentes
 │   ├── cron.php            # Recordatorios y resincronización

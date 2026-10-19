@@ -1,4 +1,14 @@
 <?php
+
+/**
+ * Portal de Recursos Humanos — Intellihelp
+ *
+ * Tabla de rutas y despachador de peticiones HTTP.
+ *
+ * @author    Brian Gabriel Sierra <bsierra@intellihelp.tech>
+ * @copyright 2026 Intellihelp
+ */
+
 declare(strict_types=1);
 
 require APP_ROOT . '/controllers/auth.php';
@@ -61,20 +71,31 @@ $routes = [
     ['POST', '/admin/configuracion/prueba', 'admin_settings_test'],
 ];
 
+/**
+ * Resuelve la ruta de la petición actual y ejecuta su controlador.
+ *
+ * @param array<int, array{0: string, 1: string, 2: string}> $routes
+ */
 function dispatch(array $routes): void
 {
     $method = $_SERVER['REQUEST_METHOD'];
     $path = '/' . trim(parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/', '/');
     foreach ($routes as [$m, $pattern, $handler]) {
         if ($m === $method && preg_match('#^' . $pattern . '$#', $path, $mt)) {
-            if ($method === 'POST') verify_csrf();
+            if ($method === 'POST') {
+                verify_csrf();
+            }
             $handler(...array_map('intval_if_numeric', array_slice($mt, 1)));
+
             return;
         }
     }
     abort(404, 'La página que buscás no existe.');
 }
 
+/**
+ * Convierte a entero los parámetros de ruta numéricos.
+ */
 function intval_if_numeric(string $v): int|string
 {
     return ctype_digit($v) ? (int) $v : $v;

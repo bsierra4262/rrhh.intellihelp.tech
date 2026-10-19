@@ -1,59 +1,101 @@
 <?php
+
+/**
+ * Portal de Recursos Humanos — Intellihelp
+ *
+ * Reglas de negocio de licencias: conteo de días, saldos según la LCT, validaciones,
+ * permisos sobre solicitudes y gestión de adjuntos.
+ *
+ * @author    Brian Gabriel Sierra <bsierra@intellihelp.tech>
+ * @copyright 2026 Intellihelp
+ */
+
 declare(strict_types=1);
 
+/**
+ * Tipos de licencia ordenados para mostrar.
+ */
 function leave_types(bool $onlyActive = true): array
 {
     return rows('SELECT * FROM leave_types' . ($onlyActive ? ' WHERE active = 1' : '') . ' ORDER BY sort, name');
 }
 
+/**
+ * Tipo de licencia por ID.
+ */
 function leave_type(int $id): ?array
 {
     return row('SELECT * FROM leave_types WHERE id = ?', [$id]);
 }
 
+/**
+ * Feriados de un rango, indexados por fecha.
+ *
+ * @return array<string, true>
+ */
 function holidays_between(string $from, string $to): array
 {
     $set = [];
     foreach (rows('SELECT date FROM holidays WHERE date BETWEEN ? AND ?', [$from, $to]) as $r) {
         $set[$r['date']] = true;
     }
+
     return $set;
 }
 
-/** Cuenta días entre dos fechas (inclusive): corridos o hábiles (sin fines de semana ni feriados). */
+/**
+ * Cuenta los días de un rango (inclusive).
+ *
+ * @param string $counting "corridos" o "habiles" (excluye fines de semana y feriados).
+ */
 function count_days(string $from, string $to, string $counting): int
 {
     $a = new DateTimeImmutable($from);
     $b = new DateTimeImmutable($to);
-    if ($b < $a) return 0;
+    if ($b < $a) {
+        return 0;
+    }
     if ($counting === 'corridos') {
         return $a->diff($b)->days + 1;
     }
     $hol = holidays_between($from, $to);
     $n = 0;
     for ($d = $a; $d <= $b; $d = $d->modify('+1 day')) {
-        if ((int) $d->format('N') < 6 && !isset($hol[$d->format('Y-m-d')])) $n++;
+        if ((int) $d->format('N') < 6 && !isset($hol[$d->format('Y-m-d')])) {
+            $n++;
+        }
     }
+
     return $n;
 }
 
-/** Días de vacaciones por año según LCT art. 150 (antigüedad al 31/12 del año). */
+/**
+ * Días de vacaciones del año según antigüedad al 31/12 (LCT art. 150 y 153).
+ *
+ * Menos de 5 años: 14 días; 5 a 10: 21; 10 a 20: 28; más de 20: 35. Con menos de seis meses
+ * trabajados en el año corresponde un día cada veinte trabajados. Admite un valor manual por persona.
+ */
 function vacation_entitlement(array $user, int $year): int
 {
     if ($user['vacation_days_override'] !== null && $user['vacation_days_override'] !== '') {
         return (int) $user['vacation_days_override'];
     }
-    if (empty($user['hire_date'])) return 14;
+    if (empty($user['hire_date'])) {
+        return 14;
+    }
     $hire = new DateTimeImmutable($user['hire_date']);
     $cut = new DateTimeImmutable("$year-12-31");
-    if ($hire > $cut) return 0;
-    // Menos de 6 meses trabajados en el año: 1 día cada 20 trabajados
+    if ($hire > $cut) {
+        return 0;
+    }
+    // Menos de seis meses trabajados en el año: un día cada veinte trabajados (LCT art. 153).
     $start = max($hire, new DateTimeImmutable("$year-01-01"));
     $worked = $start->diff($cut)->days + 1;
     if ((int) $hire->format('Y') === $year && $worked < 183) {
         return intdiv($worked, 20);
     }
     $years = $hire->diff($cut)->y;
+
     return match (true) {
         $years < 5 => 14,
         $years < 10 => 21,
@@ -62,6 +104,9 @@ function vacation_entitlement(array $user, int $year): int
     };
 }
 
+/**
+ * Días consumidos (aprobados, informados o pendientes) de un tipo en el año.
+ */
 function days_used(int $userId, int $typeId, int $year, ?int $excludeId = null): float
 {
     $sql = "SELECT COALESCE(SUM(days),0) FROM leave_requests
@@ -72,16 +117,24 @@ function days_used(int $userId, int $typeId, int $year, ?int $excludeId = null):
         $sql .= ' AND id <> ?';
         $params[] = $excludeId;
     }
+
     return (float) val($sql, $params);
 }
 
+/**
+ * Días de vacaciones del año en los estados indicados.
+ */
 function vacation_used(int $userId, int $year, string $statuses = "'approved'"): float
 {
     return (float) val("SELECT COALESCE(SUM(r.days),0) FROM leave_requests r JOIN leave_types t ON t.id = r.type_id
         WHERE r.user_id = ? AND t.uses_vacation_balance = 1 AND YEAR(r.start_date) = ? AND r.status IN ($statuses)", [$userId, $year]);
 }
 
-/** Resumen de saldos del usuario para el año. */
+/**
+ * Saldos del colaborador para el año: vacaciones y tipos con tope anual.
+ *
+ * @return array<int, array{code: string, name: string, color: string, total: int, used: float, pending: float, left: float}>
+ */
 function balances(array $user, int $year): array
 {
     $out = [];
@@ -102,30 +155,46 @@ function balances(array $user, int $year): array
             'left' => max(0, (int) $t['max_days_per_year'] - $used - $pend),
         ];
     }
+
     return $out;
 }
 
-/** ¿Quién aprueba? El responsable directo; si no tiene (o es él mismo), RRHH. */
+/**
+ * Determina quién autoriza: el responsable directo, el aprobador por defecto o,
+ * si no hay ninguno, toda la bandeja de RRHH (null).
+ */
 function resolve_approver(array $user): ?int
 {
     if (!empty($user['manager_id']) && (int) $user['manager_id'] !== (int) $user['id']) {
         $m = row('SELECT id FROM users WHERE id = ? AND active = 1', [$user['manager_id']]);
-        if ($m) return (int) $m['id'];
+        if ($m) {
+            return (int) $m['id'];
+        }
     }
-    // Aprobador por defecto (Configuración); si no hay, va a toda la bandeja de RRHH
+    // Aprobador por defecto definido en Configuración.
     $def = (int) setting('default_approver_id', '0');
     if ($def && $def !== (int) $user['id'] && val('SELECT id FROM users WHERE id = ? AND active = 1', [$def])) {
         return $def;
     }
+
     return null;
 }
 
+/**
+ * Usuarios activos con rol de RRHH o administrador.
+ */
 function hr_users(): array
 {
     return rows("SELECT * FROM users WHERE role IN ('hr','admin') AND active = 1");
 }
 
-/** Valida y devuelve [errores, advertencias, días]. */
+/**
+ * Valida una solicitud de licencia.
+ *
+ * Con $byHr las excepciones de saldo y topes se informan como advertencias en lugar de errores.
+ *
+ * @return array{0: string[], 1: string[], 2: int} Errores, advertencias y cantidad de días.
+ */
 function validate_request(array $user, array $type, string $from, string $to, ?int $excludeId = null, bool $byHr = false): array
 {
     $errors = [];
@@ -182,12 +251,16 @@ function validate_request(array $user, array $type, string $from, string $to, ?i
     if (!$type['requires_approval'] && $from > date('Y-m-d', strtotime('+30 days')) && $type['code'] === 'enfermedad') {
         $errors[] = 'Una licencia por enfermedad no puede informarse con tanta anticipación.';
     }
+
     return [$errors, $warnings, $days];
 }
 
+/**
+ * Solicitud con datos de tipo, colaborador, aprobador y decisor.
+ */
 function load_request(int $id): ?array
 {
-    return row("SELECT r.*, t.name AS type_name, t.code AS type_code, t.color, t.requires_approval, t.requires_document, t.document_label, t.counting,
+    return row('SELECT r.*, t.name AS type_name, t.code AS type_code, t.color, t.requires_approval, t.requires_document, t.document_label, t.counting,
             u.name AS user_name, u.email AS user_email, u.department, u.position, u.manager_id,
             a.name AS approver_name, d.name AS decider_name
         FROM leave_requests r
@@ -195,28 +268,55 @@ function load_request(int $id): ?array
         JOIN users u ON u.id = r.user_id
         LEFT JOIN users a ON a.id = r.approver_id
         LEFT JOIN users d ON d.id = r.decided_by
-        WHERE r.id = ?", [$id]);
+        WHERE r.id = ?', [$id]);
 }
 
+/**
+ * Indica si el usuario actual puede ver la solicitud.
+ */
 function can_view_request(array $r): bool
 {
     $u = current_user();
-    if (!$u) return false;
-    if (is_hr()) return true;
-    if ((int) $r['user_id'] === (int) $u['id']) return true;
-    if ((int) $r['approver_id'] === (int) $u['id']) return true;
+    if (!$u) {
+        return false;
+    }
+    if (is_hr()) {
+        return true;
+    }
+    if ((int) $r['user_id'] === (int) $u['id']) {
+        return true;
+    }
+    if ((int) $r['approver_id'] === (int) $u['id']) {
+        return true;
+    }
+
     return (int) $r['manager_id'] === (int) $u['id'];
 }
 
+/**
+ * Indica si el usuario actual puede autorizar o rechazar la solicitud.
+ * Nadie decide sobre sus propias solicitudes, salvo un administrador.
+ */
 function can_decide(array $r): bool
 {
     $u = current_user();
-    if (!$u || $r['status'] !== 'pending') return false;
-    if ((int) $r['user_id'] === (int) $u['id'] && !has_role('admin')) return false; // nadie se autoaprueba (salvo admin)
-    if (is_hr()) return true;
+    if (!$u || $r['status'] !== 'pending') {
+        return false;
+    }
+    // Nadie decide sobre sus propias solicitudes, salvo un administrador.
+    if ((int) $r['user_id'] === (int) $u['id'] && !has_role('admin')) {
+        return false;
+    }
+    if (is_hr()) {
+        return true;
+    }
+
     return (int) $r['approver_id'] === (int) $u['id'];
 }
 
+/**
+ * Registra un evento en el historial de la solicitud.
+ */
 function log_event(int $requestId, string $action, ?string $comment = null, ?int $userId = null): void
 {
     insert('request_events', [
@@ -227,6 +327,9 @@ function log_event(int $requestId, string $action, ?string $comment = null, ?int
     ]);
 }
 
+/**
+ * Textos del historial de una solicitud.
+ */
 const EVENT_LABELS = [
     'created' => 'creó la solicitud',
     'registered' => 'informó la licencia',
@@ -240,7 +343,9 @@ const EVENT_LABELS = [
     'created_by_hr' => 'cargó la licencia en nombre del colaborador',
 ];
 
-// ---------- adjuntos ----------
+/**
+ * Tipos de archivo admitidos como adjuntos y su extensión.
+ */
 const ALLOWED_MIME = [
     'application/pdf' => 'pdf',
     'image/jpeg' => 'jpg',
@@ -250,7 +355,11 @@ const ALLOWED_MIME = [
     'image/heif' => 'heic',
 ];
 
-/** Guarda archivos subidos ($_FILES[campo] múltiple). Devuelve [cantidad, errores, rutas guardadas]. */
+/**
+ * Valida y guarda archivos adjuntos fuera del docroot.
+ *
+ * @return array{0: int, 1: string[], 2: string[]} Cantidad guardada, errores y rutas almacenadas.
+ */
 function store_uploads(int $requestId, int $userId, array $files): array
 {
     $errors = [];
@@ -259,11 +368,15 @@ function store_uploads(int $requestId, int $userId, array $files): array
     $max = (int) config('upload_max_mb', 10) * 1024 * 1024;
     $count = is_array($files['name'] ?? null) ? count($files['name']) : 0;
     $dir = STORAGE . '/uploads/' . date('Y/m');
-    if (!is_dir($dir)) mkdir($dir, 0750, true);
+    if (!is_dir($dir)) {
+        mkdir($dir, 0750, true);
+    }
     $finfo = new finfo(FILEINFO_MIME_TYPE);
 
     for ($i = 0; $i < $count; $i++) {
-        if ($files['error'][$i] === UPLOAD_ERR_NO_FILE) continue;
+        if ($files['error'][$i] === UPLOAD_ERR_NO_FILE) {
+            continue;
+        }
         $name = basename((string) $files['name'][$i]);
         if ($files['error'][$i] !== UPLOAD_ERR_OK) {
             $errors[] = "No se pudo subir «{$name}».";
@@ -294,13 +407,20 @@ function store_uploads(int $requestId, int $userId, array $files): array
         $paths[] = STORAGE . '/uploads/' . $stored;
         $saved++;
     }
+
     return [$saved, $errors, $paths];
 }
 
+/**
+ * Indica si el formulario incluye al menos un archivo en el campo indicado.
+ */
 function has_uploads(string $field): bool
 {
     foreach ((array) ($_FILES[$field]['error'] ?? []) as $err) {
-        if ($err !== UPLOAD_ERR_NO_FILE) return true;
+        if ($err !== UPLOAD_ERR_NO_FILE) {
+            return true;
+        }
     }
+
     return false;
 }

@@ -1,4 +1,14 @@
 <?php
+
+/**
+ * Portal de Recursos Humanos — Intellihelp
+ *
+ * Punto de entrada HTTP (front controller).
+ *
+ * @author    Brian Gabriel Sierra <bsierra@intellihelp.tech>
+ * @copyright 2026 Intellihelp
+ */
+
 declare(strict_types=1);
 
 require dirname(__DIR__) . '/app/bootstrap.php';

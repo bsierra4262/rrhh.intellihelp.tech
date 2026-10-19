@@ -1,3 +1,13 @@
+/**
+ * Portal de Recursos Humanos — Intellihelp
+ *
+ * Comportamiento de la interfaz: navegación móvil, confirmaciones, copiado al
+ * portapapeles y formulario de nueva solicitud con cálculo de días en tiempo real.
+ *
+ * @author    Brian Gabriel Sierra <bsierra@intellihelp.tech>
+ * @copyright 2026 Intellihelp
+ */
+
 (() => {
   'use strict';
   const $ = (s, el = document) => el.querySelector(s);
@@ -30,13 +40,13 @@
     setTimeout(() => (btn.innerHTML = old), 1600);
   });
 
-  // Filas clickeables
+  // Filas de tabla con enlace
   document.addEventListener('click', (e) => {
     const tr = e.target.closest('tr[data-href]');
     if (tr && !e.target.closest('a,button,input')) location.href = tr.dataset.href;
   });
 
-  // Auto-submit
+  // Envío automático al cambiar el valor
   $$('[data-autosubmit]').forEach((el) => el.addEventListener('change', () => el.form.submit()));
 
   // Mostrar contraseña
@@ -45,7 +55,7 @@
     i.type = i.type === 'password' ? 'text' : 'password';
   }));
 
-  // Abrir bloque oculto (nuevo tipo)
+  // Despliega bloques ocultos (alta de tipo de licencia)
   $$('[data-open]').forEach((b) => b.addEventListener('click', () => {
     const d = $(b.dataset.open);
     d.hidden = false;
@@ -133,7 +143,9 @@
         (d.warnings || []).forEach((m) => msgs.insertAdjacentHTML('beforeend', '<div class="alert alert-warning"><span>' + esc(m) + '</span></div>'));
         if (d.holidays?.length) msgs.insertAdjacentHTML('beforeend', '<div class="alert alert-info"><span>Feriados en el rango: ' + esc(d.holidays.join(', ')) + '</span></div>');
         $('#submitBtn').disabled = (d.errors || []).length > 0;
-      } catch { /* sin conexión: el servidor valida igual */ }
+      } catch {
+        // Sin conexión: el servidor vuelve a validar al enviar.
+      }
     }, 220);
   }
 

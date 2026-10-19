@@ -1,6 +1,19 @@
 <?php
+
+/**
+ * Portal de Recursos Humanos — Intellihelp
+ *
+ * Perfil del usuario, preferencias de notificación y bandeja de avisos.
+ *
+ * @author    Brian Gabriel Sierra <bsierra@intellihelp.tech>
+ * @copyright 2026 Intellihelp
+ */
+
 declare(strict_types=1);
 
+/**
+ * Bandeja de notificaciones.
+ */
 function notifications_page(): void
 {
     $u = require_login();
@@ -10,6 +23,9 @@ function notifications_page(): void
     ]);
 }
 
+/**
+ * Marca una notificación (y navega a su enlace) o todas como leídas.
+ */
 function notifications_read(): void
 {
     $u = require_login();
@@ -25,19 +41,31 @@ function notifications_read(): void
     redirect('/notificaciones');
 }
 
+/**
+ * Cantidad de notificaciones sin leer del usuario actual.
+ */
 function unread_count(): int
 {
     return (int) val('SELECT COUNT(*) FROM notifications WHERE user_id = ? AND read_at IS NULL', [uid()]);
 }
 
+/**
+ * Cantidad de solicitudes pendientes de decisión del usuario actual.
+ */
 function pending_count(): int
 {
     $u = current_user();
-    if (!$u || !is_approver()) return 0;
+    if (!$u || !is_approver()) {
+        return 0;
+    }
     [$w, $p] = pending_scope($u);
+
     return (int) val("SELECT COUNT(*) FROM leave_requests r WHERE $w", $p);
 }
 
+/**
+ * Pantalla de perfil.
+ */
 function profile_form(): void
 {
     $u = require_login();
@@ -50,6 +78,9 @@ function profile_form(): void
     ]);
 }
 
+/**
+ * Guarda las preferencias de notificación.
+ */
 function profile_submit(): void
 {
     $u = require_login();
@@ -65,6 +96,9 @@ function profile_submit(): void
     redirect('/perfil');
 }
 
+/**
+ * Cambia la contraseña del usuario actual.
+ */
 function profile_password(): void
 {
     $u = require_login();
@@ -88,6 +122,9 @@ function profile_password(): void
     redirect('/');
 }
 
+/**
+ * Regenera el enlace del feed iCal personal.
+ */
 function profile_reset_calendar(): void
 {
     $u = require_login();

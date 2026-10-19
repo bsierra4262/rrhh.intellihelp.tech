@@ -1,6 +1,19 @@
 <?php
+
+/**
+ * Portal de Recursos Humanos — Intellihelp
+ *
+ * Administración: personas, tipos de licencia, feriados y configuración del sistema.
+ *
+ * @author    Brian Gabriel Sierra <bsierra@intellihelp.tech>
+ * @copyright 2026 Intellihelp
+ */
+
 declare(strict_types=1);
 
+/**
+ * Listado de personas.
+ */
 function admin_users(): void
 {
     require_role('hr', 'admin');
@@ -21,11 +34,16 @@ function admin_users(): void
     view('admin/users', ['title' => 'Personas', 'users' => $users, 'q' => $q]);
 }
 
+/**
+ * Formulario de alta o edición de una persona.
+ */
 function admin_user_form(int $id = 0): void
 {
     require_role('hr', 'admin');
     $u = $id ? row('SELECT * FROM users WHERE id = ?', [$id]) : null;
-    if ($id && !$u) abort(404);
+    if ($id && !$u) {
+        abort(404);
+    }
     view('admin/user_form', [
         'title' => $u ? 'Editar persona' : 'Nueva persona',
         'u' => $u,
@@ -35,6 +53,9 @@ function admin_user_form(int $id = 0): void
     ]);
 }
 
+/**
+ * Guarda el alta o edición de una persona.
+ */
 function admin_user_save(int $id = 0): void
 {
     $me = require_login();
@@ -64,7 +85,7 @@ function admin_user_save(int $id = 0): void
         flash('error', 'Ya existe una persona con ese email.');
         redirect($back);
     }
-    // Solo un admin puede crear/asignar admins
+    // Solo un administrador puede otorgar el rol de administrador.
     if ($data['role'] === 'admin' && $me['role'] !== 'admin') {
         flash('error', 'Solo un administrador puede asignar el rol Administrador/a.');
         redirect($back);
@@ -76,8 +97,13 @@ function admin_user_save(int $id = 0): void
 
     if ($id) {
         $target = row('SELECT role FROM users WHERE id = ?', [$id]);
-        if ($target['role'] === 'admin' && $me['role'] !== 'admin') abort(403, 'Solo un administrador puede editar a otro administrador.');
-        if (val('SELECT pending_approval FROM users WHERE id = ?', [$id])) unset($data['active']); // se activa con «Aprobar acceso»
+        if ($target['role'] === 'admin' && $me['role'] !== 'admin') {
+            abort(403, 'Solo un administrador puede editar a otro administrador.');
+        }
+        // Una cuenta pendiente solo se activa desde «Aprobar acceso».
+        if (val('SELECT pending_approval FROM users WHERE id = ?', [$id])) {
+            unset($data['active']);
+        }
         update('users', $id, $data);
         flash('success', 'Datos actualizados.');
     } else {
@@ -94,23 +120,41 @@ function admin_user_save(int $id = 0): void
     redirect("/admin/usuarios/$id");
 }
 
+/**
+ * Envía el correo de bienvenida con la contraseña temporal.
+ */
 function send_welcome(array $u, string $pass): bool
 {
+    $intro = 'Hola ' . e($u['name']) . ', desde ahora podés pedir vacaciones, días de estudio e informar licencias desde el portal.';
+    if (in_array($u['role'] ?? '', ['manager', 'hr', 'admin'], true)) {
+        $intro .= '<br><br>Además, sos responsable de <b>autorizar solicitudes</b>: cada pedido te va a llegar por email y al espacio '
+            . '<b>RRHH – Aprobaciones</b> de Google Chat, y las ausencias se registran en el calendario <b>Licencias Intellihelp</b> de Google Calendar. '
+            . 'Las pendientes las encontrás en la sección <b>Por autorizar</b>.';
+    }
+    $intro .= '<br><br>Al ingresar por primera vez te vamos a pedir que cambies la contraseña.';
+
     return send_mail($u['email'], 'Tu acceso al Portal de RRHH de Intellihelp', mail_template(
         '¡Bienvenido/a al Portal de RRHH!',
-        'Hola ' . e($u['name']) . ', desde ahora podés pedir vacaciones, días de estudio e informar licencias desde el portal. Al ingresar por primera vez te vamos a pedir que cambies la contraseña.',
+        $intro,
         [['Usuario', e($u['email'])], ['Contraseña temporal', '<code style="font-size:15px">' . e($pass) . '</code>']],
         ['Ingresar al portal', url('/login')]
     ));
 }
 
+/**
+ * Genera una contraseña temporal nueva para una persona.
+ */
 function admin_user_reset_password(int $id): void
 {
     $me = require_login();
     require_role('hr', 'admin');
     $u = row('SELECT * FROM users WHERE id = ?', [$id]);
-    if (!$u) abort(404);
-    if ($u['role'] === 'admin' && $me['role'] !== 'admin') abort(403);
+    if (!$u) {
+        abort(404);
+    }
+    if ($u['role'] === 'admin' && $me['role'] !== 'admin') {
+        abort(403);
+    }
     $pass = random_password();
     q('UPDATE users SET password_hash = ?, must_change_password = 1 WHERE id = ?', [password_hash($pass, PASSWORD_DEFAULT), $id]);
     $sent = isset($_POST['send']) && send_welcome($u, $pass);
@@ -119,12 +163,18 @@ function admin_user_reset_password(int $id): void
     redirect("/admin/usuarios/$id");
 }
 
+/**
+ * Listado de tipos de licencia.
+ */
 function admin_types(): void
 {
     require_role('hr', 'admin');
     view('admin/types', ['title' => 'Tipos de licencia', 'types' => leave_types(false)]);
 }
 
+/**
+ * Alta o edición de un tipo de licencia.
+ */
 function admin_types_save(): void
 {
     require_role('hr', 'admin');
@@ -158,6 +208,9 @@ function admin_types_save(): void
     redirect('/admin/tipos');
 }
 
+/**
+ * Feriados del año.
+ */
 function admin_holidays(): void
 {
     require_role('hr', 'admin');
@@ -169,6 +222,9 @@ function admin_holidays(): void
     ]);
 }
 
+/**
+ * Alta o baja de un feriado.
+ */
 function admin_holidays_save(): void
 {
     require_role('hr', 'admin');
@@ -184,16 +240,24 @@ function admin_holidays_save(): void
     redirect('/admin/feriados?anio=' . substr(post('date') ?: date('Y'), 0, 4));
 }
 
+/**
+ * Parámetros editables desde la pantalla de configuración.
+ */
 const SETTING_KEYS = ['company_name', 'hr_email', 'mail_driver', 'mail_from', 'mail_from_name', 'smtp_host', 'smtp_port', 'smtp_secure', 'smtp_user', 'smtp_pass',
     'wa_driver', 'wa_cloud_token', 'wa_cloud_phone_id', 'wa_cloud_template', 'wa_cloud_lang', 'reminder_hours',
     'wa_gw_url', 'wa_gw_key', 'wa_gw_instance', 'gchat_webhook', 'default_approver_id', 'signup_enabled', 'signup_domain',
     'event_email', 'gcal_calendar_id', 'gcal_sa_json', 'support_email', 'ai_smtp_user', 'ai_smtp_pass', 'gcal_impersonate'];
 
+/**
+ * Pantalla de configuración del sistema.
+ */
 function admin_settings(): void
 {
     require_role('admin', 'hr');
     $s = [];
-    foreach (SETTING_KEYS as $k) $s[$k] = in_array($k, SECRET_SETTINGS, true) ? (setting($k) !== '' ? '••••••••' : '') : setting($k);
+    foreach (SETTING_KEYS as $k) {
+        $s[$k] = in_array($k, SECRET_SETTINGS, true) ? (setting($k) !== '' ? '••••••••' : '') : setting($k);
+    }
     view('admin/settings', [
         'title' => 'Configuración',
         's' => $s,
@@ -201,13 +265,20 @@ function admin_settings(): void
     ]);
 }
 
+/**
+ * Guarda la configuración del sistema.
+ */
 function admin_settings_save(): void
 {
     require_role('admin', 'hr');
     foreach (SETTING_KEYS as $k) {
-        if (!array_key_exists($k, $_POST)) continue;
+        if (!array_key_exists($k, $_POST)) {
+            continue;
+        }
         $v = trim((string) $_POST[$k]);
-        if ($k === 'gcal_impersonate') @unlink(STORAGE . '/gcal_token.json');
+        if ($k === 'gcal_impersonate') {
+            @unlink(STORAGE . '/gcal_token.json');
+        }
         if ($k === 'gcal_sa_json' && $v !== '' && $v !== '••••••••') {
             $j = json_decode($v, true);
             if (!is_array($j) || empty($j['client_email']) || empty($j['private_key'])) {
@@ -216,7 +287,10 @@ function admin_settings_save(): void
             }
             @unlink(STORAGE . '/gcal_token.json');
         }
-        if (in_array($k, SECRET_SETTINGS, true) && ($v === '••••••••')) continue; // sin cambios
+        // Los secretos se muestran enmascarados; si no se modificaron, se conservan.
+        if (in_array($k, SECRET_SETTINGS, true) && ($v === '••••••••')) {
+            continue;
+        }
         save_setting($k, $v);
     }
     save_setting('signup_enabled', isset($_POST['signup_enabled']) ? '1' : '0');
@@ -224,6 +298,9 @@ function admin_settings_save(): void
     redirect('/admin/configuracion');
 }
 
+/**
+ * Pruebas de canales: email, Google Calendar (crear y finalizar), Google Chat y WhatsApp.
+ */
 function admin_settings_test(): void
 {
     $me = require_login();
@@ -241,7 +318,9 @@ function admin_settings_test(): void
             flash('error', 'No se pudo conectar con Google Calendar: ' . ($err ?: 'cargá el ID del calendario y la clave JSON.'));
             redirect('/admin/configuracion#gcal');
         }
-        if ($old = setting('gcal_test_event_id')) gcal_api('DELETE', '/events/' . rawurlencode($old));
+        if ($old = setting('gcal_test_event_id')) {
+            gcal_api('DELETE', '/events/' . rawurlencode($old));
+        }
         [$code, $ev] = gcal_api('POST', '/events', [
             'summary' => '✅ Evento de prueba — Portal RRHH',
             'description' => 'Evento creado desde Configuración → Probar Google Calendar por ' . $me['name'] . ".\nSe borra al tocar «Finalizar test» en el portal.",

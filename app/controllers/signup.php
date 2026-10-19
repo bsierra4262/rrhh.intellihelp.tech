@@ -1,31 +1,57 @@
 <?php
+
+/**
+ * Portal de Recursos Humanos — Intellihelp
+ *
+ * Autoregistro de colaboradores y aprobación de acceso.
+ *
+ * Cualquier correo puede registrarse y se valida con un enlace. Los dominios de confianza se
+ * activan automáticamente; el resto (personal tercerizado) queda pendiente de aprobación por RRHH.
+ *
+ * @author    Brian Gabriel Sierra <bsierra@intellihelp.tech>
+ * @copyright 2026 Intellihelp
+ */
+
 declare(strict_types=1);
 
-// Registro de colaboradores. Cualquier correo puede registrarse (incluye personal tercerizado), siempre
-// validado con un enlace. Los dominios de confianza (Configuración) se activan solos; el resto queda
-// pendiente hasta que RRHH apruebe el acceso.
-
-/** Dominios que se aprueban automáticamente (ej. "intellihelp.tech, intellihelp.com.ar"). */
+/**
+ * Dominios de correo que se activan sin aprobación.
+ *
+ * @return string[]
+ */
 function trusted_domains(): array
 {
-    $list = array_map(fn($d) => mb_strtolower(trim(ltrim(trim($d), '@'))), explode(',', setting('signup_domain', 'intellihelp.tech')));
+    $list = array_map(fn ($d) => mb_strtolower(trim(ltrim(trim($d), '@'))), explode(',', setting('signup_domain', 'intellihelp.tech')));
+
     return array_values(array_filter($list));
 }
 
+/**
+ * Indica si el correo pertenece a un dominio de confianza.
+ */
 function is_trusted_email(string $email): bool
 {
     $domain = mb_strtolower(substr(strrchr($email, '@') ?: '', 1));
+
     return $domain !== '' && in_array($domain, trusted_domains(), true);
 }
 
+/**
+ * Indica si el autoregistro está habilitado.
+ */
 function signup_open(): bool
 {
     return setting('signup_enabled', '1') === '1';
 }
 
+/**
+ * Formulario de registro.
+ */
 function register_form(): void
 {
-    if (current_user()) redirect('/');
+    if (current_user()) {
+        redirect('/');
+    }
     if (!signup_open()) {
         flash('info', 'El registro está deshabilitado. Pedile a RRHH que te dé de alta.');
         redirect('/login');
@@ -33,9 +59,14 @@ function register_form(): void
     view('auth/register', ['title' => 'Crear cuenta', 'domains' => trusted_domains()], 'auth_layout');
 }
 
+/**
+ * Procesa el registro y envía el enlace de confirmación.
+ */
 function register_submit(): void
 {
-    if (!signup_open()) redirect('/login');
+    if (!signup_open()) {
+        redirect('/login');
+    }
     remember_input();
     $name = mb_substr(preg_replace('/\s+/', ' ', post('name')), 0, 120);
     $email = mb_strtolower(post('email'));
@@ -57,11 +88,14 @@ function register_submit(): void
 
     $u = row('SELECT * FROM users WHERE email = ?', [$email]);
     if ($u && !$u['pending_activation']) {
-        // Ya existe: se le avisa por correo sin revelar nada en pantalla
+        // La cuenta ya existe: se informa por correo sin revelarlo en pantalla.
         if ($u['active']) {
-            send_mail($email, 'Ya tenés una cuenta en el Portal de RRHH', mail_template('Ya tenés una cuenta',
+            send_mail($email, 'Ya tenés una cuenta en el Portal de RRHH', mail_template(
+                'Ya tenés una cuenta',
                 'Recibimos un pedido para crear una cuenta con este correo, pero ya estás registrado/a. Si no recordás tu contraseña, podés restablecerla.',
-                [], ['Restablecer contraseña', url('/olvide')]));
+                [],
+                ['Restablecer contraseña', url('/olvide')]
+            ));
         }
     } else {
         $data = ['name' => $name, 'company' => $trusted ? (setting('company_name', 'Intellihelp') ?: 'Intellihelp') : $company];
@@ -80,24 +114,37 @@ function register_submit(): void
         }
         $token = bin2hex(random_bytes(32));
         insert('password_resets', ['user_id' => $id, 'token_hash' => hash('sha256', $token), 'expires_at' => date('Y-m-d H:i:s', time() + 172800)]);
-        send_mail($email, 'Confirmá tu correo — Portal de RRHH Intellihelp', mail_template('Confirmá tu correo',
+        send_mail($email, 'Confirmá tu correo — Portal de RRHH Intellihelp', mail_template(
+            'Confirmá tu correo',
             'Hola ' . e($name) . ', para continuar con el alta en el Portal de Recursos Humanos de Intellihelp confirmá tu correo y elegí una contraseña. El enlace vence en 48 horas.'
             . ($trusted ? '' : '<br><br>Como tu correo no pertenece a Intellihelp, RRHH va a revisar y aprobar tu acceso.'),
-            [], ['Confirmar correo', url('/activar', ['t' => $token])], 'Si no fuiste vos, ignorá este mensaje.'));
+            [],
+            ['Confirmar correo', url('/activar', ['t' => $token])],
+            'Si no fuiste vos, ignorá este mensaje.'
+        ));
     }
     forget_input();
     flash('success', "Te enviamos un correo a {$email} para confirmar tu cuenta. Revisá también la carpeta de spam.");
     redirect('/login');
 }
 
+/**
+ * Token de activación vigente de una cuenta pendiente.
+ */
 function find_activation(string $token): ?array
 {
     $pr = find_reset($token);
-    if (!$pr) return null;
+    if (!$pr) {
+        return null;
+    }
     $u = row('SELECT * FROM users WHERE id = ? AND pending_activation = 1', [$pr['user_id']]);
+
     return $u ? ['reset' => $pr, 'user' => $u] : null;
 }
 
+/**
+ * Pantalla para elegir la contraseña al confirmar el correo.
+ */
 function activate_form(): void
 {
     $t = (string) ($_GET['t'] ?? '');
@@ -109,6 +156,9 @@ function activate_form(): void
     view('auth/activate', ['title' => 'Activar cuenta', 'token' => $t, 'name' => $a['user']['name'], 'trusted' => is_trusted_email($a['user']['email'])], 'auth_layout');
 }
 
+/**
+ * Confirma la cuenta: la activa (dominio de confianza) o la deja pendiente de aprobación.
+ */
 function activate_submit(): void
 {
     $t = post('token');
@@ -126,11 +176,13 @@ function activate_submit(): void
     $id = (int) $a['user']['id'];
     $trusted = is_trusted_email($a['user']['email']);
     $approver = (int) setting('default_approver_id', '0') ?: null;
-    q('UPDATE users SET password_hash = ?, active = ?, pending_activation = 0, pending_approval = ?, manager_id = COALESCE(manager_id, ?) WHERE id = ?',
-        [password_hash($p, PASSWORD_DEFAULT), $trusted ? 1 : 0, $trusted ? 0 : 1, $approver, $id]);
+    q(
+        'UPDATE users SET password_hash = ?, active = ?, pending_activation = 0, pending_approval = ?, manager_id = COALESCE(manager_id, ?) WHERE id = ?',
+        [password_hash($p, PASSWORD_DEFAULT), $trusted ? 1 : 0, $trusted ? 0 : 1, $approver, $id]
+    );
     q('UPDATE password_resets SET used_at = NOW() WHERE user_id = ? AND used_at IS NULL', [$id]);
 
-    defer(fn() => notify_hr_new_user($id, !$trusted));
+    defer(fn () => notify_hr_new_user($id, !$trusted));
     if ($trusted) {
         login_user(row('SELECT * FROM users WHERE id = ?', [$id]));
         flash('success', '¡Bienvenido/a! Tu cuenta quedó activa.');
@@ -140,6 +192,9 @@ function activate_submit(): void
     redirect('/login');
 }
 
+/**
+ * Avisa a RRHH sobre una cuenta nueva o una solicitud de acceso.
+ */
 function notify_hr_new_user(int $id, bool $needsApproval): void
 {
     $nu = row('SELECT * FROM users WHERE id = ?', [$id]);
@@ -151,33 +206,44 @@ function notify_hr_new_user(int $id, bool $needsApproval): void
         insert('notifications', ['user_id' => $h['id'], 'title' => $title,
             'body' => $needsApproval ? 'Aprobá o rechazá el acceso.' : 'Completá su área, puesto, fecha de ingreso y responsable.', 'link' => '/admin/usuarios/' . $id]);
         if ($h['notify_email']) {
-            send_mail($h['email'], $title, mail_template($needsApproval ? 'Solicitud de acceso al portal' : 'Se registró un nuevo colaborador', $intro,
+            send_mail($h['email'], $title, mail_template(
+                $needsApproval ? 'Solicitud de acceso al portal' : 'Se registró un nuevo colaborador',
+                $intro,
                 [['Nombre', e($nu['name'])], ['Correo', e($nu['email'])], ['Empresa', e($nu['company'] ?: '—')]],
-                [$needsApproval ? 'Revisar y aprobar' : 'Completar datos', url('/admin/usuarios/' . $id)]));
+                [$needsApproval ? 'Revisar y aprobar' : 'Completar datos', url('/admin/usuarios/' . $id)]
+            ));
         }
     }
     send_gchat(($needsApproval ? "🔐 *Solicitud de acceso*\n" : "👤 *Nueva cuenta*\n") . "{$nu['name']} · {$nu['email']} · " . ($nu['company'] ?: '—') . "\n👉 " . url('/admin/usuarios/' . $id));
 }
 
-// ---------- Aprobación de acceso por RRHH ----------
-
+/**
+ * Aprueba o rechaza la solicitud de acceso de una cuenta externa.
+ */
 function admin_user_approve(int $id): void
 {
     require_role('hr', 'admin');
     $u = row('SELECT * FROM users WHERE id = ? AND pending_approval = 1', [$id]);
-    if (!$u) redirect("/admin/usuarios/$id");
+    if (!$u) {
+        redirect("/admin/usuarios/$id");
+    }
     if (post('decision') === 'reject') {
         $hasData = (int) val('SELECT COUNT(*) FROM leave_requests WHERE user_id = ?', [$id]);
         $hasData ? q('UPDATE users SET pending_approval = 0, active = 0 WHERE id = ?', [$id]) : q('DELETE FROM users WHERE id = ?', [$id]);
-        defer(fn() => send_mail($u['email'], 'Tu solicitud de acceso al Portal de RRHH', mail_template('Solicitud de acceso no aprobada',
-            'Hola ' . e($u['name']) . ', RRHH no aprobó tu acceso al Portal de Recursos Humanos de Intellihelp. Si creés que es un error, comunicate con tu referente.')));
+        defer(fn () => send_mail($u['email'], 'Tu solicitud de acceso al Portal de RRHH', mail_template(
+            'Solicitud de acceso no aprobada',
+            'Hola ' . e($u['name']) . ', RRHH no aprobó tu acceso al Portal de Recursos Humanos de Intellihelp. Si creés que es un error, comunicate con tu referente.'
+        )));
         flash('success', 'Solicitud de acceso rechazada.');
         redirect('/admin/usuarios');
     }
     q('UPDATE users SET pending_approval = 0, active = 1 WHERE id = ?', [$id]);
-    defer(fn() => send_mail($u['email'], 'Tu acceso al Portal de RRHH fue aprobado', mail_template('¡Tu acceso fue aprobado!',
+    defer(fn () => send_mail($u['email'], 'Tu acceso al Portal de RRHH fue aprobado', mail_template(
+        '¡Tu acceso fue aprobado!',
         'Hola ' . e($u['name']) . ', ya podés ingresar al Portal de Recursos Humanos de Intellihelp con tu correo y la contraseña que elegiste.',
-        [], ['Ingresar al portal', url('/login')])));
+        [],
+        ['Ingresar al portal', url('/login')]
+    )));
     flash('success', 'Acceso aprobado. Le avisamos por correo.');
     redirect("/admin/usuarios/$id");
 }

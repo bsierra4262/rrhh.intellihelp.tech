@@ -1,9 +1,24 @@
 <?php
+
+/**
+ * Portal de Recursos Humanos — Intellihelp
+ *
+ * Notificaciones por evento de negocio.
+ *
+ * Cada evento (nueva solicitud, decisión, cancelación, documentación, recordatorio) se informa
+ * por los canales configurados: aviso en el portal, email, Google Chat, Google Calendar y,
+ * opcionalmente, WhatsApp.
+ *
+ * @author    Brian Gabriel Sierra <bsierra@intellihelp.tech>
+ * @copyright 2026 Intellihelp
+ */
+
 declare(strict_types=1);
 
 /**
- * Notifica a un usuario por los 3 canales: aviso en el portal, email y WhatsApp.
- * $opts: rows (detalle para el email), button [texto,url], ics (bool|'CANCEL'), gcal (url), heading, accent
+ * Notifica a un usuario: aviso en el portal, email (según configuración) y WhatsApp.
+ *
+ * @param array{rows?: array, button?: array, ics?: bool|string, gcal?: ?string, heading?: string, accent?: string} $opts
  */
 function notify_user(array $user, array $r, string $title, string $intro, array $opts = []): void
 {
@@ -16,7 +31,7 @@ function notify_user(array $user, array $r, string $title, string $intro, array 
         'link' => parse_url($link, PHP_URL_PATH),
     ]);
 
-    // Emails de solicitudes: off | employees (solo a quien pidió) | all
+    // Alcance de los emails de solicitudes: off | employees (solo al solicitante) | all.
     $mode = setting('event_email', 'off');
     $emailOk = $mode === 'all' || ($mode === 'employees' && (int) $user['id'] === (int) $r['user_id']);
     if ($emailOk && !empty($user['notify_email'])) {
@@ -40,6 +55,9 @@ function notify_user(array $user, array $r, string $title, string $intro, array 
     send_whatsapp($user, $wa);
 }
 
+/**
+ * Filas de detalle de una solicitud para los correos.
+ */
 function request_mail_rows(array $r): array
 {
     $rows = [
@@ -48,27 +66,43 @@ function request_mail_rows(array $r): array
         ['Fechas', e(frange($r['start_date'], $r['end_date']))],
         ['Duración', e(fdays_kind($r['days'], $r['counting']))],
     ];
-    if (!empty($r['reason'])) $rows[] = ['Motivo', nl2br(e($r['reason']))];
+    if (!empty($r['reason'])) {
+        $rows[] = ['Motivo', nl2br(e($r['reason']))];
+    }
     $docs = (int) val('SELECT COUNT(*) FROM documents WHERE request_id = ?', [$r['id']]);
-    if ($docs) $rows[] = ['Documentación', e($docs . ' archivo' . ($docs > 1 ? 's' : '') . ' adjunto' . ($docs > 1 ? 's' : ''))];
+    if ($docs) {
+        $rows[] = ['Documentación', e($docs . ' archivo' . ($docs > 1 ? 's' : '') . ' adjunto' . ($docs > 1 ? 's' : ''))];
+    }
+
     return $rows;
 }
 
+/**
+ * Usuario activo por ID.
+ */
 function user_by_id(?int $id): ?array
 {
     return $id ? row('SELECT * FROM users WHERE id = ? AND active = 1', [$id]) : null;
 }
 
-/** Destinatarios que deben decidir/enterarse: el aprobador, o todo RRHH si no hay. */
+/**
+ * Usuarios que deben decidir sobre la solicitud: su aprobador o, si no tiene, RRHH.
+ */
 function approvers_for(array $r): array
 {
     if ($r['approver_id']) {
         $a = user_by_id((int) $r['approver_id']);
-        if ($a) return [$a];
+        if ($a) {
+            return [$a];
+        }
     }
-    return array_values(array_filter(hr_users(), fn($u) => (int) $u['id'] !== (int) $r['user_id']));
+
+    return array_values(array_filter(hr_users(), fn ($u) => (int) $u['id'] !== (int) $r['user_id']));
 }
 
+/**
+ * Envía copia a la casilla de RRHH, si está configurada.
+ */
 function hr_copy(array $r, string $subject, string $intro): void
 {
     $box = setting('hr_email');
@@ -77,20 +111,27 @@ function hr_copy(array $r, string $subject, string $intro): void
     }
 }
 
+/**
+ * Elimina duplicados y excluye a un usuario de una lista de destinatarios.
+ */
 function notify_unique(array $users, int $excludeId): array
 {
     $seen = [];
     $out = [];
     foreach ($users as $u) {
-        if (!$u || (int) $u['id'] === $excludeId || isset($seen[$u['id']])) continue;
+        if (!$u || (int) $u['id'] === $excludeId || isset($seen[$u['id']])) {
+            continue;
+        }
         $seen[$u['id']] = true;
         $out[] = $u;
     }
+
     return $out;
 }
 
-// ---------------- eventos ----------------
-
+/**
+ * Nueva solicitud: aviso a quien autoriza o, si es informada, a RRHH y al responsable.
+ */
 function on_request_created(int $id): void
 {
     gcal_sync($id);
@@ -100,14 +141,17 @@ function on_request_created(int $id): void
 
     if ($r['status'] === 'pending') {
         foreach (approvers_for($r) as $a) {
-            notify_user($a, $r,
+            notify_user(
+                $a,
+                $r,
                 "Nueva solicitud de {$r['user_name']}: {$r['type_name']}",
                 e($r['user_name']) . ' solicitó <b>' . e($r['type_name']) . '</b> del ' . e($range) . ' (' . e(fdays($r['days'])) . '). Entrá al portal para autorizarla o rechazarla.',
                 [
                     'heading' => 'Tenés una solicitud para autorizar',
                     'button' => ['Revisar y decidir', url('/solicitudes/' . $r['id'])],
                     'gcal' => gcal_link("[Pendiente] {$r['type_name']} — {$r['user_name']}", $r['start_date'], $r['end_date'], url('/solicitudes/' . $r['id'])),
-                ]);
+                ]
+            );
         }
         if ($owner) {
             insert('notifications', ['user_id' => $owner['id'], 'request_id' => $r['id'],
@@ -116,17 +160,20 @@ function on_request_created(int $id): void
         }
         hr_copy($r, "Nueva solicitud: {$r['user_name']} — {$r['type_name']}", e($r['user_name']) . ' cargó una solicitud pendiente de autorización.');
         send_gchat("🟣 *Nueva solicitud para autorizar*
-{$r['user_name']} pidió *{$r['type_name']}* del {$range} (" . fdays($r['days']) . ")
-👉 " . url('/solicitudes/' . $r['id']));
+{$r['user_name']} pidió *{$r['type_name']}* del {$range} (" . fdays($r['days']) . ')
+👉 ' . url('/solicitudes/' . $r['id']));
+
         return;
     }
 
-    // Licencias que no requieren autorización (enfermedad, etc.): se informa a responsable y RRHH.
+    // Licencias que no requieren autorización: se informa al responsable y a RRHH.
     $docs = (int) val('SELECT COUNT(*) FROM documents WHERE request_id = ?', [$r['id']]);
     $docTxt = $docs ? ' Ya subió ' . ($r['document_label'] ? e(mb_strtolower($r['document_label'])) : 'la documentación') . ' (' . $docs . ' archivo' . ($docs > 1 ? 's' : '') . ').' : '';
     $targets = notify_unique([user_by_id((int) $r['manager_id']), ...hr_users()], (int) $r['user_id']);
     foreach ($targets as $t) {
-        notify_user($t, $r,
+        notify_user(
+            $t,
+            $r,
             "{$r['user_name']} informó {$r['type_name']}",
             e($r['user_name']) . ' informó <b>' . e($r['type_name']) . '</b> del ' . e($range) . ' (' . e(fdays($r['days'])) . '). No requiere autorización.' . $docTxt,
             [
@@ -134,20 +181,28 @@ function on_request_created(int $id): void
                 'button' => [$docs ? 'Ver certificado y detalle' : 'Ver detalle', url('/solicitudes/' . $r['id'])],
                 'ics' => true,
                 'accent' => '#663399',
-            ]);
+            ]
+        );
     }
     hr_copy($r, "Licencia informada: {$r['user_name']} — {$r['type_name']}", e($r['user_name']) . ' informó una licencia.' . $docTxt);
     send_gchat("📋 *Licencia informada*
-{$r['user_name']} informó *{$r['type_name']}* del {$range} (" . fdays($r['days']) . ')' . ($docs ? "
-📎 Ya subió " . mb_strtolower($r['document_label'] ?: 'la documentación') : '') . "
-👉 " . url('/solicitudes/' . $r['id']));
+{$r['user_name']} informó *{$r['type_name']}* del {$range} (" . fdays($r['days']) . ')' . ($docs ? '
+📎 Ya subió ' . mb_strtolower($r['document_label'] ?: 'la documentación') : '') . '
+👉 ' . url('/solicitudes/' . $r['id']));
     if ($owner) {
-        notify_user($owner, $r, "Registramos tu licencia: {$r['type_name']}",
+        notify_user(
+            $owner,
+            $r,
+            "Registramos tu licencia: {$r['type_name']}",
             'Tu licencia de <b>' . e($r['type_name']) . '</b> del ' . e($range) . ' quedó registrada y RRHH fue notificado.' . ($docs ? ' Recibimos tu documentación.' : ''),
-            ['heading' => '¡Que te mejores!' , 'ics' => true]);
+            ['heading' => '¡Que te mejores!' , 'ics' => true]
+        );
     }
 }
 
+/**
+ * Solicitud aprobada o rechazada.
+ */
 function on_request_decided(int $id): void
 {
     gcal_sync($id);
@@ -158,7 +213,9 @@ function on_request_decided(int $id): void
     $comment = $r['decision_comment'] ? '<br><br><i>«' . nl2br(e($r['decision_comment'])) . '»</i>' : '';
 
     if ($owner) {
-        notify_user($owner, $r,
+        notify_user(
+            $owner,
+            $r,
             $approved ? "✅ Aprobada: {$r['type_name']} ({$range})" : "Rechazada: {$r['type_name']} ({$range})",
             e($r['decider_name']) . ($approved ? ' <b>aprobó</b>' : ' <b>rechazó</b>') . ' tu solicitud de ' . e($r['type_name']) . ' del ' . e($range) . '.' . $comment,
             [
@@ -166,11 +223,14 @@ function on_request_decided(int $id): void
                 'ics' => $approved,
                 'gcal' => $approved ? gcal_link("{$r['type_name']}", $r['start_date'], $r['end_date'], url('/solicitudes/' . $r['id'])) : null,
                 'accent' => $approved ? '#663399' : '#161922',
-            ]);
+            ]
+        );
     }
-    // El aprobador (si no es RRHH quien decidió) y RRHH reciben aviso en el portal
+    // El aprobador y RRHH reciben el aviso en el portal (salvo quien tomó la decisión).
     foreach (notify_unique([user_by_id((int) $r['approver_id']), ...hr_users()], (int) $r['decided_by']) as $t) {
-        if ((int) $t['id'] === (int) $r['user_id']) continue;
+        if ((int) $t['id'] === (int) $r['user_id']) {
+            continue;
+        }
         insert('notifications', ['user_id' => $t['id'], 'request_id' => $r['id'],
             'title' => "{$r['decider_name']} " . ($approved ? 'aprobó' : 'rechazó') . " la solicitud de {$r['user_name']}",
             'body' => "{$r['type_name']} · {$range}", 'link' => '/solicitudes/' . $r['id']]);
@@ -180,6 +240,9 @@ function on_request_decided(int $id): void
     hr_copy($r, ($approved ? 'Aprobada' : 'Rechazada') . ": {$r['user_name']} — {$r['type_name']}", e($r['decider_name']) . ($approved ? ' aprobó' : ' rechazó') . ' la solicitud.' . $comment);
 }
 
+/**
+ * Solicitud cancelada por el colaborador o por RRHH.
+ */
 function on_request_cancelled(int $id, string $prevStatus): void
 {
     gcal_sync($id);
@@ -187,12 +250,19 @@ function on_request_cancelled(int $id, string $prevStatus): void
     send_gchat("🚫 {$r['user_name']} canceló *{$r['type_name']}* (" . frange($r['start_date'], $r['end_date']) . ")\n👉 " . url('/solicitudes/' . $r['id']));
     $targets = notify_unique([...approvers_for($r), user_by_id((int) $r['manager_id'])], (int) $r['user_id']);
     foreach ($targets as $t) {
-        notify_user($t, $r, "{$r['user_name']} canceló su solicitud de {$r['type_name']}",
+        notify_user(
+            $t,
+            $r,
+            "{$r['user_name']} canceló su solicitud de {$r['type_name']}",
             e($r['user_name']) . ' canceló la solicitud de ' . e($r['type_name']) . ' del ' . e(frange($r['start_date'], $r['end_date'])) . '.',
-            ['heading' => 'Solicitud cancelada', 'ics' => in_array($prevStatus, ['approved', 'registered'], true) ? 'CANCEL' : false, 'accent' => '#161922']);
+            ['heading' => 'Solicitud cancelada', 'ics' => in_array($prevStatus, ['approved', 'registered'], true) ? 'CANCEL' : false, 'accent' => '#161922']
+        );
     }
 }
 
+/**
+ * Documentación agregada a una solicitud existente.
+ */
 function on_document_uploaded(int $id, int $count): void
 {
     $r = load_request($id);
@@ -200,33 +270,52 @@ function on_document_uploaded(int $id, int $count): void
     send_gchat("📎 {$r['user_name']} subió " . mb_strtolower($label) . " ({$r['type_name']})
 👉 " . url('/solicitudes/' . $r['id']));
     foreach (notify_unique([...hr_users(), user_by_id((int) $r['manager_id'])], uid()) as $t) {
-        notify_user($t, $r, "{$r['user_name']} subió {$label}",
+        notify_user(
+            $t,
+            $r,
+            "{$r['user_name']} subió {$label}",
             e($r['user_name']) . ' subió ' . $count . ' archivo' . ($count > 1 ? 's' : '') . ' (' . e(mb_strtolower($label)) . ') a su solicitud de ' . e($r['type_name']) . ' del ' . e(frange($r['start_date'], $r['end_date'])) . '.',
-            ['heading' => 'Nueva documentación recibida', 'button' => ['Ver documentación', url('/solicitudes/' . $r['id'])]]);
+            ['heading' => 'Nueva documentación recibida', 'button' => ['Ver documentación', url('/solicitudes/' . $r['id'])]]
+        );
     }
 }
 
+/**
+ * Documentación verificada u observada por RRHH.
+ */
 function on_document_reviewed(int $id, string $result, string $comment): void
 {
     $r = load_request($id);
     $owner = user_by_id((int) $r['user_id']);
-    if (!$owner) return;
+    if (!$owner) {
+        return;
+    }
     $ok = $result === 'verified';
-    notify_user($owner, $r,
+    notify_user(
+        $owner,
+        $r,
         $ok ? "Documentación verificada: {$r['type_name']}" : "Documentación observada: {$r['type_name']}",
         $ok ? 'RRHH verificó la documentación de tu ' . e(mb_strtolower($r['type_name'])) . '. ¡Gracias!'
             : 'RRHH observó la documentación de tu ' . e(mb_strtolower($r['type_name'])) . '. Revisá el comentario y volvé a subirla.' . ($comment ? '<br><br><i>«' . nl2br(e($comment)) . '»</i>' : ''),
-        ['heading' => $ok ? 'Documentación verificada' : 'Necesitamos que revises tu documentación']);
+        ['heading' => $ok ? 'Documentación verificada' : 'Necesitamos que revises tu documentación']
+    );
 }
 
+/**
+ * Recordatorio de solicitud pendiente (tarea programada).
+ */
 function on_reminder(array $r, array $approver): void
 {
     static $chatSent = [];
     if (!isset($chatSent[$r['id']])) {
         $chatSent[$r['id']] = true;
-        send_gchat("⏰ *Recordatorio:* la solicitud de {$r['user_name']} (*{$r['type_name']}*, " . frange($r['start_date'], $r['end_date']) . ") sigue esperando autorización de " . ($r['approver_name'] ?: 'RRHH') . "\n👉 " . url('/solicitudes/' . $r['id']));
+        send_gchat("⏰ *Recordatorio:* la solicitud de {$r['user_name']} (*{$r['type_name']}*, " . frange($r['start_date'], $r['end_date']) . ') sigue esperando autorización de ' . ($r['approver_name'] ?: 'RRHH') . "\n👉 " . url('/solicitudes/' . $r['id']));
     }
-    notify_user($approver, $r, "Recordatorio: solicitud pendiente de {$r['user_name']}",
+    notify_user(
+        $approver,
+        $r,
+        "Recordatorio: solicitud pendiente de {$r['user_name']}",
         'La solicitud de <b>' . e($r['type_name']) . '</b> de ' . e($r['user_name']) . ' del ' . e(frange($r['start_date'], $r['end_date'])) . ' sigue esperando tu decisión.',
-        ['heading' => 'Solicitud pendiente de autorización', 'button' => ['Revisar y decidir', url('/solicitudes/' . $r['id'])]]);
+        ['heading' => 'Solicitud pendiente de autorización', 'button' => ['Revisar y decidir', url('/solicitudes/' . $r['id'])]]
+    );
 }

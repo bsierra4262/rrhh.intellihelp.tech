@@ -1,5 +1,18 @@
 <?php
-// Instalación por SSH:  php install.php "Nombre Apellido" email@dominio
+
+/**
+ * Portal de Recursos Humanos — Intellihelp
+ *
+ * Instalador y migrador de base de datos por línea de comandos (idempotente).
+ *
+ * Uso:
+ *   php install.php                          Aplica esquema, datos iniciales y migraciones.
+ *   php install.php "Nombre Apellido" email   Además crea un usuario administrador.
+ *
+ * @author    Brian Gabriel Sierra <bsierra@intellihelp.tech>
+ * @copyright 2026 Intellihelp
+ */
+
 declare(strict_types=1);
 
 if (PHP_SAPI !== 'cli') {
@@ -9,13 +22,17 @@ if (PHP_SAPI !== 'cli') {
 require __DIR__ . '/bootstrap.php';
 
 foreach (['uploads', 'logs', 'sessions'] as $d) {
-    if (!is_dir(STORAGE . "/$d")) mkdir(STORAGE . "/$d", 0750, true);
+    if (!is_dir(STORAGE . "/$d")) {
+        mkdir(STORAGE . "/$d", 0750, true);
+    }
 }
 
 foreach (['schema.sql', 'seed.sql', 'migrate.sql'] as $f) {
     $sql = file_get_contents(__DIR__ . "/sql/$f");
     foreach (array_filter(array_map('trim', preg_split('/;\s*\n/', $sql))) as $stmt) {
-        if ($stmt !== '' && !preg_match('/^(--[^\n]*\n?)+$/', $stmt)) db()->exec($stmt);
+        if ($stmt !== '' && !preg_match('/^(--[^\n]*\n?)+$/', $stmt)) {
+            db()->exec($stmt);
+        }
     }
     echo "✓ $f\n";
 }

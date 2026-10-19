@@ -1,4 +1,14 @@
-/* Portal RRHH Intellihelp — identidad: Saira · #663399 · #161922 · #9CC930 (solo positivos) */
+/**
+ * Portal de Recursos Humanos — Intellihelp
+ *
+ * Hoja de estilos principal.
+ *
+ * Identidad visual: tipografía Saira · primario #663399 · texto #161922 · acento #9CC930
+ * (reservado a acciones y estados positivos).
+ *
+ * @author    Brian Gabriel Sierra <bsierra@intellihelp.tech>
+ * @copyright 2026 Intellihelp
+ */
 :root {
   --bg: #ffffff;
   --surface: #ffffff;

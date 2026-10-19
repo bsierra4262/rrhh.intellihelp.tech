@@ -1,22 +1,40 @@
 <?php
+
+/**
+ * Portal de Recursos Humanos — Intellihelp
+ *
+ * Envío de correo (PHPMailer) y plantilla HTML institucional.
+ *
+ * @author    Brian Gabriel Sierra <bsierra@intellihelp.tech>
+ * @copyright 2026 Intellihelp
+ */
+
 declare(strict_types=1);
 
 use PHPMailer\PHPMailer\PHPMailer;
 
 /**
- * Envía un email HTML. $attachments: [['name'=>..., 'content'=>..., 'type'=>...]]
- * $ics: contenido iCalendar (METHOD:REQUEST) para que Gmail/Google Calendar lo agregue al calendario.
+ * Envía un correo HTML.
+ *
+ * Si se incluye $ics (METHOD:REQUEST), Gmail y Google Calendar ofrecen agregar el evento.
+ *
+ * @param array<int, array{name: string, content: string, type?: string}> $attachments
  */
 function send_mail(string|array $to, string $subject, string $html, array $attachments = [], ?string $ics = null, ?string &$error = null): bool
 {
     $to = array_filter((array) $to);
-    if (!$to) return false;
+    if (!$to) {
+        return false;
+    }
     $driver = setting('mail_driver', 'mail');
-    if ($driver === 'off') return false;
+    if ($driver === 'off') {
+        return false;
+    }
 
     if (!class_exists(PHPMailer::class)) {
         $error = 'PHPMailer no está instalado (composer install).';
         log_line('mail.log', $error);
+
         return false;
     }
 
@@ -47,7 +65,8 @@ function send_mail(string|array $to, string $subject, string $html, array $attac
         $m->Body = $html;
         $m->AltBody = trim(html_entity_decode(strip_tags(preg_replace('/<br\s*\/?>|<\/p>|<\/tr>/i', "\n", $html)), ENT_QUOTES, 'UTF-8'));
         if ($ics) {
-            $m->Ical = $ics; // text/calendar; method=REQUEST → Google Calendar lo agrega
+            // Parte text/calendar (METHOD:REQUEST): Gmail ofrece agregar el evento al calendario.
+            $m->Ical = $ics;
             $m->addStringAttachment($ics, 'evento.ics', PHPMailer::ENCODING_BASE64, 'application/ics');
         }
         foreach ($attachments as $a) {
@@ -55,15 +74,22 @@ function send_mail(string|array $to, string $subject, string $html, array $attac
         }
         $m->send();
         log_line('mail.log', 'OK ' . implode(',', $to) . ' — ' . $subject);
+
         return true;
     } catch (Throwable $ex) {
         $error = $m->ErrorInfo ?: $ex->getMessage();
         log_line('mail.log', 'ERROR ' . implode(',', $to) . ' — ' . $subject . ' — ' . $error);
+
         return false;
     }
 }
 
-/** Plantilla de email con identidad Intellihelp. $rows: [['Etiqueta','Valor'], ...] */
+/**
+ * Plantilla HTML de correo con la identidad visual de Intellihelp.
+ *
+ * @param array<int, array{0: string, 1: string}> $rows Filas de detalle (etiqueta, valor HTML).
+ * @param array{0: string, 1: string}|null $button Texto y URL del botón principal.
+ */
 function mail_template(string $heading, string $intro, array $rows = [], ?array $button = null, ?string $footerHtml = null, string $accent = '#663399'): string
 {
     $logo = url('/assets/img/logo-ith.png');
@@ -77,6 +103,7 @@ function mail_template(string $heading, string $intro, array $rows = [], ?array 
         $btn = '<table role="presentation" cellspacing="0" cellpadding="0" style="margin:28px 0 8px"><tr><td style="border-radius:10px;background:' . $accent . '">'
             . '<a href="' . e($button[1]) . '" style="display:inline-block;padding:13px 26px;font-family:Saira,Segoe UI,Arial,sans-serif;font-size:15px;font-weight:600;color:#fff;text-decoration:none;border-radius:10px">' . e($button[0]) . '</a></td></tr></table>';
     }
+
     return '<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"></head>'
         . '<body style="margin:0;padding:0;background:#f4f2f8;font-family:Saira,Segoe UI,Arial,sans-serif">'
         . '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f4f2f8;padding:32px 12px"><tr><td align="center">'

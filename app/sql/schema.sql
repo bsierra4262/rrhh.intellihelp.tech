@@ -1,4 +1,6 @@
--- Portal RRHH Intellihelp — esquema MariaDB/MySQL
+-- Portal de Recursos Humanos — Intellihelp
+-- Esquema de base de datos (MariaDB 10.6+ / MySQL 8).
+-- Autor: Brian Gabriel Sierra <bsierra@intellihelp.tech>
 SET NAMES utf8mb4;
 
 CREATE TABLE IF NOT EXISTS users (
