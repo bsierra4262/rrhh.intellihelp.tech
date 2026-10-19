@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 // Sincronización con un calendario compartido de Google Calendar mediante una cuenta de servicio.
 // Configuración: gcal_calendar_id + gcal_sa_json (clave JSON de la cuenta de servicio, guardada cifrada).
+// Opcional gcal_impersonate: con delegación de dominio, la cuenta de servicio actúa como ese usuario de Workspace
+// (evita compartir el calendario con una cuenta externa).
 
 const GCAL_COLORS = ['pending' => '5', 'approved' => '10', 'registered' => '3']; // amarillo, verde, violeta
 
@@ -25,18 +27,22 @@ function gcal_token(?string &$error = null): ?string
         $error = 'La clave JSON de la cuenta de servicio no es válida.';
         return null;
     }
+    $sub = trim(setting('gcal_impersonate'));
+    $who = $sa['client_email'] . '|' . $sub;
     if (is_file($cache)) {
         $c = json_decode((string) file_get_contents($cache), true);
-        if (($c['email'] ?? '') === $sa['client_email'] && ($c['exp'] ?? 0) > time() + 60) return $c['token'];
+        if (($c['email'] ?? '') === $who && ($c['exp'] ?? 0) > time() + 60) return $c['token'];
     }
     $now = time();
-    $unsigned = b64url(json_encode(['alg' => 'RS256', 'typ' => 'JWT'])) . '.' . b64url(json_encode([
+    $claims = [
         'iss' => $sa['client_email'],
         'scope' => 'https://www.googleapis.com/auth/calendar',
         'aud' => 'https://oauth2.googleapis.com/token',
         'iat' => $now,
         'exp' => $now + 3600,
-    ]));
+    ];
+    if ($sub !== '') $claims['sub'] = $sub;
+    $unsigned = b64url(json_encode(['alg' => 'RS256', 'typ' => 'JWT'])) . '.' . b64url(json_encode($claims));
     if (!openssl_sign($unsigned, $sig, $sa['private_key'], OPENSSL_ALGO_SHA256)) {
         $error = 'No se pudo firmar con la clave privada.';
         return null;
@@ -51,7 +57,7 @@ function gcal_token(?string &$error = null): ?string
         log_line('gcal.log', 'ERROR token ' . $error);
         return null;
     }
-    @file_put_contents($cache, json_encode(['email' => $sa['client_email'], 'token' => $j['access_token'], 'exp' => $now + (int) $j['expires_in']]));
+    @file_put_contents($cache, json_encode(['email' => $who, 'token' => $j['access_token'], 'exp' => $now + (int) $j['expires_in']]));
     @chmod($cache, 0600);
     return $j['access_token'];
 }

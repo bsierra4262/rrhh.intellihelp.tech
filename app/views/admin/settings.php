@@ -92,6 +92,7 @@
     <div class="form-grid">
       <label class="field span-2"><span>ID del calendario</span><input name="gcal_calendar_id" value="<?= e($s['gcal_calendar_id']) ?>" placeholder="xxxxxxxx@group.calendar.google.com"><small class="muted">Google Calendar → Configuración del calendario → Integrar el calendario → ID del calendario.</small></label>
       <label class="field span-2"><span>Clave JSON de la cuenta de servicio</span><textarea name="gcal_sa_json" rows="4" spellcheck="false" placeholder='{"type": "service_account", "client_email": "...", "private_key": "..."}'><?= e($s['gcal_sa_json']) ?></textarea><small class="muted">Pegá el contenido completo del archivo .json descargado de Google Cloud. Se guarda cifrado.</small></label>
+      <label class="field span-2"><span>Actuar en nombre de (delegación de dominio, opcional)</span><input type="email" name="gcal_impersonate" value="<?= e($s['gcal_impersonate']) ?>" placeholder="bsierra@intellihelp.tech"><small class="muted">Usalo si tu organización no permite compartir calendarios con cuentas externas: la cuenta de servicio escribe como este usuario, dueño del calendario. Requiere autorizar el Client ID en la Consola de administración → Seguridad → Controles de API → Delegación de todo el dominio.</small></label>
     </div>
   </section>
 

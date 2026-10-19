@@ -187,7 +187,7 @@ function admin_holidays_save(): void
 const SETTING_KEYS = ['company_name', 'hr_email', 'mail_driver', 'mail_from', 'mail_from_name', 'smtp_host', 'smtp_port', 'smtp_secure', 'smtp_user', 'smtp_pass',
     'wa_driver', 'wa_cloud_token', 'wa_cloud_phone_id', 'wa_cloud_template', 'wa_cloud_lang', 'reminder_hours',
     'wa_gw_url', 'wa_gw_key', 'wa_gw_instance', 'gchat_webhook', 'default_approver_id', 'signup_enabled', 'signup_domain',
-    'event_email', 'gcal_calendar_id', 'gcal_sa_json', 'support_email', 'ai_smtp_user', 'ai_smtp_pass'];
+    'event_email', 'gcal_calendar_id', 'gcal_sa_json', 'support_email', 'ai_smtp_user', 'ai_smtp_pass', 'gcal_impersonate'];
 
 function admin_settings(): void
 {
@@ -207,6 +207,7 @@ function admin_settings_save(): void
     foreach (SETTING_KEYS as $k) {
         if (!array_key_exists($k, $_POST)) continue;
         $v = trim((string) $_POST[$k]);
+        if ($k === 'gcal_impersonate') @unlink(STORAGE . '/gcal_token.json');
         if ($k === 'gcal_sa_json' && $v !== '' && $v !== '••••••••') {
             $j = json_decode($v, true);
             if (!is_array($j) || empty($j['client_email']) || empty($j['private_key'])) {
