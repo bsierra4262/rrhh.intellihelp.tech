@@ -8,3 +8,7 @@ app/vendor/
 Thumbs.db
 .vscode/
 .idea/
+
+# Credenciales de Google (cuenta de servicio)
+*-[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f].json
+rrhh-intellihelp-*.json
