@@ -115,8 +115,25 @@
   <div class="form-foot end"><button class="btn btn-primary btn-lg"><?= icon('check', 18) ?> Guardar configuración</button></div>
 </form>
 
-<section class="card">
+<section class="card" id="gcal">
   <div class="card-head"><h2>Probar canales</h2></div>
+  <?php if ($testEvent = setting('gcal_test_event_id')):
+      $calLink = setting('gcal_test_event_link') ?: 'https://calendar.google.com/calendar/r/day/' . date('Y/n/j'); ?>
+    <div class="gcal-test">
+      <div class="gcal-test-steps">
+        <div class="done"><span><?= icon('check', 14) ?></span><b>1. Evento creado</b><small>«✅ Evento de prueba — Portal RRHH» para hoy</small></div>
+        <div class="now"><span>2</span><b>2. Verificalo en Google Calendar</b><small>Tiene que aparecer en verde en «Licencias Intellihelp»</small></div>
+        <div><span>3</span><b>3. Finalizá el test</b><small>Se borra el evento del calendario</small></div>
+      </div>
+      <div class="btn-row">
+        <a class="btn btn-ghost" href="<?= e($calLink) ?>" target="_blank" rel="noopener"><?= icon('calendar', 16) ?> Abrir Google Calendar</a>
+        <form method="post" action="<?= url('/admin/configuracion/prueba') ?>">
+          <?= csrf_field() ?><input type="hidden" name="channel" value="gcal_finish">
+          <button class="btn btn-positive"><?= icon('check', 16) ?> Finalizar test</button>
+        </form>
+      </div>
+    </div>
+  <?php endif ?>
   <div class="btn-row wrap">
     <form method="post" action="<?= url('/admin/configuracion/prueba') ?>" class="btn-row">
       <?= csrf_field() ?><input type="hidden" name="channel" value="mail">

@@ -46,7 +46,7 @@ function request_mail_rows(array $r): array
         ['Colaborador/a', e($r['user_name'])],
         ['Tipo', e($r['type_name'])],
         ['Fechas', e(frange($r['start_date'], $r['end_date']))],
-        ['Duración', e(fdays($r['days'])) . ' ' . ($r['counting'] === 'habiles' ? 'hábiles' : 'corridos')],
+        ['Duración', e(fdays_kind($r['days'], $r['counting']))],
     ];
     if (!empty($r['reason'])) $rows[] = ['Motivo', nl2br(e($r['reason']))];
     $docs = (int) val('SELECT COUNT(*) FROM documents WHERE request_id = ?', [$r['id']]);

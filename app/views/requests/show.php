@@ -35,7 +35,7 @@ $gcal = gcal_link($r['type_name'] . ($mine ? '' : ' — ' . $r['user_name']), $r
         </div>
         <div class="kv"><span>Desde</span><b><?= e(ucfirst(flongdate($r['start_date']))) ?></b></div>
         <div class="kv"><span>Hasta</span><b><?= e(ucfirst(flongdate($r['end_date']))) ?></b></div>
-        <div class="kv"><span>Duración</span><b><?= e(fdays($r['days'])) ?> <?= $r['counting'] === 'habiles' ? 'hábiles' : 'corridos' ?></b></div>
+        <div class="kv"><span>Duración</span><b><?= e(fdays_kind($r['days'], $r['counting'])) ?></b></div>
         <div class="kv"><span>Cargada</span><b><?= e(fdatetime($r['created_at'])) ?></b></div>
       </div>
       <?php if ($r['reason']): ?>

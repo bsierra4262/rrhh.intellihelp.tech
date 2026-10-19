@@ -235,17 +235,44 @@ function admin_settings_test(): void
         $ok = send_mail($to, 'Prueba de email — Portal RRHH', mail_template('¡El email funciona!', 'Este es un correo de prueba enviado desde el Portal de RRHH de Intellihelp.', [['Enviado', e(fdatetime(date('Y-m-d H:i:s')))]], ['Abrir el portal', url('/')]), [], null, $err);
         flash($ok ? 'success' : 'error', $ok ? "Email de prueba enviado a $to." : 'No se pudo enviar: ' . $err);
     } elseif ($channel === 'gcal') {
+        // Paso 1 del test: crea un evento real de prueba en el calendario compartido
         [$code, $cal] = gcal_enabled() ? gcal_api('GET', '', null, $err) : [0, null];
-        $ok = $code === 200;
-        if ($ok) {
-            $n = gcal_backfill();
-            flash('success', "Conectado al calendario «{$cal['summary']}». " . ($n ? "Se sincronizaron $n solicitud(es)." : 'Las solicitudes nuevas aparecerán automáticamente.'));
-        } else {
-            flash('error', 'No se pudo conectar con Google Calendar: ' . ($err ?: 'cargá el ID del calendario y la clave JSON.') . ' Verificá que el calendario esté compartido con la cuenta de servicio con permiso «Hacer cambios en eventos».');
+        if ($code !== 200) {
+            flash('error', 'No se pudo conectar con Google Calendar: ' . ($err ?: 'cargá el ID del calendario y la clave JSON.'));
+            redirect('/admin/configuracion#gcal');
         }
+        if ($old = setting('gcal_test_event_id')) gcal_api('DELETE', '/events/' . rawurlencode($old));
+        [$code, $ev] = gcal_api('POST', '/events', [
+            'summary' => '✅ Evento de prueba — Portal RRHH',
+            'description' => 'Evento creado desde Configuración → Probar Google Calendar por ' . $me['name'] . ".\nSe borra al tocar «Finalizar test» en el portal.",
+            'start' => ['date' => date('Y-m-d')],
+            'end' => ['date' => date('Y-m-d', strtotime('+1 day'))],
+            'colorId' => '10',
+            'transparency' => 'transparent',
+        ], $err);
+        if ($code >= 300 || empty($ev['id'])) {
+            flash('error', 'Conectado, pero no se pudo crear el evento de prueba: ' . $err);
+            redirect('/admin/configuracion#gcal');
+        }
+        save_setting('gcal_test_event_id', $ev['id']);
+        save_setting('gcal_test_event_link', (string) ($ev['htmlLink'] ?? ''));
+        flash('success', "Se creó el evento «✅ Evento de prueba — Portal RRHH» para hoy en el calendario «{$cal['summary']}». Revisalo en Google Calendar y, si está todo bien, tocá «Finalizar test» para borrarlo.");
+        redirect('/admin/configuracion#gcal');
+    } elseif ($channel === 'gcal_finish') {
+        // Paso 2 del test: borra el evento de prueba
+        $id = setting('gcal_test_event_id');
+        if ($id) {
+            [$code] = gcal_api('DELETE', '/events/' . rawurlencode($id), null, $err);
+            $ok = $code < 300 || $code === 404 || $code === 410;
+            if ($ok) {
+                save_setting('gcal_test_event_id', '');
+                save_setting('gcal_test_event_link', '');
+            }
+            flash($ok ? 'success' : 'error', $ok ? 'Test finalizado: el evento de prueba se borró del calendario. Ciclo completo OK (crear → ver → borrar).' : 'No se pudo borrar el evento de prueba: ' . $err);
+        }
+        redirect('/admin/configuracion#gcal');
     } elseif ($channel === 'gchat') {
-        $ok = send_gchat("✅ Prueba del Portal RRHH Intellihelp: las notificaciones llegan a este espacio.
-" . url('/'), $err);
+        $ok = send_gchat("✅ Prueba del Portal RRHH Intellihelp: las notificaciones llegan a este espacio.\n" . url('/'), $err);
         flash($ok ? 'success' : 'error', $ok ? 'Mensaje de prueba enviado al espacio de Google Chat.' : 'No se pudo enviar: ' . ($err ?: 'cargá la URL del webhook.'));
     } else {
         $u = $me;

@@ -90,7 +90,7 @@ function gcal_event_payload(array $r): array
     $pending = $r['status'] === 'pending';
     $lines = [
         $r['user_name'] . ' — ' . $r['type_name'],
-        fdays($r['days']) . ' ' . ($r['counting'] === 'habiles' ? 'hábiles' : 'corridos'),
+        fdays_kind($r['days'], $r['counting']),
         'Estado: ' . (STATUS_LABELS[$r['status']] ?? $r['status']) . ($r['decider_name'] && !$pending ? ' por ' . $r['decider_name'] : ''),
     ];
     if ($pending) $lines[] = 'Autoriza: ' . ($r['approver_name'] ?: 'RRHH');

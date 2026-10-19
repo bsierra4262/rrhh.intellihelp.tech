@@ -339,7 +339,7 @@ function api_days(): void
     $hol = array_map(fn($h) => fdate($h['date'], false) . ' ' . $h['name'], rows('SELECT * FROM holidays WHERE date BETWEEN ? AND ? ORDER BY date', [$from, $to]));
     echo json_encode([
         'days' => $days,
-        'label' => fdays($days) . ' ' . ($type['counting'] === 'habiles' ? 'hábiles' : 'corridos'),
+        'label' => fdays_kind($days, $type['counting']),
         'return' => $to >= $from ? flongdate(next_working_day($to)) : null,
         'holidays' => $type['counting'] === 'habiles' ? $hol : [],
         'errors' => $errors,

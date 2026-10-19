@@ -154,6 +154,13 @@ function fdays(float|string $n): string
     return $s . ' ' . ($n == 1.0 ? 'día' : 'días');
 }
 
+/** "1 día hábil", "3 días corridos"… */
+function fdays_kind(float|string $n, string $counting): string
+{
+    $one = (float) $n == 1.0;
+    return fdays($n) . ' ' . ($counting === 'habiles' ? ($one ? 'hábil' : 'hábiles') : ($one ? 'corrido' : 'corridos'));
+}
+
 function valid_date(string $d): bool
 {
     $dt = DateTime::createFromFormat('Y-m-d', $d);
