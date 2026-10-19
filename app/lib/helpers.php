@@ -298,6 +298,15 @@ function defer(callable $fn): void
     $queue[] = $fn;
 }
 
+function support_email(): string
+{
+    try {
+        return setting('support_email', 'soporte@intellihelp.tech') ?: 'soporte@intellihelp.tech';
+    } catch (Throwable) {
+        return 'soporte@intellihelp.tech';
+    }
+}
+
 function log_line(string $file, string $msg): void
 {
     @file_put_contents(STORAGE . '/logs/' . $file, '[' . date('Y-m-d H:i:s') . '] ' . $msg . PHP_EOL, FILE_APPEND);

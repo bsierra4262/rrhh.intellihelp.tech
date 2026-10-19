@@ -87,6 +87,7 @@ function mail_template(string $heading, string $intro, array $rows = [], ?array 
         . ($tr ? '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-top:1px solid #eee;border-bottom:1px solid #eee;margin:4px 0">' . $tr . '</table>' : '')
         . $btn . ($footerHtml ? '<p style="margin:16px 0 0;font-size:13px;color:#6b6f7b;line-height:1.5">' . $footerHtml . '</p>' : '')
         . '</td></tr><tr><td style="padding:22px 28px 26px;font-size:12px;color:#9a9daa;border-top:1px solid #f0edf5;margin-top:16px">'
-        . 'Portal de Recursos Humanos · Intellihelp<br>Este es un mensaje automático, no respondas a este correo.</td></tr>'
+        . 'Portal de Recursos Humanos · Intellihelp<br>Este es un mensaje automático, no respondas a este correo.<br>'
+        . '¿Problemas con la plataforma? Escribí a <a href="mailto:' . e(support_email()) . '" style="color:#663399">' . e(support_email()) . '</a></td></tr>'
         . '</table></td></tr></table></body></html>';
 }

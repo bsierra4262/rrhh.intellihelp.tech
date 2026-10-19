@@ -8,6 +8,7 @@
     <div class="card-head"><h2><?= icon('settings') ?> General</h2></div>
     <div class="form-grid">
       <label class="field"><span>Nombre de la empresa</span><input name="company_name" value="<?= e($s['company_name']) ?>"></label>
+      <label class="field"><span>Correo de soporte de la plataforma</span><input type="email" name="support_email" value="<?= e($s['support_email'] ?: 'soporte@intellihelp.tech') ?>"><small class="muted">Se muestra en el ingreso, en los errores y en el pie de los emails.</small></label>
       <label class="field"><span>Casilla de RRHH (recibe copia de todo)</span><input type="email" name="hr_email" value="<?= e($s['hr_email']) ?>" placeholder="rrhh@intellihelp.tech"></label>
       <label class="field"><span>Aprobador por defecto</span>
         <select name="default_approver_id">
@@ -100,6 +101,15 @@
       <small class="muted">Gratis con Google Workspace. En Google Chat: creá un espacio (ej. «RRHH – Aprobaciones»), sumá a quienes autorizan → Apps e integraciones → Webhooks → Agregar, y pegá la URL acá. Cada novedad llega como notificación al celular.</small>
     </label>
   </section>
+
+  <details class="card">
+    <summary class="card-head" style="cursor:pointer;margin:0"><h2><?= icon('key') ?> Cuenta para funciones con IA <small class="muted">(<?= $s['ai_smtp_user'] ? e($s['ai_smtp_user']) : 'sin configurar' ?>)</small></h2></summary>
+    <div class="form-grid" style="margin-top:14px">
+      <label class="field"><span>Correo</span><input type="email" name="ai_smtp_user" value="<?= e($s['ai_smtp_user']) ?>" placeholder="ithos@intellihelp.tech"></label>
+      <label class="field"><span>Contraseña de aplicación</span><input type="password" name="ai_smtp_pass" value="<?= e($s['ai_smtp_pass']) ?>" autocomplete="new-password"></label>
+    </div>
+    <small class="muted">Reservada para futuras funciones con IA (asistente, resúmenes automáticos). Se guarda cifrada.</small>
+  </details>
 
   <div class="form-foot end"><button class="btn btn-primary btn-lg"><?= icon('check', 18) ?> Guardar configuración</button></div>
 </form>

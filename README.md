@@ -29,7 +29,7 @@ public_html/         → docroot: index.php (front controller), .htaccess, asset
 | Canal | Estado | Para qué |
 |---|---|---|
 | Portal (campanita) | ✅ | Todos |
-| Email (SMTP `helpdesk@intellihelp.tech`) | ✅ | Solicitante, aprobadores y RRHH ("A todos") |
+| Email (SMTP `helpdesk@intellihelp.tech`; soporte: `soporte@intellihelp.tech`) | ✅ | Solicitante, aprobadores y RRHH ("A todos") |
 | Google Chat (webhook) | Configurar | Espacio de aprobadores: nuevas solicitudes, licencias, certificados, decisiones, recordatorios |
 | Google Calendar (cuenta de servicio) | Configurar | Calendario compartido: amarillo pendiente, verde aprobada, violeta informada; se borra si se rechaza/cancela |
 | WhatsApp | Desactivado | Drivers disponibles: Evolution API / WAHA (autoalojado), CallMeBot, Cloud API de Meta |

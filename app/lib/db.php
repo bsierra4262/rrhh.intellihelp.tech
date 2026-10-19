@@ -60,7 +60,7 @@ function update(string $table, int $id, array $data): void
 }
 
 // ---------- settings (secretos cifrados con app_key) ----------
-const SECRET_SETTINGS = ['smtp_pass', 'wa_cloud_token', 'wa_gw_key', 'gchat_webhook', 'gcal_sa_json'];
+const SECRET_SETTINGS = ['smtp_pass', 'wa_cloud_token', 'wa_gw_key', 'gchat_webhook', 'gcal_sa_json', 'ai_smtp_pass'];
 
 function setting(string $key, string $default = ''): string
 {

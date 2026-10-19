@@ -54,7 +54,7 @@
         <div class="alert alert-<?= e($f['type']) ?>"><?= icon($f['type'] === 'success' ? 'check-circle' : ($f['type'] === 'error' ? 'x-circle' : 'info')) ?><span><?= e($f['msg']) ?></span></div>
       <?php endforeach ?>
       <?= $content ?>
-      <p class="auth-help">¿Problemas para ingresar? Escribí a <a href="mailto:helpdesk@intellihelp.tech">helpdesk@intellihelp.tech</a></p>
+      <p class="auth-help">¿Problemas para ingresar? Escribí a <a href="mailto:<?= e(support_email()) ?>"><?= e(support_email()) ?></a></p>
     </div>
   </section>
 </div>

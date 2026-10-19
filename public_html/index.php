@@ -16,5 +16,5 @@ try {
     if (config('debug')) {
         throw $ex;
     }
-    abort(500, 'Ocurrió un error inesperado. Si persiste, avisá a RRHH.');
+    abort(500, 'Ocurrió un error inesperado.');
 }
