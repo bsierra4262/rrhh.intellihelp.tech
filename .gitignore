@@ -1,0 +1,10 @@
+# Secretos y datos del servidor
+app/config.php
+app/storage/
+app/vendor/
+
+# Sistema / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

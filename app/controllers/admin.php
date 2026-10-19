@@ -1,0 +1,256 @@
+<?php
+declare(strict_types=1);
+
+function admin_users(): void
+{
+    require_role('hr', 'admin');
+    $q = trim((string) ($_GET['q'] ?? ''));
+    $sql = 'SELECT u.*, m.name AS manager_name FROM users u LEFT JOIN users m ON m.id = u.manager_id';
+    $p = [];
+    if ($q !== '') {
+        $sql .= ' WHERE u.name LIKE ? OR u.email LIKE ? OR u.department LIKE ? OR u.company LIKE ?';
+        $p = ["%$q%", "%$q%", "%$q%", "%$q%"];
+    }
+    $users = rows($sql . ' ORDER BY u.pending_approval DESC, u.active DESC, u.name', $p);
+    $year = (int) date('Y');
+    foreach ($users as &$u) {
+        $u['vac_total'] = vacation_entitlement($u, $year);
+        $u['vac_used'] = vacation_used((int) $u['id'], $year, "'approved'");
+    }
+    unset($u);
+    view('admin/users', ['title' => 'Personas', 'users' => $users, 'q' => $q]);
+}
+
+function admin_user_form(int $id = 0): void
+{
+    require_role('hr', 'admin');
+    $u = $id ? row('SELECT * FROM users WHERE id = ?', [$id]) : null;
+    if ($id && !$u) abort(404);
+    view('admin/user_form', [
+        'title' => $u ? 'Editar persona' : 'Nueva persona',
+        'u' => $u,
+        'managers' => rows("SELECT id, name FROM users WHERE active = 1 AND role IN ('manager','hr','admin')" . ($id ? ' AND id <> ' . $id : '') . ' ORDER BY name'),
+        'companies' => array_column(rows('SELECT DISTINCT company FROM users WHERE company IS NOT NULL AND company <> "" ORDER BY company'), 'company'),
+        'departments' => array_column(rows('SELECT DISTINCT department FROM users WHERE department IS NOT NULL AND department <> "" ORDER BY department'), 'department'),
+    ]);
+}
+
+function admin_user_save(int $id = 0): void
+{
+    $me = require_login();
+    require_role('hr', 'admin');
+    remember_input();
+    $back = $id ? "/admin/usuarios/$id" : '/admin/usuarios/nuevo';
+    $email = mb_strtolower(post('email'));
+    $role = post('role');
+    $data = [
+        'name' => mb_substr(post('name'), 0, 120),
+        'email' => $email,
+        'role' => isset(ROLE_LABELS[$role]) ? $role : 'employee',
+        'manager_id' => (int) post('manager_id') ?: null,
+        'department' => mb_substr(post('department'), 0, 120) ?: null,
+        'company' => mb_substr(post('company'), 0, 120) ?: null,
+        'position' => mb_substr(post('position'), 0, 120) ?: null,
+        'phone' => preg_replace('/[^\d+]/', '', post('phone')) ?: null,
+        'hire_date' => valid_date(post('hire_date')) ? post('hire_date') : null,
+        'vacation_days_override' => post('vacation_days_override') === '' ? null : max(0, (int) post('vacation_days_override')),
+        'active' => isset($_POST['active']) ? 1 : 0,
+    ];
+    if ($data['name'] === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        flash('error', 'Completá nombre y un email válido.');
+        redirect($back);
+    }
+    if (val('SELECT id FROM users WHERE email = ? AND id <> ?', [$email, $id])) {
+        flash('error', 'Ya existe una persona con ese email.');
+        redirect($back);
+    }
+    // Solo un admin puede crear/asignar admins
+    if ($data['role'] === 'admin' && $me['role'] !== 'admin') {
+        flash('error', 'Solo un administrador puede asignar el rol Administrador/a.');
+        redirect($back);
+    }
+    if ($id && $id === (int) $me['id'] && (!$data['active'] || $data['role'] !== $me['role'])) {
+        flash('error', 'No podés desactivarte ni cambiar tu propio rol.');
+        redirect($back);
+    }
+
+    if ($id) {
+        $target = row('SELECT role FROM users WHERE id = ?', [$id]);
+        if ($target['role'] === 'admin' && $me['role'] !== 'admin') abort(403, 'Solo un administrador puede editar a otro administrador.');
+        if (val('SELECT pending_approval FROM users WHERE id = ?', [$id])) unset($data['active']); // se activa con «Aprobar acceso»
+        update('users', $id, $data);
+        flash('success', 'Datos actualizados.');
+    } else {
+        $pass = random_password();
+        $data['password_hash'] = password_hash($pass, PASSWORD_DEFAULT);
+        $data['must_change_password'] = 1;
+        $data['calendar_token'] = bin2hex(random_bytes(20));
+        $id = insert('users', $data);
+        $sent = isset($_POST['send_welcome']) && send_welcome($data, $pass);
+        $_SESSION['new_password'] = ['name' => $data['name'], 'email' => $email, 'pass' => $pass, 'sent' => $sent];
+        flash('success', 'Persona creada.');
+    }
+    forget_input();
+    redirect("/admin/usuarios/$id");
+}
+
+function send_welcome(array $u, string $pass): bool
+{
+    return send_mail($u['email'], 'Tu acceso al Portal de RRHH de Intellihelp', mail_template(
+        '¡Bienvenido/a al Portal de RRHH!',
+        'Hola ' . e($u['name']) . ', desde ahora podés pedir vacaciones, días de estudio e informar licencias desde el portal. Al ingresar por primera vez te vamos a pedir que cambies la contraseña.',
+        [['Usuario', e($u['email'])], ['Contraseña temporal', '<code style="font-size:15px">' . e($pass) . '</code>']],
+        ['Ingresar al portal', url('/login')]
+    ));
+}
+
+function admin_user_reset_password(int $id): void
+{
+    $me = require_login();
+    require_role('hr', 'admin');
+    $u = row('SELECT * FROM users WHERE id = ?', [$id]);
+    if (!$u) abort(404);
+    if ($u['role'] === 'admin' && $me['role'] !== 'admin') abort(403);
+    $pass = random_password();
+    q('UPDATE users SET password_hash = ?, must_change_password = 1 WHERE id = ?', [password_hash($pass, PASSWORD_DEFAULT), $id]);
+    $sent = isset($_POST['send']) && send_welcome($u, $pass);
+    $_SESSION['new_password'] = ['name' => $u['name'], 'email' => $u['email'], 'pass' => $pass, 'sent' => $sent];
+    flash('success', 'Contraseña restablecida.');
+    redirect("/admin/usuarios/$id");
+}
+
+function admin_types(): void
+{
+    require_role('hr', 'admin');
+    view('admin/types', ['title' => 'Tipos de licencia', 'types' => leave_types(false)]);
+}
+
+function admin_types_save(): void
+{
+    require_role('hr', 'admin');
+    $id = (int) post('id');
+    $data = [
+        'name' => mb_substr(post('name'), 0, 80),
+        'description' => mb_substr(post('description'), 0, 255) ?: null,
+        'color' => preg_match('/^#[0-9a-fA-F]{6}$/', post('color')) ? post('color') : '#663399',
+        'requires_approval' => isset($_POST['requires_approval']) ? 1 : 0,
+        'requires_document' => isset($_POST['requires_document']) ? 1 : 0,
+        'document_label' => mb_substr(post('document_label'), 0, 120) ?: null,
+        'max_days_per_year' => post('max_days_per_year') === '' ? null : max(1, (int) post('max_days_per_year')),
+        'max_days_per_request' => post('max_days_per_request') === '' ? null : max(1, (int) post('max_days_per_request')),
+        'counting' => post('counting') === 'habiles' ? 'habiles' : 'corridos',
+        'uses_vacation_balance' => isset($_POST['uses_vacation_balance']) ? 1 : 0,
+        'min_notice_days' => max(0, (int) post('min_notice_days')),
+        'active' => isset($_POST['active']) ? 1 : 0,
+        'sort' => (int) post('sort'),
+    ];
+    if ($data['name'] === '') {
+        flash('error', 'El nombre es obligatorio.');
+        redirect('/admin/tipos');
+    }
+    if ($id) {
+        update('leave_types', $id, $data);
+    } else {
+        $data['code'] = substr(preg_replace('/[^a-z0-9]+/', '-', mb_strtolower(iconv('UTF-8', 'ASCII//TRANSLIT', $data['name']))), 0, 24) . '-' . random_int(100, 999);
+        insert('leave_types', $data);
+    }
+    flash('success', 'Tipo de licencia guardado.');
+    redirect('/admin/tipos');
+}
+
+function admin_holidays(): void
+{
+    require_role('hr', 'admin');
+    $year = (int) ($_GET['anio'] ?? date('Y'));
+    view('admin/holidays', [
+        'title' => 'Feriados',
+        'year' => $year,
+        'list' => rows('SELECT * FROM holidays WHERE YEAR(date) = ? ORDER BY date', [$year]),
+    ]);
+}
+
+function admin_holidays_save(): void
+{
+    require_role('hr', 'admin');
+    if ($del = (int) post('delete')) {
+        q('DELETE FROM holidays WHERE id = ?', [$del]);
+        flash('success', 'Feriado eliminado.');
+    } elseif (valid_date(post('date')) && post('name') !== '') {
+        q('INSERT INTO holidays (date, name) VALUES (?, ?) ON DUPLICATE KEY UPDATE name = VALUES(name)', [post('date'), mb_substr(post('name'), 0, 120)]);
+        flash('success', 'Feriado guardado.');
+    } else {
+        flash('error', 'Completá fecha y nombre.');
+    }
+    redirect('/admin/feriados?anio=' . substr(post('date') ?: date('Y'), 0, 4));
+}
+
+const SETTING_KEYS = ['company_name', 'hr_email', 'mail_driver', 'mail_from', 'mail_from_name', 'smtp_host', 'smtp_port', 'smtp_secure', 'smtp_user', 'smtp_pass',
+    'wa_driver', 'wa_cloud_token', 'wa_cloud_phone_id', 'wa_cloud_template', 'wa_cloud_lang', 'reminder_hours',
+    'wa_gw_url', 'wa_gw_key', 'wa_gw_instance', 'gchat_webhook', 'default_approver_id', 'signup_enabled', 'signup_domain',
+    'event_email', 'gcal_calendar_id', 'gcal_sa_json'];
+
+function admin_settings(): void
+{
+    require_role('admin', 'hr');
+    $s = [];
+    foreach (SETTING_KEYS as $k) $s[$k] = in_array($k, SECRET_SETTINGS, true) ? (setting($k) !== '' ? '••••••••' : '') : setting($k);
+    view('admin/settings', [
+        'title' => 'Configuración',
+        's' => $s,
+        'approvers' => rows("SELECT id, name, position FROM users WHERE active = 1 AND role IN ('manager','hr','admin') ORDER BY name"),
+    ]);
+}
+
+function admin_settings_save(): void
+{
+    require_role('admin', 'hr');
+    foreach (SETTING_KEYS as $k) {
+        if (!array_key_exists($k, $_POST)) continue;
+        $v = trim((string) $_POST[$k]);
+        if ($k === 'gcal_sa_json' && $v !== '' && $v !== '••••••••') {
+            $j = json_decode($v, true);
+            if (!is_array($j) || empty($j['client_email']) || empty($j['private_key'])) {
+                flash('error', 'La clave de Google Calendar no es un JSON de cuenta de servicio válido. No se guardó.');
+                continue;
+            }
+            @unlink(STORAGE . '/gcal_token.json');
+        }
+        if (in_array($k, SECRET_SETTINGS, true) && ($v === '••••••••')) continue; // sin cambios
+        save_setting($k, $v);
+    }
+    save_setting('signup_enabled', isset($_POST['signup_enabled']) ? '1' : '0');
+    flash('success', 'Configuración guardada.');
+    redirect('/admin/configuracion');
+}
+
+function admin_settings_test(): void
+{
+    $me = require_login();
+    require_role('admin', 'hr');
+    $channel = post('channel');
+    $err = null;
+    if ($channel === 'mail') {
+        $to = post('to') ?: $me['email'];
+        $ok = send_mail($to, 'Prueba de email — Portal RRHH', mail_template('¡El email funciona!', 'Este es un correo de prueba enviado desde el Portal de RRHH de Intellihelp.', [['Enviado', e(fdatetime(date('Y-m-d H:i:s')))]], ['Abrir el portal', url('/')]), [], null, $err);
+        flash($ok ? 'success' : 'error', $ok ? "Email de prueba enviado a $to." : 'No se pudo enviar: ' . $err);
+    } elseif ($channel === 'gcal') {
+        [$code, $cal] = gcal_enabled() ? gcal_api('GET', '', null, $err) : [0, null];
+        $ok = $code === 200;
+        if ($ok) {
+            $n = gcal_backfill();
+            flash('success', "Conectado al calendario «{$cal['summary']}». " . ($n ? "Se sincronizaron $n solicitud(es)." : 'Las solicitudes nuevas aparecerán automáticamente.'));
+        } else {
+            flash('error', 'No se pudo conectar con Google Calendar: ' . ($err ?: 'cargá el ID del calendario y la clave JSON.') . ' Verificá que el calendario esté compartido con la cuenta de servicio con permiso «Hacer cambios en eventos».');
+        }
+    } elseif ($channel === 'gchat') {
+        $ok = send_gchat("✅ Prueba del Portal RRHH Intellihelp: las notificaciones llegan a este espacio.
+" . url('/'), $err);
+        flash($ok ? 'success' : 'error', $ok ? 'Mensaje de prueba enviado al espacio de Google Chat.' : 'No se pudo enviar: ' . ($err ?: 'cargá la URL del webhook.'));
+    } else {
+        $u = $me;
+        $u['notify_whatsapp'] = 1;
+        $ok = send_whatsapp($u, "✅ Prueba de WhatsApp del Portal RRHH Intellihelp\n" . url('/'), $err);
+        flash($ok ? 'success' : 'error', $ok ? 'WhatsApp de prueba enviado a ' . $me['phone'] . '.' : 'No se pudo enviar: ' . ($err ?: 'revisá driver, tu teléfono y apikey en Mi perfil.'));
+    }
+    redirect('/admin/configuracion');
+}
