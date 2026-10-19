@@ -24,13 +24,36 @@ public_html/         → docroot: index.php (front controller), .htaccess, asset
 - Roles: Colaborador/a, Responsable de equipo (autoriza a su equipo), RRHH (ve y autoriza todo), Administrador/a.
 - Cada persona tiene un feed iCal personal (Calendario / Mi perfil) para suscribirse desde Google Calendar.
 
-## Configuración pendiente
+## Notificaciones
 
-1. **Email** — ✅ configurado: `smtp.gmail.com`, 587, STARTTLS, cuenta `helpdesk@intellihelp.tech` con contraseña de aplicación (Administración → Configuración).
-2. **WhatsApp** — CallMeBot (gratis, cada persona carga su apikey en Mi perfil) o WhatsApp Cloud API de Meta (token, phone number id y plantilla aprobada con un parámetro `{{1}}`).
-3. **Cron** (hPanel → Avanzado → Cron Jobs, cada hora):
-   `/usr/bin/php /home/uXXXXXXXXX/domains/rrhh.intellihelp.tech/app/cron.php`
-4. Revisar los feriados 2026 cargados y agregar los de 2027.
+| Canal | Estado | Para qué |
+|---|---|---|
+| Portal (campanita) | ✅ | Todos |
+| Email (SMTP `helpdesk@intellihelp.tech`) | ✅ | Solicitante, aprobadores y RRHH ("A todos") |
+| Google Chat (webhook) | Configurar | Espacio de aprobadores: nuevas solicitudes, licencias, certificados, decisiones, recordatorios |
+| Google Calendar (cuenta de servicio) | Configurar | Calendario compartido: amarillo pendiente, verde aprobada, violeta informada; se borra si se rechaza/cancela |
+| WhatsApp | Desactivado | Drivers disponibles: Evolution API / WAHA (autoalojado), CallMeBot, Cloud API de Meta |
+
+### Google Chat
+1. Google Chat → Nuevo espacio "RRHH – Aprobaciones" → sumar a los aprobadores.
+2. En el espacio: Apps e integraciones → Webhooks → Agregar → copiar la URL.
+3. Portal: Administración → Configuración → Google Chat → pegar → Guardar → "Probar Google Chat".
+
+### Google Calendar
+1. https://console.cloud.google.com → crear proyecto "RRHH Intellihelp".
+2. APIs y servicios → Biblioteca → **Google Calendar API** → Habilitar.
+3. IAM → Cuentas de servicio → Crear ("rrhh-calendar") → Claves → Agregar clave → JSON (se descarga un archivo).
+4. Google Calendar → Otros calendarios → Crear calendario "Licencias Intellihelp" → Configuración → Compartir con personas específicas:
+   - el `client_email` de la cuenta de servicio → **Hacer cambios en eventos**
+   - los aprobadores → Ver todos los detalles del evento
+5. Copiar el **ID del calendario** (Integrar el calendario).
+6. Portal: Configuración → Google Calendar → pegar ID y el contenido del JSON → Guardar → "Probar Google Calendar".
+
+## Cron
+
+Configurado en hPanel (Avanzado → Cron Jobs):
+`/usr/bin/php /home/uXXXXXXXXX/domains/rrhh.intellihelp.tech/app/cron.php`
+Envía recordatorios de solicitudes pendientes (cada N horas, Configuración) y reintenta la sincronización con Google Calendar.
 
 ## Deploy
 
