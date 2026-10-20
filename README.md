@@ -58,20 +58,31 @@ Solicitudes por autorizar, ausentes del día y próximos 14 días, y días dispo
 
 ### Nueva solicitud
 
-Selección del tipo de licencia, cálculo automático de días (corridos o hábiles, descontando feriados), fecha de regreso, validación de días disponibles y adjuntos.
+Tres pasos: qué se necesita, cuándo y un detalle opcional. Calcula los días (corridos o hábiles, descontando feriados), la fecha de regreso y valida los días disponibles. Al final, el mapa **«Cómo sigue tu solicitud»** muestra las etapas del tipo elegido. La documentación no se adjunta al pedir: se entrega después, como una etapa más.
 
 <p align="center"><img src="docs/screenshots/nueva-solicitud.png" alt="Nueva solicitud" width="100%"></p>
 
+<table>
+  <tr>
+    <td width="50%"><b>Calendario de selección de fechas</b><br><img src="docs/screenshots/calendario-selector.png" alt="Selector de fechas"></td>
+    <td width="50%"><b>Trámite por horario</b><br><img src="docs/screenshots/tramite-formulario.png" alt="Trámite por horario"></td>
+  </tr>
+</table>
+
 ### Seguimiento y decisión
 
-Cada solicitud muestra su **seguimiento por etapas** (solicitada, autorización, documentación, verificación y registro), con la etapa actual destacada. Junto a la decisión se ven los días disponibles del colaborador y las superposiciones con el equipo.
+Cada solicitud muestra su **seguimiento por etapas** (solicitada, autorización, ausencia registrada, documentación y verificación), con la etapa actual destacada. Junto a la decisión se ven los días disponibles del colaborador, las superposiciones con el equipo y el **plazo de entrega de la documentación**, automático o elegido por quien autoriza.
 
 <p align="center"><img src="docs/screenshots/decision-responsable.png" alt="Autorizar o rechazar" width="100%"></p>
 
 <table>
   <tr>
     <td width="50%"><b>Por autorizar</b><br><img src="docs/screenshots/aprobaciones.png" alt="Bandeja de aprobaciones"></td>
-    <td width="50%"><b>Licencia por enfermedad con certificado</b><br><img src="docs/screenshots/licencia-enfermedad.png" alt="Licencia por enfermedad"></td>
+    <td width="50%"><b>Enfermedad informada con certificado pendiente</b><br><img src="docs/screenshots/licencia-enfermedad.png" alt="Licencia por enfermedad"></td>
+  </tr>
+  <tr>
+    <td width="50%"><b>Constancia de examen con plazo de entrega</b><br><img src="docs/screenshots/seguimiento-documentacion.png" alt="Seguimiento de documentación"></td>
+    <td width="50%"><b>Trámite pendiente de autorización</b><br><img src="docs/screenshots/tramite-detalle.png" alt="Detalle de trámite"></td>
   </tr>
   <tr>
     <td width="50%"><b>Calendario del equipo</b><br><img src="docs/screenshots/calendario.png" alt="Calendario"></td>
@@ -82,6 +93,12 @@ Cada solicitud muestra su **seguimiento por etapas** (solicitada, autorización,
     <td width="50%"><b>Tipos de licencia configurables</b><br><img src="docs/screenshots/tipos-de-licencia.png" alt="Tipos de licencia"></td>
   </tr>
 </table>
+
+### Reportes (administradores)
+
+Licencias aprobadas que impactan en vacaciones, con filtros por período y persona, **descarga en Excel con formato de tabla** y envío mensual automático por correo.
+
+<p align="center"><img src="docs/screenshots/reportes.png" alt="Reportes" width="100%"></p>
 
 ### Celular
 
@@ -100,13 +117,14 @@ Cada solicitud muestra su **seguimiento por etapas** (solicitada, autorización,
 ## Funcionalidades
 
 ### Colaboradores
-- Solicitud de **vacaciones, días de estudio/examen, trámites, mudanza, matrimonio, nacimiento, fallecimiento, maternidad, donación de sangre** y **enfermedad**.
+- Solicitud de **vacaciones, días de estudio/examen, día personal, trámites, mudanza, matrimonio, nacimiento, fallecimiento, maternidad, donación de sangre** y **enfermedad**.
+- **Trámites por horario**: día en un calendario y horario de salida y regreso; no impactan en las vacaciones.
 - Cálculo automático de días **corridos o hábiles**, descontando fines de semana y **feriados nacionales**.
 - **Días disponibles** por tipo de licencia; vacaciones calculadas según antigüedad conforme a la **LCT (art. 150)**: 14, 21, 28 o 35 días.
 - Solo las vacaciones descuentan días de vacaciones; en el **día personal**, quien autoriza decide si se descuenta.
-- La carga de adjuntos aparece únicamente en los tipos de licencia que admiten documentación.
+- La documentación (certificados y constancias) se entrega **después** de pedir la licencia: una vez autorizada o, si solo se informa, cuando se tenga, dentro de un **plazo** con recordatorio previo.
 - Validaciones: superposición de fechas, topes anuales y por solicitud, anticipación sugerida.
-- Carga de **certificados y constancias** (PDF o foto, también desde la cámara del celular).
+- Entrega de **certificados y constancias** en PDF o foto, también desde la cámara del celular.
 - Historial completo, cancelación de solicitudes y notificaciones dentro del portal.
 - Calendario personal suscribible (iCal).
 
@@ -114,7 +132,8 @@ Cada solicitud muestra su **seguimiento por etapas** (solicitada, autorización,
 - Bandeja **Por autorizar** con aprobación en un clic; el rechazo exige un motivo.
 - **Descuento opcional de vacaciones** en el día personal, validando los días disponibles del colaborador.
 - Alerta de **superposición** con otras ausencias del equipo o del área.
-- Verificación u **observación de documentación** médica.
+- Verificación u **observación de documentación**; una observación otorga un nuevo plazo de 48 h.
+- **Plazos de entrega de documentación**: automáticos según el tipo de licencia o fijados por quien autoriza; aviso al colaborador antes del vencimiento y aviso al responsable y RRHH si vence.
 - **Calendario** mensual de ausencias y listado general con **filtros y exportación CSV**.
 - **Recordatorios automáticos** de solicitudes pendientes.
 - Carga de licencias en nombre de un colaborador (con aprobación directa opcional).
@@ -122,7 +141,8 @@ Cada solicitud muestra su **seguimiento por etapas** (solicitada, autorización,
 ### Administración
 - Alta de **personas** con rol, responsable directo, área, empresa, fecha de ingreso y días de vacaciones manuales opcionales.
 - **Autoregistro** de colaboradores: los correos del dominio corporativo se activan solos; los de **personal tercerizado** quedan pendientes de aprobación por RRHH.
-- **Tipos de licencia** configurables: autorización, documentación obligatoria, topes, forma de conteo, color.
+- **Tipos de licencia** configurables: autorización, documentación obligatoria y su plazo de entrega, topes, forma de conteo, descuento de vacaciones y color.
+- **Reportes** (solo administradores): exportación a Excel de las licencias que impactan en vacaciones y envío mensual automático a una o más casillas.
 - **Feriados** editables por año.
 - Configuración de **canales de notificación** con pruebas integradas (email, Google Chat, Google Calendar).
 
@@ -133,7 +153,7 @@ Cada solicitud muestra su **seguimiento por etapas** (solicitada, autorización,
 | Colaborador/a | Pide y consulta sus propias licencias |
 | Responsable de equipo | Autoriza a su equipo y ve su calendario |
 | Recursos Humanos | Ve y autoriza todo, verifica documentación, administra personas y tipos |
-| Administrador/a | Todo lo anterior más la configuración del sistema |
+| Administrador/a | Todo lo anterior más la configuración del sistema y los reportes |
 
 ## Circuito de una solicitud
 
@@ -144,8 +164,11 @@ flowchart LR
     C -->|Aviso: Chat · Email · Calendar| D[Responsable / RRHH]
     D -->|Autoriza| E[Aprobada]
     D -->|Rechaza con motivo| F[Rechazada]
-    B -- No --> G[Informada<br>con certificado]
-    G -->|Aviso a RRHH y responsable| H[RRHH verifica<br>documentación]
+    B -- No --> G[Informada]
+    G -->|Aviso a RRHH y responsable| R[Ausencia registrada]
+    E --> R
+    R --> P[Entrega de documentación<br>dentro del plazo]
+    P -->|Recordatorio y aviso de vencimiento| H[RRHH verifica<br>documentación]
     E --> I[(Google Calendar<br>en verde)]
     C --> J[(Google Calendar<br>en amarillo)]
     F --> K[Se borra<br>del calendario]
@@ -182,6 +205,7 @@ Aplicación **PHP 8.3 sin framework**, pensada para hosting compartido: sin proc
 │   │   ├── leave.php       # Reglas de negocio: conteo de días, vacaciones LCT, etapas, validaciones
 │   │   ├── notify.php      # Orquestación de notificaciones por evento
 │   │   ├── gcal.php        # Cliente de Google Calendar (JWT de cuenta de servicio)
+│   │   ├── reports.php     # Reportes de vacaciones en Excel y envío mensual
 │   │   ├── mailer.php      # Envío SMTP y plantilla de email
 │   │   ├── gchat.php       # Notificaciones a Google Chat
 │   │   ├── http.php        # Cliente HTTP (cURL)
@@ -191,7 +215,7 @@ Aplicación **PHP 8.3 sin framework**, pensada para hosting compartido: sin proc
 │   ├── sql/                # Esquema, datos iniciales y migraciones idempotentes
 │   ├── cron.php            # Recordatorios y resincronización
 │   └── install.php         # Instalador por línea de comandos
-├── public_html/            # Docroot: front controller, .htaccess y assets
+├── public_html/            # Docroot: front controller, .htaccess y assets (ui.js: calendario y listas)
 └── docs/                   # Banner y capturas
 ```
 
@@ -200,6 +224,7 @@ Aplicación **PHP 8.3 sin framework**, pensada para hosting compartido: sin proc
 | Backend | PHP 8.3 (PDO, cURL, OpenSSL, fileinfo) |
 | Base de datos | MariaDB 11 / MySQL 8 |
 | Email | PHPMailer (SMTP de Google Workspace) |
+| Reportes | PhpSpreadsheet (Excel con formato de tabla) |
 | Integraciones | Google Calendar API, Google Chat Webhooks, iCalendar |
 | Frontend | HTML + CSS propio + JavaScript sin dependencias |
 | Identidad | Tipografía Saira · paleta `#663399` · `#9f88b1` · `#fff6ff` · `#fffade` · colores planos |

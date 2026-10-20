@@ -277,6 +277,53 @@ function fdays_kind(float|string $n, string $counting): string
 }
 
 /**
+ * Duración en horas y minutos (ej. "2 h 30 min", "45 min").
+ */
+function fhours(float|string|null $h): string
+{
+    $min = (int) round((float) $h * 60);
+    $hh = intdiv($min, 60);
+    $mm = $min % 60;
+    if ($hh && $mm) {
+        return "$hh h $mm min";
+    }
+
+    return $hh ? "$hh h" : "$mm min";
+}
+
+/**
+ * Indica si la solicitud es por horario (trámite) en lugar de por días.
+ */
+function is_hourly(array $r): bool
+{
+    return !empty($r['start_time']);
+}
+
+/**
+ * Cuándo: rango de fechas, o fecha y horario para los trámites (ej. "28 oct 2026 · 10:00–12:30").
+ */
+function fwhen(array $r): string
+{
+    if (is_hourly($r)) {
+        return fdate($r['start_date']) . ' · ' . substr($r['start_time'], 0, 5) . '–' . substr($r['end_time'], 0, 5);
+    }
+
+    return frange($r['start_date'], $r['end_date']);
+}
+
+/**
+ * Duración de una solicitud: días (con su tipo de conteo) u horas para los trámites.
+ */
+function fduration(array $r, bool $withKind = true): string
+{
+    if (is_hourly($r)) {
+        return fhours($r['hours']);
+    }
+
+    return $withKind && isset($r['counting']) ? fdays_kind($r['days'], $r['counting']) : fdays($r['days']);
+}
+
+/**
  * Valida una fecha en formato Y-m-d.
  */
 function valid_date(string $d): bool
@@ -429,7 +476,8 @@ function type_icon(string $code): string
         'vacaciones' => 'sun',
         'estudio' => 'book',
         'enfermedad', 'maternidad', 'donacion' => 'heart',
-        'personal', 'mudanza' => 'clock',
+        'personal' => 'user',
+        'tramite', 'mudanza' => 'clock',
         default => 'calendar',
     };
 }

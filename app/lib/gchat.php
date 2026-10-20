@@ -29,3 +29,11 @@ function send_gchat(string $text, ?string &$error = null): bool
 
     return $ok;
 }
+
+/**
+ * Arma un mensaje de Google Chat a partir de sus líneas, omitiendo las vacías.
+ */
+function chat_message(string ...$lines): string
+{
+    return implode("\n", array_filter($lines, fn ($l) => $l !== ''));
+}

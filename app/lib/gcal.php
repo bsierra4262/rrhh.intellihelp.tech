@@ -144,8 +144,12 @@ function gcal_event_payload(array $r): array
     return [
         'summary' => ($pending ? '⏳ [Pendiente] ' : '') . $r['type_name'] . ' — ' . $r['user_name'],
         'description' => implode("\n", $lines),
-        'start' => ['date' => $r['start_date']],
-        'end' => ['date' => date('Y-m-d', strtotime($r['end_date'] . ' +1 day'))],
+        'start' => is_hourly($r)
+            ? ['dateTime' => $r['start_date'] . 'T' . $r['start_time'], 'timeZone' => config('timezone')]
+            : ['date' => $r['start_date']],
+        'end' => is_hourly($r)
+            ? ['dateTime' => $r['start_date'] . 'T' . $r['end_time'], 'timeZone' => config('timezone')]
+            : ['date' => date('Y-m-d', strtotime($r['end_date'] . ' +1 day'))],
         'colorId' => GCAL_COLORS[$r['status']] ?? '8',
         'transparency' => 'transparent',
         'source' => ['title' => 'Portal RRHH Intellihelp', 'url' => url('/solicitudes/' . $r['id'])],

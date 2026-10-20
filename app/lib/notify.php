@@ -63,8 +63,8 @@ function request_mail_rows(array $r): array
     $rows = [
         ['Colaborador/a', e($r['user_name'])],
         ['Tipo', e($r['type_name'])],
-        ['Fechas', e(frange($r['start_date'], $r['end_date']))],
-        ['Duración', e(fdays_kind($r['days'], $r['counting'])) . (!empty($r['deduct_vacation']) ? ' · descontados de vacaciones' : '')],
+        [is_hourly($r) ? 'Día y horario' : 'Fechas', e(fwhen($r))],
+        ['Duración', e(fduration($r)) . (!empty($r['deduct_vacation']) ? ' · descontados de vacaciones' : '')],
     ];
     if (!empty($r['reason'])) {
         $rows[] = ['Motivo', nl2br(e($r['reason']))];
@@ -137,7 +137,7 @@ function on_request_created(int $id): void
     gcal_sync($id);
     $r = load_request($id);
     $owner = user_by_id((int) $r['user_id']);
-    $range = frange($r['start_date'], $r['end_date']);
+    $range = fwhen($r);
 
     if ($r['status'] === 'pending') {
         foreach (approvers_for($r) as $a) {
@@ -145,11 +145,11 @@ function on_request_created(int $id): void
                 $a,
                 $r,
                 "Nueva solicitud de {$r['user_name']}: {$r['type_name']}",
-                e($r['user_name']) . ' solicitó <b>' . e($r['type_name']) . '</b> del ' . e($range) . ' (' . e(fdays($r['days'])) . '). Entrá al portal para autorizarla o rechazarla.',
+                e($r['user_name']) . ' solicitó <b>' . e($r['type_name']) . '</b> del ' . e($range) . ' (' . e(fduration($r, false)) . '). Entrá al portal para autorizarla o rechazarla.',
                 [
                     'heading' => 'Tenés una solicitud para autorizar',
                     'button' => ['Revisar y decidir', url('/solicitudes/' . $r['id'])],
-                    'gcal' => gcal_link("[Pendiente] {$r['type_name']} — {$r['user_name']}", $r['start_date'], $r['end_date'], url('/solicitudes/' . $r['id'])),
+                    'gcal' => gcal_link("[Pendiente] {$r['type_name']} — {$r['user_name']}", $r['start_date'], $r['end_date'], url('/solicitudes/' . $r['id']), $r['start_time'], $r['end_time']),
                 ]
             );
         }
@@ -159,52 +159,48 @@ function on_request_created(int $id): void
                 'link' => '/solicitudes/' . $r['id']]);
         }
         hr_copy($r, "Nueva solicitud: {$r['user_name']} — {$r['type_name']}", e($r['user_name']) . ' cargó una solicitud pendiente de autorización.');
-        send_gchat(
-            '🟣 *Nueva solicitud para autorizar*
-        '
-            . "{$r['user_name']} pidió *{$r['type_name']}* del {$range} (" . fdays($r['days']) . ')
-        '
-            . '👉 ' . url('/solicitudes/' . $r['id'])
-        );
+        send_gchat(chat_message(
+            '🟣 *Nueva solicitud para autorizar*',
+            "{$r['user_name']} pidió *{$r['type_name']}* del {$range} (" . fduration($r, false) . ')',
+            '👉 ' . url('/solicitudes/' . $r['id'])
+        ));
 
         return;
     }
 
     // Licencias que no requieren autorización: se informa al responsable y a RRHH.
-    $docs = (int) val('SELECT COUNT(*) FROM documents WHERE request_id = ?', [$r['id']]);
-    $docTxt = $docs ? ' Ya subió ' . ($r['document_label'] ? e(mb_strtolower($r['document_label'])) : 'la documentación') . ' (' . $docs . ' archivo' . ($docs > 1 ? 's' : '') . ').' : '';
+    $dueTxt = doc_due_text($r);
+    $docTxt = $dueTxt ? ' ' . e($dueTxt) . '.' : '';
     $targets = notify_unique([user_by_id((int) $r['manager_id']), ...hr_users()], (int) $r['user_id']);
     foreach ($targets as $t) {
         notify_user(
             $t,
             $r,
             "{$r['user_name']} informó {$r['type_name']}",
-            e($r['user_name']) . ' informó <b>' . e($r['type_name']) . '</b> del ' . e($range) . ' (' . e(fdays($r['days'])) . '). No requiere autorización.' . $docTxt,
+            e($r['user_name']) . ' informó <b>' . e($r['type_name']) . '</b> del ' . e($range) . ' (' . e(fduration($r, false)) . '). No requiere autorización.' . $docTxt,
             [
                 'heading' => 'Licencia informada',
-                'button' => [$docs ? 'Ver certificado y detalle' : 'Ver detalle', url('/solicitudes/' . $r['id'])],
+                'button' => ['Ver detalle', url('/solicitudes/' . $r['id'])],
                 'ics' => true,
                 'accent' => '#663399',
             ]
         );
     }
     hr_copy($r, "Licencia informada: {$r['user_name']} — {$r['type_name']}", e($r['user_name']) . ' informó una licencia.' . $docTxt);
-    send_gchat(
-        '📋 *Licencia informada*
-    '
-        . "{$r['user_name']} informó *{$r['type_name']}* del {$range} (" . fdays($r['days']) . ')
-    '
-        . ($docs ? '📎 Ya subió ' . mb_strtolower($r['document_label'] ?: 'la documentación') . '
-    ' : '')
-        . '👉 ' . url('/solicitudes/' . $r['id'])
-    );
+    send_gchat(chat_message(
+        '📋 *Licencia informada*',
+        "{$r['user_name']} informó *{$r['type_name']}* del {$range} (" . fduration($r, false) . ')',
+        $dueTxt ? '📎 ' . $dueTxt : '',
+        '👉 ' . url('/solicitudes/' . $r['id'])
+    ));
     if ($owner) {
         notify_user(
             $owner,
             $r,
             "Registramos tu licencia: {$r['type_name']}",
-            'Tu licencia de <b>' . e($r['type_name']) . '</b> del ' . e($range) . ' quedó registrada y RRHH fue notificado.' . ($docs ? ' Recibimos tu documentación.' : ''),
-            ['heading' => '¡Que te mejores!' , 'ics' => true]
+            'Tu licencia de <b>' . e($r['type_name']) . '</b> del ' . e($range) . ' quedó registrada y RRHH fue notificado.'
+            . ($dueTxt ? '<br><br><b>' . e(doc_due_text($r, true)) . '</b> desde la solicitud en el portal.' : ''),
+            ['heading' => 'Licencia registrada', 'ics' => true]
         );
     }
 }
@@ -217,7 +213,7 @@ function on_request_decided(int $id): void
     gcal_sync($id);
     $r = load_request($id);
     $owner = user_by_id((int) $r['user_id']);
-    $range = frange($r['start_date'], $r['end_date']);
+    $range = fwhen($r);
     $approved = $r['status'] === 'approved';
     $comment = $r['decision_comment'] ? '<br><br><i>«' . nl2br(e($r['decision_comment'])) . '»</i>' : '';
 
@@ -227,11 +223,12 @@ function on_request_decided(int $id): void
             $r,
             $approved ? "✅ Aprobada: {$r['type_name']} ({$range})" : "Rechazada: {$r['type_name']} ({$range})",
             e($r['decider_name']) . ($approved ? ' <b>aprobó</b>' : ' <b>rechazó</b>') . ' tu solicitud de ' . e($r['type_name']) . ' del ' . e($range) . '.'
-            . ($approved && $r['deduct_vacation'] ? ' Los días se descuentan de tus vacaciones.' : '') . $comment,
+            . ($approved && $r['deduct_vacation'] ? ' Los días se descuentan de tus vacaciones.' : '')
+            . ($approved && doc_due_text($r) ? '<br><br><b>' . e(doc_due_text($r, true)) . '</b> desde la solicitud en el portal.' : '') . $comment,
             [
                 'heading' => $approved ? '¡Tu solicitud fue aprobada!' : 'Tu solicitud fue rechazada',
                 'ics' => $approved,
-                'gcal' => $approved ? gcal_link("{$r['type_name']}", $r['start_date'], $r['end_date'], url('/solicitudes/' . $r['id'])) : null,
+                'gcal' => $approved ? gcal_link("{$r['type_name']}", $r['start_date'], $r['end_date'], url('/solicitudes/' . $r['id']), $r['start_time'], $r['end_time']) : null,
                 'accent' => $approved ? '#663399' : '#161922',
             ]
         );
@@ -245,13 +242,11 @@ function on_request_decided(int $id): void
             'title' => "{$r['decider_name']} " . ($approved ? 'aprobó' : 'rechazó') . " la solicitud de {$r['user_name']}",
             'body' => "{$r['type_name']} · {$range}", 'link' => '/solicitudes/' . $r['id']]);
     }
-    send_gchat(
-        ($approved ? '✅' : '❌') . " {$r['decider_name']} " . ($approved ? 'aprobó' : 'rechazó')
-        . " *{$r['type_name']}* de {$r['user_name']} ({$range})"
-        . ($approved && $r['deduct_vacation'] ? ' — descontado de vacaciones' : '') . '
-    '
-        . '👉 ' . url('/solicitudes/' . $r['id'])
-    );
+    send_gchat(chat_message(
+        ($approved ? '✅' : '❌') . " {$r['decider_name']} " . ($approved ? 'aprobó' : 'rechazó') . " *{$r['type_name']}* de {$r['user_name']} ({$range})"
+            . ($approved && $r['deduct_vacation'] ? ' — descontado de vacaciones' : ''),
+        '👉 ' . url('/solicitudes/' . $r['id'])
+    ));
     hr_copy($r, ($approved ? 'Aprobada' : 'Rechazada') . ": {$r['user_name']} — {$r['type_name']}", e($r['decider_name']) . ($approved ? ' aprobó' : ' rechazó') . ' la solicitud.' . $comment);
 }
 
@@ -262,14 +257,14 @@ function on_request_cancelled(int $id, string $prevStatus): void
 {
     gcal_sync($id);
     $r = load_request($id);
-    send_gchat("🚫 {$r['user_name']} canceló *{$r['type_name']}* (" . frange($r['start_date'], $r['end_date']) . ")\n👉 " . url('/solicitudes/' . $r['id']));
+    send_gchat(chat_message("🚫 {$r['user_name']} canceló *{$r['type_name']}* (" . fwhen($r) . ')', '👉 ' . url('/solicitudes/' . $r['id'])));
     $targets = notify_unique([...approvers_for($r), user_by_id((int) $r['manager_id'])], (int) $r['user_id']);
     foreach ($targets as $t) {
         notify_user(
             $t,
             $r,
             "{$r['user_name']} canceló su solicitud de {$r['type_name']}",
-            e($r['user_name']) . ' canceló la solicitud de ' . e($r['type_name']) . ' del ' . e(frange($r['start_date'], $r['end_date'])) . '.',
+            e($r['user_name']) . ' canceló la solicitud de ' . e($r['type_name']) . ' del ' . e(fwhen($r)) . '.',
             ['heading' => 'Solicitud cancelada', 'ics' => in_array($prevStatus, ['approved', 'registered'], true) ? 'CANCEL' : false, 'accent' => '#161922']
         );
     }
@@ -282,17 +277,16 @@ function on_document_uploaded(int $id, int $count): void
 {
     $r = load_request($id);
     $label = $r['document_label'] ?: 'documentación';
-    send_gchat(
-        "📎 {$r['user_name']} subió " . mb_strtolower($label) . " ({$r['type_name']})
-    "
-        . '👉 ' . url('/solicitudes/' . $r['id'])
-    );
+    send_gchat(chat_message(
+        "📎 {$r['user_name']} subió " . mb_strtolower($label) . " ({$r['type_name']})",
+        '👉 ' . url('/solicitudes/' . $r['id'])
+    ));
     foreach (notify_unique([...hr_users(), user_by_id((int) $r['manager_id'])], uid()) as $t) {
         notify_user(
             $t,
             $r,
             "{$r['user_name']} subió {$label}",
-            e($r['user_name']) . ' subió ' . $count . ' archivo' . ($count > 1 ? 's' : '') . ' (' . e(mb_strtolower($label)) . ') a su solicitud de ' . e($r['type_name']) . ' del ' . e(frange($r['start_date'], $r['end_date'])) . '.',
+            e($r['user_name']) . ' subió ' . $count . ' archivo' . ($count > 1 ? 's' : '') . ' (' . e(mb_strtolower($label)) . ') a su solicitud de ' . e($r['type_name']) . ' del ' . e(fwhen($r)) . '.',
             ['heading' => 'Nueva documentación recibida', 'button' => ['Ver documentación', url('/solicitudes/' . $r['id'])]]
         );
     }
@@ -320,6 +314,110 @@ function on_document_reviewed(int $id, string $result, string $comment): void
 }
 
 /**
+ * Texto del plazo de entrega de la documentación, o cadena vacía si no corresponde.
+ *
+ * Con $forOwner se redacta en segunda persona para el colaborador.
+ */
+function doc_due_text(array $r, bool $forOwner = false): string
+{
+    if (!$r['doc_due_date'] || !accepts_documents($r)) {
+        return '';
+    }
+    $label = mb_strtolower($r['document_label'] ?: 'documentación');
+    $optional = !$r['requires_document'];
+
+    return $forOwner
+        ? ($optional ? 'Si corresponde, podés entregar ' : 'Entregá ') . $label . ' hasta el ' . fdate($r['doc_due_date'])
+        : ($optional ? 'Puede entregar ' : 'Debe entregar ') . $label . ' hasta el ' . fdate($r['doc_due_date']);
+}
+
+/**
+ * Plazo de entrega modificado por quien autoriza o por RRHH.
+ */
+function on_doc_due_changed(int $id): void
+{
+    $r = load_request($id);
+    $owner = user_by_id((int) $r['user_id']);
+    if ($owner) {
+        notify_user(
+            $owner,
+            $r,
+            'Nuevo plazo para tu ' . mb_strtolower($r['document_label'] ?: 'documentación') . ': ' . fdate($r['doc_due_date']),
+            e(doc_due_text($r, true)) . ', desde tu solicitud de ' . e($r['type_name']) . ' del ' . e(fwhen($r)) . '.',
+            ['heading' => 'Plazo de entrega de documentación', 'button' => ['Entregar documentación', url('/solicitudes/' . $r['id'])]]
+        );
+    }
+}
+
+/**
+ * Recordatorios y vencimientos de la documentación pendiente (tarea programada).
+ *
+ * Un día antes del vencimiento se recuerda al colaborador; vencido el plazo se avisa al
+ * colaborador, a quien autorizó o a su responsable, y a RRHH. Cada aviso se envía una vez.
+ *
+ * @return array{0: int, 1: int} Recordatorios y vencimientos notificados.
+ */
+function doc_deadline_job(): array
+{
+    $base = "SELECT r.id FROM leave_requests r JOIN leave_types t ON t.id = r.type_id
+        WHERE r.status IN ('approved','registered') AND r.doc_status IN ('none','observed')
+          AND t.requires_document = 1 AND r.doc_due_date IS NOT NULL";
+    $reminded = 0;
+    foreach (rows("$base AND r.doc_reminded_at IS NULL AND r.doc_due_date BETWEEN CURDATE() AND CURDATE() + INTERVAL 1 DAY") as $x) {
+        $r = load_request((int) $x['id']);
+        $owner = user_by_id((int) $r['user_id']);
+        if ($owner) {
+            notify_user(
+                $owner,
+                $r,
+                'Recordatorio: entregá tu ' . mb_strtolower($r['document_label'] ?: 'documentación') . ' hasta el ' . fdate($r['doc_due_date']),
+                'Tu solicitud de <b>' . e($r['type_name']) . '</b> del ' . e(fwhen($r)) . ' todavía no tiene ' . e(mb_strtolower($r['document_label'] ?: 'documentación')) . '. El plazo vence el <b>' . e(fdate($r['doc_due_date'])) . '</b>.',
+                ['heading' => 'Documentación pendiente', 'button' => ['Entregar documentación', url('/solicitudes/' . $r['id'])]]
+            );
+        }
+        q('UPDATE leave_requests SET doc_reminded_at = NOW() WHERE id = ?', [$r['id']]);
+        log_event((int) $r['id'], 'doc_reminder');
+        $reminded++;
+    }
+
+    $overdue = 0;
+    foreach (rows("$base AND r.doc_overdue_at IS NULL AND r.doc_due_date < CURDATE()") as $x) {
+        $r = load_request((int) $x['id']);
+        $label = mb_strtolower($r['document_label'] ?: 'documentación');
+        $owner = user_by_id((int) $r['user_id']);
+        if ($owner) {
+            notify_user(
+                $owner,
+                $r,
+                "Venció el plazo para entregar tu $label",
+                'El plazo para entregar ' . e($label) . ' de tu solicitud de <b>' . e($r['type_name']) . '</b> del ' . e(fwhen($r)) . ' venció el <b>' . e(fdate($r['doc_due_date'])) . '</b>. Entregala cuanto antes; RRHH y tu responsable fueron notificados.',
+                ['heading' => 'Documentación vencida', 'button' => ['Entregar documentación', url('/solicitudes/' . $r['id'])], 'accent' => '#c0392b']
+            );
+        }
+        $staff = notify_unique([user_by_id((int) ($r['decided_by'] ?: $r['approver_id'] ?: $r['manager_id'])), user_by_id((int) $r['manager_id']), ...hr_users()], (int) $r['user_id']);
+        foreach ($staff as $t) {
+            notify_user(
+                $t,
+                $r,
+                "{$r['user_name']} no entregó $label",
+                e($r['user_name']) . ' no entregó ' . e($label) . ' de su licencia de <b>' . e($r['type_name']) . '</b> del ' . e(fwhen($r)) . '. El plazo venció el <b>' . e(fdate($r['doc_due_date'])) . '</b>.',
+                ['heading' => 'Documentación vencida', 'button' => ['Ver solicitud', url('/solicitudes/' . $r['id'])]]
+            );
+        }
+        send_gchat(chat_message(
+            '⚠️ *Documentación vencida*',
+            "{$r['user_name']} no entregó $label de *{$r['type_name']}* (" . fwhen($r) . ') · venció el ' . fdate($r['doc_due_date']),
+            '👉 ' . url('/solicitudes/' . $r['id'])
+        ));
+        q('UPDATE leave_requests SET doc_overdue_at = NOW() WHERE id = ?', [$r['id']]);
+        log_event((int) $r['id'], 'doc_overdue');
+        $overdue++;
+    }
+
+    return [$reminded, $overdue];
+}
+
+/**
  * Recordatorio de solicitud pendiente (tarea programada).
  */
 function on_reminder(array $r, array $approver): void
@@ -327,13 +425,13 @@ function on_reminder(array $r, array $approver): void
     static $chatSent = [];
     if (!isset($chatSent[$r['id']])) {
         $chatSent[$r['id']] = true;
-        send_gchat("⏰ *Recordatorio:* la solicitud de {$r['user_name']} (*{$r['type_name']}*, " . frange($r['start_date'], $r['end_date']) . ') sigue esperando autorización de ' . ($r['approver_name'] ?: 'RRHH') . "\n👉 " . url('/solicitudes/' . $r['id']));
+        send_gchat("⏰ *Recordatorio:* la solicitud de {$r['user_name']} (*{$r['type_name']}*, " . fwhen($r) . ') sigue esperando autorización de ' . ($r['approver_name'] ?: 'RRHH') . "\n👉 " . url('/solicitudes/' . $r['id']));
     }
     notify_user(
         $approver,
         $r,
         "Recordatorio: solicitud pendiente de {$r['user_name']}",
-        'La solicitud de <b>' . e($r['type_name']) . '</b> de ' . e($r['user_name']) . ' del ' . e(frange($r['start_date'], $r['end_date'])) . ' sigue esperando tu decisión.',
+        'La solicitud de <b>' . e($r['type_name']) . '</b> de ' . e($r['user_name']) . ' del ' . e(fwhen($r)) . ' sigue esperando tu decisión.',
         ['heading' => 'Solicitud pendiente de autorización', 'button' => ['Revisar y decidir', url('/solicitudes/' . $r['id'])]]
     );
 }

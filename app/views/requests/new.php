@@ -5,9 +5,15 @@ if (!$selected && $preselect) {
 }
 $typeData = array_map(fn($t) => [
     'id' => (int) $t['id'], 'code' => $t['code'], 'name' => $t['name'], 'description' => $t['description'],
-    'approval' => (bool) $t['requires_approval'], 'docRequired' => (bool) $t['requires_document'], 'docLabel' => $t['document_label'],
-    'counting' => $t['counting'], 'vacOptional' => (bool) $t['vacation_optional'], 'maxReq' => $t['max_days_per_request'] ? (int) $t['max_days_per_request'] : null,
+    'approval' => (bool) $t['requires_approval'], 'docRequired' => (bool) $t['requires_document'], 'docLabel' => $t['document_label'] ?: ($t['requires_document'] ? 'Documentación' : null),
+    'docDays' => $t['doc_due_days'] ? (int) $t['doc_due_days'] : 3, 'docFrom' => $t['doc_due_from'],
+    'counting' => $t['counting'], 'vacOptional' => (bool) $t['vacation_optional'], 'byHours' => (bool) $t['by_hours'], 'maxReq' => $t['max_days_per_request'] ? (int) $t['max_days_per_request'] : null,
 ], $types);
+$holidayDates = array_column(rows('SELECT date FROM holidays WHERE date BETWEEN ? AND ?', [date('Y-01-01'), date('Y-12-31', strtotime('+1 year'))]), 'date');
+$timeSlots = [];
+for ($m = 7 * 60; $m <= 20 * 60; $m += 15) {
+    $timeSlots[] = sprintf('%02d:%02d', intdiv($m, 60), $m % 60);
+}
 ?>
 <div class="page-head">
   <div>
@@ -16,7 +22,7 @@ $typeData = array_map(fn($t) => [
   </div>
 </div>
 
-<form method="post" action="<?= url('/solicitudes/nueva') ?>" enctype="multipart/form-data" class="new-req" id="newReq" data-types='<?= e(json_encode($typeData, JSON_UNESCAPED_UNICODE)) ?>' data-api="<?= url('/api/dias') ?>">
+<form method="post" action="<?= url('/solicitudes/nueva') ?>" class="new-req" id="newReq" data-types='<?= e(json_encode($typeData, JSON_UNESCAPED_UNICODE)) ?>' data-api="<?= url('/api/dias') ?>" data-holidays='<?= e(json_encode($holidayDates)) ?>'>
   <?= csrf_field() ?>
   <div class="stack">
     <section class="card">
@@ -27,7 +33,7 @@ $typeData = array_map(fn($t) => [
             <input type="radio" name="type_id" value="<?= (int) $t['id'] ?>" <?= (string) $t['id'] === (string) $selected ? 'checked' : '' ?> required>
             <span class="type-ic"><?= icon(type_icon($t['code']), 20) ?></span>
             <span class="type-txt"><b><?= e($t['name']) ?></b>
-              <small><?= $t['requires_approval'] ? 'Requiere autorización' : 'Se informa, sin autorización' ?><?= $t['requires_document'] ? ' · con ' . e(mb_strtolower($t['document_label'] ?: 'documentación')) : '' ?></small>
+              <small><?= $t['requires_approval'] ? 'Requiere autorización' : 'Se informa, sin autorización' ?><?= $t['by_hours'] ? ' · por horario' : '' ?></small>
             </span>
           </label>
         <?php endforeach ?>
@@ -57,11 +63,29 @@ $typeData = array_map(fn($t) => [
 
     <section class="card">
       <h2 class="step"><span>2</span> ¿Cuándo?</h2>
-      <div class="form-row">
+      <div class="form-row" id="rangeFields">
         <label class="field"><span>Desde</span><input type="date" name="start_date" id="from" value="<?= e(old('start_date')) ?>" required></label>
         <label class="field"><span>Hasta</span><input type="date" name="end_date" id="to" value="<?= e(old('end_date')) ?>" required></label>
         <div class="days-preview" id="daysPreview" aria-live="polite">
           <b>—</b><small>Elegí las fechas</small>
+        </div>
+      </div>
+      <div class="hours-picker" id="hoursFields" hidden>
+        <div class="mini-cal" id="miniCal" aria-label="Elegí el día del trámite"></div>
+        <div class="hours-side">
+          <label class="field"><span>Hora de salida</span>
+            <select name="start_time" id="tStart">
+              <option value="">Elegir…</option>
+              <?php foreach ($timeSlots as $slot): ?><option <?= old('start_time') === $slot ? 'selected' : '' ?>><?= $slot ?></option><?php endforeach ?>
+            </select>
+          </label>
+          <label class="field"><span>Hora de regreso</span>
+            <select name="end_time" id="tEnd">
+              <option value="">Elegir…</option>
+              <?php foreach ($timeSlots as $slot): ?><option <?= old('end_time') === $slot ? 'selected' : '' ?>><?= $slot ?></option><?php endforeach ?>
+            </select>
+          </label>
+          <div class="days-preview" id="hoursPreview" aria-live="polite"><b>—</b><small>Elegí el día y el horario</small></div>
         </div>
       </div>
       <div id="dayMsgs"></div>
@@ -73,16 +97,12 @@ $typeData = array_map(fn($t) => [
         <span>Comentario <small class="muted">(opcional)</small></span>
         <textarea name="reason" rows="3" maxlength="2000" placeholder="Ej.: examen final de Base de Datos, viaje familiar…"><?= e(old('reason')) ?></textarea>
       </label>
-      <div class="field" id="docField" hidden>
-        <span id="docLabel">Documentación <small class="muted">(opcional)</small></span>
-        <label class="drop" id="drop">
-          <input type="file" name="documents[]" id="docs" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,.heic,application/pdf,image/*">
-          <?= icon('upload', 26) ?>
-          <b>Arrastrá el archivo o tocá para elegirlo</b>
-          <small>PDF o foto (JPG, PNG, HEIC) · hasta <?= (int) config('upload_max_mb', 10) ?> MB · podés sacar la foto desde el celular</small>
-        </label>
-        <ul class="file-list" id="fileList"></ul>
-      </div>
+    </section>
+
+    <section class="card flow-card" id="flowCard" hidden>
+      <h2 class="step"><span><?= icon('arrow-right', 14) ?></span> Cómo sigue tu solicitud</h2>
+      <ol class="stages" id="flowMap"></ol>
+      <p class="muted flow-foot" id="flowFoot"></p>
     </section>
   </div>
 

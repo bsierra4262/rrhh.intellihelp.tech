@@ -29,14 +29,14 @@
   <?php if ($list): ?>
   <div class="table-wrap">
     <table class="table">
-      <thead><tr><th>Colaborador/a</th><th>Tipo</th><th>Fechas</th><th class="num">Días</th><th>Estado</th><th>Doc.</th><th></th></tr></thead>
+      <thead><tr><th>Colaborador/a</th><th>Tipo</th><th>Fechas</th><th class="num">Duración</th><th>Estado</th><th>Doc.</th><th></th></tr></thead>
       <tbody>
         <?php foreach ($list as $r): ?>
           <tr data-href="<?= url('/solicitudes/' . $r['id']) ?>">
             <td><div class="cell-person"><?= avatar($r['user_name'], 'sm') ?><span><b><?= e($r['user_name']) ?></b><small><?= e($r['department'] ?? '') ?></small></span></div></td>
             <td><?= type_dot($r['color']) ?><?= e($r['type_name']) ?></td>
-            <td class="nowrap"><?= e(frange($r['start_date'], $r['end_date'])) ?></td>
-            <td class="num"><?= e(rtrim(rtrim(number_format((float) $r['days'], 1, ',', ''), '0'), ',')) ?></td>
+            <td class="nowrap"><?= e(fwhen($r)) ?></td>
+            <td class="num"><?= is_hourly($r) ? e(fhours($r['hours'])) : e(rtrim(rtrim(number_format((float) $r['days'], 1, ',', ''), '0'), ',')) ?></td>
             <td><?= status_badge($r['status']) ?></td>
             <td><?= $r['doc_status'] !== 'none' ? '<span title="' . e(DOC_LABELS[$r['doc_status']]) . '" class="doc-ic doc-' . e($r['doc_status']) . '">' . icon('paperclip', 16) . '</span>' : '' ?></td>
             <td><a class="icon-btn" href="<?= url('/solicitudes/' . $r['id']) ?>" aria-label="Ver"><?= icon('chevron-right', 16) ?></a></td>

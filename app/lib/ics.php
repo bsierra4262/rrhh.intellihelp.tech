@@ -52,8 +52,15 @@ function ics_event(array $ev): array
         'BEGIN:VEVENT',
         'UID:' . $ev['uid'],
         'DTSTAMP:' . gmdate('Ymd\THis\Z'),
-        'DTSTART;VALUE=DATE:' . str_replace('-', '', $ev['start']),
-        'DTEND;VALUE=DATE:' . date('Ymd', strtotime($ev['end'] . ' +1 day')),
+        ...(!empty($ev['start_time'])
+            ? [
+                'DTSTART;TZID=' . config('timezone') . ':' . str_replace('-', '', $ev['start']) . 'T' . str_replace(':', '', substr($ev['start_time'], 0, 5)) . '00',
+                'DTEND;TZID=' . config('timezone') . ':' . str_replace('-', '', $ev['start']) . 'T' . str_replace(':', '', substr($ev['end_time'], 0, 5)) . '00',
+            ]
+            : [
+                'DTSTART;VALUE=DATE:' . str_replace('-', '', $ev['start']),
+                'DTEND;VALUE=DATE:' . date('Ymd', strtotime($ev['end'] . ' +1 day')),
+            ]),
         'SUMMARY:' . ics_escape($ev['summary']),
         'DESCRIPTION:' . ics_escape($ev['description'] ?? ''),
         'STATUS:' . ($ev['status'] ?? 'CONFIRMED'),
@@ -105,8 +112,10 @@ function request_ics_event(array $r, string $status = 'CONFIRMED', int $sequence
         'uid' => 'solicitud-' . $r['id'] . '@' . parse_url(config('app_url'), PHP_URL_HOST),
         'start' => $r['start_date'],
         'end' => $r['end_date'],
+        'start_time' => $r['start_time'] ?? null,
+        'end_time' => $r['end_time'] ?? null,
         'summary' => $r['type_name'] . ' — ' . $r['user_name'],
-        'description' => fdays($r['days']) . ' · ' . (STATUS_LABELS[$r['status']] ?? '') . "\n" . url('/solicitudes/' . $r['id']),
+        'description' => fduration($r, false) . ' · ' . (STATUS_LABELS[$r['status']] ?? '') . "\n" . url('/solicitudes/' . $r['id']),
         'url' => url('/solicitudes/' . $r['id']),
         'status' => $status,
         'sequence' => $sequence,
@@ -116,8 +125,20 @@ function request_ics_event(array $r, string $status = 'CONFIRMED', int $sequence
 /**
  * Enlace "Agregar a Google Calendar" para un evento de día completo.
  */
-function gcal_link(string $title, string $from, string $to, string $details = ''): string
+function gcal_link(string $title, string $from, string $to, string $details = '', ?string $startTime = null, ?string $endTime = null): string
 {
+    if ($startTime && $endTime) {
+        $d = str_replace('-', '', $from);
+
+        return 'https://calendar.google.com/calendar/render?' . http_build_query([
+            'action' => 'TEMPLATE',
+            'text' => $title,
+            'dates' => $d . 'T' . str_replace(':', '', substr($startTime, 0, 5)) . '00/' . $d . 'T' . str_replace(':', '', substr($endTime, 0, 5)) . '00',
+            'details' => $details,
+            'ctz' => config('timezone'),
+        ]);
+    }
+
     return 'https://calendar.google.com/calendar/render?' . http_build_query([
         'action' => 'TEMPLATE',
         'text' => $title,

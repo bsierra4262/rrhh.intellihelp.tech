@@ -18,6 +18,7 @@ require APP_ROOT . '/controllers/requests.php';
 require APP_ROOT . '/controllers/calendar.php';
 require APP_ROOT . '/controllers/profile.php';
 require APP_ROOT . '/controllers/admin.php';
+require APP_ROOT . '/controllers/reports.php';
 
 $routes = [
     ['GET',  '/login', 'login_form'],
@@ -41,6 +42,7 @@ $routes = [
     ['POST', '/solicitudes/(\d+)/cancelar', 'request_cancel'],
     ['POST', '/solicitudes/(\d+)/documentos', 'request_upload'],
     ['POST', '/solicitudes/(\d+)/revisar-doc', 'request_review_doc'],
+    ['POST', '/solicitudes/(\d+)/plazo', 'request_set_due'],
     ['GET',  '/archivos/(\d+)', 'file_download'],
     ['GET',  '/aprobaciones', 'approvals'],
     ['GET',  '/equipo', 'team_requests'],
@@ -62,6 +64,10 @@ $routes = [
     ['POST', '/admin/usuarios/(\d+)', 'admin_user_save'],
     ['POST', '/admin/usuarios/(\d+)/password', 'admin_user_reset_password'],
     ['POST', '/admin/usuarios/(\d+)/aprobar', 'admin_user_approve'],
+    ['GET',  '/admin/reportes', 'reports_page'],
+    ['GET',  '/admin/reportes/excel', 'reports_excel'],
+    ['POST', '/admin/reportes/configuracion', 'reports_settings_save'],
+    ['POST', '/admin/reportes/enviar', 'reports_send_now'],
     ['GET',  '/admin/tipos', 'admin_types'],
     ['POST', '/admin/tipos', 'admin_types_save'],
     ['GET',  '/admin/feriados', 'admin_holidays'],

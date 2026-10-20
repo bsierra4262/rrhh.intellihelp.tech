@@ -81,7 +81,7 @@ $quick = [
       <?php foreach ($upcoming as $r): ?>
         <a class="next-off" href="<?= url('/solicitudes/' . $r['id']) ?>">
           <span class="date-chip"><b><?= date('j', strtotime($r['start_date'])) ?></b><small><?= substr(MESES[(int) date('n', strtotime($r['start_date']))], 0, 3) ?></small></span>
-          <span><b><?= e($r['type_name']) ?></b><small><?= e(frange($r['start_date'], $r['end_date'])) ?> · <?= e(fdays($r['days'])) ?></small></span>
+          <span><b><?= e($r['type_name']) ?></b><small><?= e(fwhen($r)) ?> · <?= e(fduration($r, false)) ?></small></span>
         </a>
       <?php endforeach ?>
     </section>
@@ -93,7 +93,7 @@ $quick = [
       <?php if ($out_today): ?>
         <ul class="people">
           <?php foreach ($out_today as $r): ?>
-            <li><a href="<?= url('/solicitudes/' . $r['id']) ?>"><?= avatar($r['user_name'], 'sm') ?><span><b><?= e($r['user_name']) ?></b><small><?= type_dot($r['color']) ?><?= e($r['type_name']) ?> · hasta <?= e(fdate($r['end_date'], false)) ?></small></span></a></li>
+            <li><a href="<?= url('/solicitudes/' . $r['id']) ?>"><?= avatar($r['user_name'], 'sm') ?><span><b><?= e($r['user_name']) ?></b><small><?= type_dot($r['color']) ?><?= e($r['type_name']) ?> · <?= is_hourly($r) ? e(substr($r['start_time'], 0, 5) . '–' . substr($r['end_time'], 0, 5)) : 'hasta ' . e(fdate($r['end_date'], false)) ?></small></span></a></li>
           <?php endforeach ?>
         </ul>
       <?php else: ?><p class="empty-sm"><?= icon('check', 16) ?> Hoy está todo el equipo.</p><?php endif ?>
@@ -102,7 +102,7 @@ $quick = [
         <h3 class="sub">Próximos 14 días</h3>
         <ul class="people compact">
           <?php foreach ($out_week as $r): ?>
-            <li><a href="<?= url('/solicitudes/' . $r['id']) ?>"><?= avatar($r['user_name'], 'sm') ?><span><b><?= e($r['user_name']) ?></b><small><?= type_dot($r['color']) ?><?= e($r['type_name']) ?> · <?= e(frange($r['start_date'], $r['end_date'])) ?><?= $r['status'] === 'pending' ? ' · pendiente' : '' ?></small></span></a></li>
+            <li><a href="<?= url('/solicitudes/' . $r['id']) ?>"><?= avatar($r['user_name'], 'sm') ?><span><b><?= e($r['user_name']) ?></b><small><?= type_dot($r['color']) ?><?= e($r['type_name']) ?> · <?= e(fwhen($r)) ?><?= $r['status'] === 'pending' ? ' · pendiente' : '' ?></small></span></a></li>
           <?php endforeach ?>
         </ul>
       <?php endif ?>

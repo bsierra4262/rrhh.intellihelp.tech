@@ -186,6 +186,8 @@ function admin_types_save(): void
         'requires_approval' => isset($_POST['requires_approval']) ? 1 : 0,
         'requires_document' => isset($_POST['requires_document']) ? 1 : 0,
         'document_label' => mb_substr(post('document_label'), 0, 120) ?: null,
+        'doc_due_days' => post('doc_due_days') === '' ? null : max(1, (int) post('doc_due_days')),
+        'doc_due_from' => post('doc_due_from') === 'created' ? 'created' : 'end',
         'max_days_per_year' => post('max_days_per_year') === '' ? null : max(1, (int) post('max_days_per_year')),
         'max_days_per_request' => post('max_days_per_request') === '' ? null : max(1, (int) post('max_days_per_request')),
         'counting' => post('counting') === 'habiles' ? 'habiles' : 'corridos',

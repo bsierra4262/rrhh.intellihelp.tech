@@ -37,9 +37,21 @@ if ($hours > 0) {
     echo count($list) . " recordatorio(s) enviados\n";
 }
 
+// Recordatorios y vencimientos de documentación pendiente.
+[$docReminders, $docOverdue] = doc_deadline_job();
+if ($docReminders || $docOverdue) {
+    echo "$docReminders recordatorio(s) y $docOverdue vencimiento(s) de documentación\n";
+}
+
 // Reintenta la creación de eventos de Google Calendar pendientes.
 if ($n = gcal_backfill()) {
     echo "$n evento(s) sincronizados con Google Calendar\n";
+}
+
+// Reporte mensual de vacaciones por correo (si está activado y corresponde).
+[$sent, $msg] = send_monthly_report();
+if ($sent) {
+    echo $msg . PHP_EOL;
 }
 
 // Limpieza de datos temporales.

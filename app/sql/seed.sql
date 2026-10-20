@@ -5,7 +5,7 @@
 INSERT IGNORE INTO leave_types
  (code, name, description, color, requires_approval, requires_document, document_label, max_days_per_year, max_days_per_request, counting, uses_vacation_balance, min_notice_days, sort) VALUES
  ('vacaciones',  'Vacaciones',               'Vacaciones anuales según antigüedad (LCT art. 150).',              '#663399', 1, 0, NULL,                                  NULL, NULL, 'corridos', 1, 15, 1),
- ('estudio',     'Día de estudio / examen',  'Hasta 2 días corridos por examen, máximo 10 por año (LCT art. 158).', '#2E86AB', 1, 0, 'Constancia de examen',             10,   2,    'corridos', 0, 3, 2),
+ ('estudio',     'Día de estudio / examen',  'Hasta 2 días corridos por examen, máximo 10 por año (LCT art. 158).', '#2E86AB', 1, 1, 'Constancia de examen',             10,   2,    'corridos', 0, 3, 2),
  ('enfermedad',  'Enfermedad',               'No requiere autorización. El certificado médico es obligatorio.',  '#D1495B', 0, 1, 'Certificado médico',                 NULL, NULL, 'corridos', 0, 0, 3),
  ('personal',    'Día personal',             'Ausencia por motivos personales. Quien autoriza define si se descuenta de las vacaciones.',                      '#E0A100', 1, 0, NULL,                                  3,    1,    'habiles',  0, 2, 4),
  ('mudanza',     'Mudanza',                  '1 día por mudanza.',                                               '#8C6A4F', 1, 0, 'Constancia de domicilio',            1,    1,    'habiles',  0, 5, 5),

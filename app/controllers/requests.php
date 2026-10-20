@@ -75,11 +75,18 @@ function request_submit(): void
 
     $from = post('start_date');
     $to = post('end_date') ?: $from;
-    [$errors, $warnings, $days] = validate_request($owner, $type, $from, $to, null, is_hr());
-
-    if ($type['requires_document'] && !has_uploads('documents')) {
-        $errors[] = 'Para ' . mb_strtolower($type['name']) . ' es obligatorio adjuntar: ' . mb_strtolower($type['document_label'] ?: 'documentación') . '.';
+    $startTime = $endTime = $hours = null;
+    if ($type['by_hours']) {
+        // Trámite por horario: un único día con hora de salida y de regreso; no consume días.
+        $to = $from;
+        $startTime = post('start_time');
+        $endTime = post('end_time');
+        [$errors, $warnings, $hours] = validate_hourly_request($owner, $type, $from, $startTime, $endTime);
+        $days = 0;
+    } else {
+        [$errors, $warnings, $days] = validate_request($owner, $type, $from, $to, null, is_hr());
     }
+
     if ($errors) {
         foreach ($errors as $err) {
             flash('error', $err);
@@ -96,40 +103,30 @@ function request_submit(): void
         'type_id' => $type['id'],
         'start_date' => $from,
         'end_date' => $to,
+        'start_time' => $startTime,
+        'end_time' => $endTime,
         'days' => $days,
+        'hours' => $hours,
         'reason' => mb_substr(post('reason'), 0, 2000) ?: null,
         'status' => $status,
         'approver_id' => $type['requires_approval'] ? resolve_approver($owner) : null,
         'decided_by' => $autoApprove ? $me['id'] : null,
         'decided_at' => $autoApprove ? date('Y-m-d H:i:s') : null,
     ]);
-    [$saved, $upErrors, $paths] = accepts_documents($type) ? store_uploads($id, (int) $me['id'], $_FILES['documents'] ?? []) : [0, [], []];
-    if ($type['requires_document'] && $saved === 0) {
-        db()->rollBack();
-        foreach ($paths as $p) {
-            @unlink($p);
+    // La documentación se entrega después de informada o autorizada la licencia, con plazo automático.
+    if ($status !== 'pending') {
+        $due = doc_auto_due($type + ['created_at' => date('Y-m-d H:i:s'), 'end_date' => $to]);
+        if ($due) {
+            update('leave_requests', $id, ['doc_due_date' => $due]);
         }
-        foreach ($upErrors ?: ['No se pudo guardar la documentación.'] as $err) {
-            flash('error', $err);
-        }
-        redirect('/solicitudes/nueva?tipo=' . $type['code']);
-    }
-    if ($saved) {
-        update('leave_requests', $id, ['doc_status' => 'uploaded']);
     }
     log_event($id, $onBehalf ? 'created_by_hr' : ($status === 'registered' ? 'registered' : 'created'), $warnings ? implode(' ', $warnings) : null);
     if ($autoApprove) {
         log_event($id, 'approved', 'Aprobada al cargarla RRHH.');
     }
-    if ($saved) {
-        log_event($id, 'doc_uploaded', $saved . ' archivo(s)');
-    }
     db()->commit();
     forget_input();
 
-    foreach ($upErrors as $err) {
-        flash('error', $err);
-    }
     foreach ($warnings as $w) {
         flash('warning', $w);
     }
@@ -208,6 +205,9 @@ function can_upload(array $r): bool
     if (!accepts_documents($r)) {
         return false;
     }
+    if ($r['requires_approval'] && $r['status'] !== 'approved') {
+        return false;
+    }
     if (in_array($r['status'], ['cancelled', 'rejected'], true)) {
         return false;
     }
@@ -255,6 +255,10 @@ function request_decide(int $id): void
     }
     q('UPDATE notifications SET read_at = NOW() WHERE request_id = ? AND user_id = ? AND read_at IS NULL', [$id, $me['id']]);
     log_event($id, $decision, $comment ?: null);
+    if ($decision === 'approved' && accepts_documents($r)) {
+        $fresh = load_request($id);
+        apply_doc_due($id, $fresh, post('doc_due_mode'), post('doc_due_date')) ?? apply_doc_due($id, $fresh, 'auto', '');
+    }
     if ($deduct) {
         log_event($id, 'vacation_deducted', fdays($r['days']) . ' descontados de las vacaciones.');
     }
@@ -325,9 +329,54 @@ function request_review_doc(int $id): void
         redirect('/solicitudes/' . $id);
     }
     update('leave_requests', $id, ['doc_status' => $result]);
+    if ($result === 'observed') {
+        update('leave_requests', $id, [
+            'doc_due_date' => working_day_from(date('Y-m-d', strtotime('+2 days'))),
+            'doc_reminded_at' => null,
+            'doc_overdue_at' => null,
+        ]);
+    }
     log_event($id, $result === 'verified' ? 'doc_verified' : 'doc_observed', $comment ?: null);
     defer(fn () => on_document_reviewed($id, $result, $comment));
     flash('success', $result === 'verified' ? 'Documentación verificada.' : 'Documentación observada. Avisamos al colaborador/a.');
+    redirect('/solicitudes/' . $id);
+}
+
+/**
+ * Define el plazo de entrega de la documentación: automático según el tipo o una fecha elegida.
+ *
+ * @return string|null Fecha aplicada, o null si la fecha elegida no es válida.
+ */
+function apply_doc_due(int $id, array $r, string $mode, string $date): ?string
+{
+    $custom = $mode === 'custom';
+    if ($custom && (!valid_date($date) || $date < date('Y-m-d'))) {
+        return null;
+    }
+    $due = $custom ? $date : doc_auto_due($r);
+    update('leave_requests', $id, ['doc_due_date' => $due, 'doc_due_custom' => $custom ? 1 : 0, 'doc_reminded_at' => null, 'doc_overdue_at' => null]);
+    log_event($id, 'doc_due_set', fdate($due) . ($custom ? ' (fecha elegida)' : ' (automático)'));
+
+    return $due;
+}
+
+/**
+ * Cambia el plazo de entrega de la documentación de una solicitud.
+ */
+function request_set_due(int $id): void
+{
+    require_login();
+    $r = load_request($id);
+    if (!$r || !can_set_doc_due($r)) {
+        abort(403, 'No podés modificar el plazo de esta solicitud.');
+    }
+    $due = apply_doc_due($id, $r, post('doc_due_mode'), post('doc_due_date'));
+    if (!$due) {
+        flash('error', 'Elegí una fecha válida, igual o posterior a hoy.');
+        redirect('/solicitudes/' . $id);
+    }
+    defer(fn () => on_doc_due_changed($id));
+    flash('success', 'Plazo de entrega actualizado al ' . fdate($due) . '. Avisamos al colaborador/a.');
     redirect('/solicitudes/' . $id);
 }
 
@@ -423,11 +472,11 @@ function team_requests(): void
         header('Content-Disposition: attachment; filename="licencias-' . date('Ymd') . '.csv"');
         $out = fopen('php://output', 'w');
         fwrite($out, "\xEF\xBB\xBF");
-        fputcsv($out, ['ID', 'Colaborador/a', 'Área', 'Tipo', 'Desde', 'Hasta', 'Días', 'Estado', 'Documentación', 'Decidió', 'Fecha decisión', 'Motivo'], ';');
+        fputcsv($out, ['ID', 'Colaborador/a', 'Área', 'Tipo', 'Desde', 'Hasta', 'Horario', 'Días', 'Horas', 'Estado', 'Documentación', 'Decidió', 'Fecha decisión', 'Motivo'], ';');
         foreach ($list as $r) {
             $dec = $r['decided_by'] ? val('SELECT name FROM users WHERE id = ?', [$r['decided_by']]) : '';
-            fputcsv($out, [$r['id'], $r['user_name'], $r['department'], $r['type_name'], $r['start_date'], $r['end_date'],
-                str_replace('.', ',', (string) (float) $r['days']), STATUS_LABELS[$r['status']], DOC_LABELS[$r['doc_status']], $dec, $r['decided_at'], $r['reason']], ';');
+            fputcsv($out, [$r['id'], $r['user_name'], $r['department'], $r['type_name'], $r['start_date'], $r['end_date'], is_hourly($r) ? substr($r['start_time'], 0, 5) . '-' . substr($r['end_time'], 0, 5) : '',
+                str_replace('.', ',', (string) (float) $r['days']), is_hourly($r) ? str_replace('.', ',', (string) (float) $r['hours']) : '', STATUS_LABELS[$r['status']], DOC_LABELS[$r['doc_status']], $dec, $r['decided_at'], $r['reason']], ';');
         }
         exit;
     }
@@ -456,6 +505,19 @@ function api_days(): void
     }
     if (!$type || !valid_date($from) || !valid_date($to)) {
         echo json_encode(['days' => 0, 'errors' => [], 'warnings' => []]);
+        exit;
+    }
+    if ($type['by_hours']) {
+        [$errors, $warnings, $hours] = validate_hourly_request($owner, $type, $from, (string) ($_GET['start_time'] ?? ''), (string) ($_GET['end_time'] ?? ''));
+        echo json_encode([
+            'days' => 0,
+            'hours' => $hours,
+            'label' => $hours > 0 ? fhours($hours) : '—',
+            'return' => null,
+            'holidays' => [],
+            'errors' => $errors,
+            'warnings' => $warnings,
+        ], JSON_UNESCAPED_UNICODE);
         exit;
     }
     [$errors, $warnings, $days] = validate_request($owner, $type, $from, $to, null, is_hr());

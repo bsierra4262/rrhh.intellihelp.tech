@@ -29,7 +29,13 @@ if (is_approver()) {
 <link rel="stylesheet" href="<?= url('/assets/css/app.css') ?>?v=<?= filemtime(dirname(APP_ROOT) . '/public_html/assets/css/app.css') ?>">
 <meta name="theme-color" content="#663399">
 </head>
-<body>
+<?php
+$uiHolidays = [];
+foreach (rows('SELECT date, name FROM holidays WHERE date BETWEEN ? AND ?', [date('Y-01-01', strtotime('-1 year')), date('Y-12-31', strtotime('+1 year'))]) as $h) {
+    $uiHolidays[$h['date']] = $h['name'];
+}
+?>
+<body data-holidays='<?= e(json_encode($uiHolidays, JSON_UNESCAPED_UNICODE)) ?>'>
 <div class="shell">
   <aside class="sidebar" id="sidebar">
     <a class="brand" href="<?= url('/') ?>">
@@ -49,6 +55,9 @@ if (is_approver()) {
         <div class="nav-title">Administración</div>
         <?php $pendAcc = (int) val('SELECT COUNT(*) FROM users WHERE pending_approval = 1'); ?>
         <a href="<?= url('/admin/usuarios') ?>" class="<?= trim($active('/admin/usuarios')) ?>"><?= icon('user') ?><span>Personas</span><?php if ($pendAcc): ?><em class="count"><?= $pendAcc ?></em><?php endif ?></a>
+        <?php if (has_role('admin')): ?>
+          <a href="<?= url('/admin/reportes') ?>" class="<?= trim($active('/admin/reportes')) ?>"><?= icon('chart') ?><span>Reportes</span></a>
+        <?php endif ?>
         <a href="<?= url('/admin/tipos') ?>" class="<?= trim($active('/admin/tipos')) ?>"><?= icon('tag') ?><span>Tipos de licencia</span></a>
         <a href="<?= url('/admin/feriados') ?>" class="<?= trim($active('/admin/feriados')) ?>"><?= icon('flag') ?><span>Feriados</span></a>
         <a href="<?= url('/admin/configuracion') ?>" class="<?= trim($active('/admin/configuracion')) ?>"><?= icon('settings') ?><span>Configuración</span></a>
@@ -81,6 +90,7 @@ if (is_approver()) {
     </main>
   </div>
 </div>
+<script src="<?= url('/assets/js/ui.js') ?>?v=<?= filemtime(dirname(APP_ROOT) . '/public_html/assets/js/ui.js') ?>"></script>
 <script src="<?= url('/assets/js/app.js') ?>?v=<?= filemtime(dirname(APP_ROOT) . '/public_html/assets/js/app.js') ?>"></script>
 </body>
 </html>

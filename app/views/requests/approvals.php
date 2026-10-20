@@ -10,7 +10,7 @@
           <?= avatar($r['user_name']) ?>
           <div>
             <b><?= e($r['user_name']) ?></b>
-            <small><?= type_dot($r['color']) ?><?= e($r['type_name']) ?> · <?= e(frange($r['start_date'], $r['end_date'])) ?> · <b><?= e(fdays($r['days'])) ?></b></small>
+            <small><?= type_dot($r['color']) ?><?= e($r['type_name']) ?> · <?= e(fwhen($r)) ?> · <b><?= e(fduration($r, false)) ?></b></small>
             <?php if ($r['reason']): ?><p class="muted clamp">«<?= e($r['reason']) ?>»</p><?php endif ?>
             <small class="muted">Pedida <?= e(ago($r['created_at'])) ?></small>
           </div>

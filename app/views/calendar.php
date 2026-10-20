@@ -31,7 +31,7 @@ $month = $first->format('m');
           <?php if ($r['private']): ?>
             <span class="cal-ev" style="--c:<?= e($r['color']) ?>" title="<?= e($r['user_name']) ?> — Ausente"><?= e(explode(' ', $r['user_name'])[0]) ?></span>
           <?php else: ?>
-            <a class="cal-ev <?= $r['status'] === 'pending' ? 'pend' : '' ?>" style="--c:<?= e($r['color']) ?>" href="<?= url('/solicitudes/' . $r['id']) ?>" title="<?= e($r['user_name'] . ' — ' . $r['type_name'] . ($r['status'] === 'pending' ? ' (pendiente)' : '')) ?>"><?= e(explode(' ', $r['user_name'])[0]) ?></a>
+            <a class="cal-ev <?= $r['status'] === 'pending' ? 'pend' : '' ?>" style="--c:<?= e($r['color']) ?>" href="<?= url('/solicitudes/' . $r['id']) ?>" title="<?= e($r['user_name'] . ' — ' . $r['type_name'] . ($r['status'] === 'pending' ? ' (pendiente)' : '')) ?>"><?= is_hourly($r) ? e(substr($r['start_time'], 0, 5)) . ' ' : '' ?><?= e(explode(' ', $r['user_name'])[0]) ?></a>
           <?php endif ?>
         <?php endforeach ?>
         <?php if (count($items) > 3): ?><small class="cal-more">+<?= count($items) - 3 ?> más</small><?php endif ?>
@@ -53,7 +53,7 @@ $month = $first->format('m');
     if ($monthList): ?>
       <ul class="people compact">
         <?php foreach ($monthList as $r): ?>
-          <li><?= $r['private'] ? '<div>' : '<a href="' . url('/solicitudes/' . $r['id']) . '">' ?><?= avatar($r['user_name'], 'sm') ?><span><b><?= e($r['user_name']) ?></b><small><?= type_dot($r['color']) ?><?= e($r['type_name']) ?> · <?= e(frange($r['start_date'], $r['end_date'])) ?><?= $r['status'] === 'pending' ? ' · pendiente' : '' ?></small></span><?= $r['private'] ? '</div>' : '</a>' ?></li>
+          <li><?= $r['private'] ? '<div>' : '<a href="' . url('/solicitudes/' . $r['id']) . '">' ?><?= avatar($r['user_name'], 'sm') ?><span><b><?= e($r['user_name']) ?></b><small><?= type_dot($r['color']) ?><?= e($r['type_name']) ?> · <?= e(fwhen($r)) ?><?= $r['status'] === 'pending' ? ' · pendiente' : '' ?></small></span><?= $r['private'] ? '</div>' : '</a>' ?></li>
         <?php endforeach ?>
       </ul>
     <?php else: ?><p class="empty-sm">No hay ausencias este mes.</p><?php endif ?>

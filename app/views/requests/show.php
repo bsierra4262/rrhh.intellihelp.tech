@@ -10,7 +10,7 @@ foreach ($stages as $st) {
 }
 $stageIcon = ['done' => 'check', 'current' => 'clock', 'failed' => 'x', 'todo' => '', 'optional' => 'paperclip'];
 $showDocs = accepts_documents($r) || $docs;
-$gcal = gcal_link($r['type_name'] . ($mine ? '' : ' — ' . $r['user_name']), $r['start_date'], $r['end_date'], url('/solicitudes/' . $r['id']));
+$gcal = gcal_link($r['type_name'] . ($mine ? '' : ' — ' . $r['user_name']), $r['start_date'], $r['end_date'], url('/solicitudes/' . $r['id']), $r['start_time'], $r['end_time']);
 ?>
 <div class="page-head">
   <div>
@@ -46,9 +46,14 @@ $gcal = gcal_link($r['type_name'] . ($mine ? '' : ' — ' . $r['user_name']), $r
           <?= avatar($r['user_name'], 'lg') ?>
           <div><b><?= e($r['user_name']) ?></b><small><?= e(implode(' · ', array_filter([$r['position'], $r['department']]))) ?: e($r['user_email']) ?></small></div>
         </div>
-        <div class="kv"><span>Desde</span><b><?= e(ucfirst(flongdate($r['start_date']))) ?></b></div>
-        <div class="kv"><span>Hasta</span><b><?= e(ucfirst(flongdate($r['end_date']))) ?></b></div>
-        <div class="kv"><span>Duración</span><b><?= e(fdays_kind($r['days'], $r['counting'])) ?></b></div>
+        <?php if (is_hourly($r)): ?>
+          <div class="kv"><span>Día</span><b><?= e(ucfirst(flongdate($r['start_date']))) ?></b></div>
+          <div class="kv"><span>Horario</span><b><?= e(substr($r['start_time'], 0, 5)) ?> a <?= e(substr($r['end_time'], 0, 5)) ?> h</b></div>
+        <?php else: ?>
+          <div class="kv"><span>Desde</span><b><?= e(ucfirst(flongdate($r['start_date']))) ?></b></div>
+          <div class="kv"><span>Hasta</span><b><?= e(ucfirst(flongdate($r['end_date']))) ?></b></div>
+        <?php endif ?>
+        <div class="kv"><span>Duración</span><b><?= e(fduration($r)) ?></b></div>
         <div class="kv"><span>Cargada</span><b><?= e(fdatetime($r['created_at'])) ?></b></div>
       </div>
       <?php if ($r['reason']): ?>
@@ -65,7 +70,7 @@ $gcal = gcal_link($r['type_name'] . ($mine ? '' : ' — ' . $r['user_name']), $r
     <section class="card card-accent decide" id="decidir">
       <h2><?= icon('check-circle') ?> Tu decisión</h2>
       <?php if ($overlaps): ?>
-        <div class="alert alert-warning inline"><?= icon('alert') ?><span>En esas fechas también faltan: <?= e(implode(', ', array_map(fn($o) => $o['user_name'] . ' (' . frange($o['start_date'], $o['end_date']) . ')', $overlaps))) ?>.</span></div>
+        <div class="alert alert-warning inline"><?= icon('alert') ?><span>En esas fechas también faltan: <?= e(implode(', ', array_map(fn($o) => $o['user_name'] . ' (' . fwhen($o) . ')', $overlaps))) ?>.</span></div>
       <?php endif ?>
       <form method="post" action="<?= url('/solicitudes/' . $r['id'] . '/decidir') ?>" class="form">
         <?= csrf_field() ?>
@@ -79,6 +84,15 @@ $gcal = gcal_link($r['type_name'] . ($mine ? '' : ' — ' . $r['user_name']), $r
               <small><?= e(fdays($r['days'])) ?> de las vacaciones de <?= e(explode(' ', $r['user_name'])[0]) ?> · le quedan <?= e(fdays($vacation_left ?? 0)) ?> disponibles</small>
             </span>
           </label>
+        <?php endif ?>
+        <?php if (accepts_documents($r)): $autoDue = doc_auto_due(array_merge($r, ['status' => 'approved'])); ?>
+          <fieldset class="due-box">
+            <legend><?= icon('clock', 15) ?> Plazo para entregar <?= e(mb_strtolower($r['document_label'] ?: 'documentación')) ?></legend>
+            <label class="due-opt"><input type="radio" name="doc_due_mode" value="auto" checked> <span>Automático: <b><?= e(fdate($autoDue)) ?></b></span></label>
+            <label class="due-opt"><input type="radio" name="doc_due_mode" value="custom"> <span>Elegir fecha</span>
+              <input type="date" name="doc_due_date" min="<?= date('Y-m-d') ?>" value="<?= e($autoDue) ?>" data-due-date>
+            </label>
+          </fieldset>
         <?php endif ?>
         <div class="btn-row">
           <button class="btn btn-positive btn-lg" name="decision" value="approved"><?= icon('check', 18) ?> Autorizar</button>
@@ -109,7 +123,17 @@ $gcal = gcal_link($r['type_name'] . ($mine ? '' : ' — ' . $r['user_name']), $r
           <?php endforeach ?>
         </ul>
       <?php else: ?>
-        <p class="empty-sm"><?= $r['requires_document'] ? icon('alert', 16) . ' Todavía no se subió la documentación.' : 'Opcional: se puede adjuntar cuando esté disponible.' ?></p>
+        <p class="empty-sm">
+          <?php if ($r['requires_approval'] && $r['status'] === 'pending'): ?>
+            <?= icon('info', 16) ?> Se entrega una vez autorizada la solicitud.
+          <?php elseif ($r['doc_due_date'] && $r['doc_due_date'] < date('Y-m-d') && doc_pending($r)): ?>
+            <?= icon('alert', 16) ?> El plazo de entrega venció el <?= e(fdate($r['doc_due_date'])) ?>.
+          <?php elseif ($r['requires_document']): ?>
+            <?= icon('clock', 16) ?> Pendiente de entrega<?= $r['doc_due_date'] ? ' hasta el ' . e(fdate($r['doc_due_date'])) : '' ?>.
+          <?php else: ?>
+            Opcional<?= $r['doc_due_date'] ? ': se puede entregar hasta el ' . e(fdate($r['doc_due_date'])) : '' ?>.
+          <?php endif ?>
+        </p>
       <?php endif ?>
 
       <?php if (is_hr() && $docs && in_array($r['doc_status'], ['uploaded', 'observed'], true)): ?>
@@ -121,6 +145,24 @@ $gcal = gcal_link($r['type_name'] . ($mine ? '' : ' — ' . $r['user_name']), $r
             <button class="btn btn-ghost btn-sm" name="result" value="observed"><?= icon('alert', 16) ?> Observar</button>
           </div>
         </form>
+      <?php endif ?>
+
+      <?php if ($r['doc_due_date'] && $docs && doc_pending($r)): ?>
+        <p class="empty-sm"><?= icon('clock', 16) ?> Plazo de entrega: <?= e(fdate($r['doc_due_date'])) ?>.</p>
+      <?php endif ?>
+
+      <?php if (can_set_doc_due($r) && $r['doc_due_date'] && $r['doc_status'] !== 'uploaded'): ?>
+        <details class="due-edit">
+          <summary><?= icon('edit', 14) ?> Cambiar plazo de entrega <small class="muted">(actual: <?= e(fdate($r['doc_due_date'])) ?><?= $r['doc_due_custom'] ? ', fecha elegida' : ', automático' ?>)</small></summary>
+          <form method="post" action="<?= url('/solicitudes/' . $r['id'] . '/plazo') ?>" class="due-box">
+            <?= csrf_field() ?>
+            <label class="due-opt"><input type="radio" name="doc_due_mode" value="auto" <?= $r['doc_due_custom'] ? '' : 'checked' ?>> <span>Automático: <b><?= e(fdate(doc_auto_due($r))) ?></b></span></label>
+            <label class="due-opt"><input type="radio" name="doc_due_mode" value="custom" <?= $r['doc_due_custom'] ? 'checked' : '' ?>> <span>Elegir fecha</span>
+              <input type="date" name="doc_due_date" min="<?= date('Y-m-d') ?>" value="<?= e($r['doc_due_date']) ?>" data-due-date>
+            </label>
+            <button class="btn btn-primary btn-sm"><?= icon('check', 14) ?> Guardar plazo</button>
+          </form>
+        </details>
       <?php endif ?>
 
       <?php if ($can_upload): ?>

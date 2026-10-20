@@ -257,11 +257,58 @@ function validate_request(array $user, array $type, string $from, string $to, ?i
 }
 
 /**
+ * Valida un trámite por horario dentro de un día hábil.
+ *
+ * @return array{0: string[], 1: string[], 2: float} Errores, advertencias y cantidad de horas.
+ */
+function validate_hourly_request(array $user, array $type, string $date, string $start, string $end, ?int $excludeId = null): array
+{
+    $errors = [];
+    $warnings = [];
+    if (!valid_date($date)) {
+        return [['Elegí el día del trámite.'], [], 0.0];
+    }
+    if (!preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $start) || !preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $end)) {
+        return [['Elegí el horario de salida y de regreso.'], [], 0.0];
+    }
+    if ($end <= $start) {
+        return [['El horario de regreso tiene que ser posterior al de salida.'], [], 0.0];
+    }
+    $hours = (strtotime("$date $end") - strtotime("$date $start")) / 3600;
+
+    if ((int) date('N', strtotime($date)) >= 6 || isset(holidays_between($date, $date)[$date])) {
+        $errors[] = 'El día elegido no es hábil (fin de semana o feriado).';
+    }
+    if ($hours > 8) {
+        $warnings[] = 'El trámite ocupa más de una jornada: considerá pedir un día personal.';
+    }
+
+    $exclude = $excludeId ? ' AND r.id <> ' . (int) $excludeId : '';
+    $fullDay = row("SELECT r.id, t.name FROM leave_requests r JOIN leave_types t ON t.id = r.type_id
+        WHERE r.user_id = ? AND r.status IN ('pending','approved','registered') AND r.start_time IS NULL
+          AND r.start_date <= ? AND r.end_date >= ?$exclude", [$user['id'], $date, $date]);
+    if ($fullDay) {
+        $errors[] = "Ese día ya tenés una solicitud de {$fullDay['name']} (#{$fullDay['id']}).";
+    }
+    $sameTime = row("SELECT r.id, r.start_time, r.end_time FROM leave_requests r
+        WHERE r.user_id = ? AND r.status IN ('pending','approved','registered') AND r.start_time IS NOT NULL
+          AND r.start_date = ? AND r.start_time < ? AND r.end_time > ?$exclude", [$user['id'], $date, $end . ':00', $start . ':00']);
+    if ($sameTime) {
+        $errors[] = 'Se superpone con otro trámite de ese día (' . substr($sameTime['start_time'], 0, 5) . '–' . substr($sameTime['end_time'], 0, 5) . ", #{$sameTime['id']}).";
+    }
+    if ($type['min_notice_days'] > 0 && $type['requires_approval'] && $date < date('Y-m-d', strtotime('+' . (int) $type['min_notice_days'] . ' days'))) {
+        $warnings[] = "Se recomienda pedir {$type['name']} con al menos " . fdays($type['min_notice_days']) . ' de anticipación.';
+    }
+
+    return [$errors, $warnings, round($hours, 2)];
+}
+
+/**
  * Solicitud con datos de tipo, colaborador, aprobador y decisor.
  */
 function load_request(int $id): ?array
 {
-    return row('SELECT r.*, t.name AS type_name, t.code AS type_code, t.color, t.requires_approval, t.requires_document, t.document_label, t.counting, t.vacation_optional,
+    return row('SELECT r.*, t.name AS type_name, t.code AS type_code, t.color, t.requires_approval, t.requires_document, t.document_label, t.doc_due_days, t.doc_due_from, t.counting, t.by_hours, t.vacation_optional,
             u.name AS user_name, u.email AS user_email, u.department, u.position, u.manager_id,
             a.name AS approver_name, d.name AS decider_name
         FROM leave_requests r
@@ -342,6 +389,9 @@ const EVENT_LABELS = [
     'doc_observed' => 'observó la documentación',
     'reminder' => 'se envió un recordatorio al aprobador',
     'vacation_deducted' => 'descontó los días de las vacaciones',
+    'doc_due_set' => 'definió el plazo de entrega de la documentación',
+    'doc_reminder' => 'se recordó la entrega de la documentación',
+    'doc_overdue' => 'venció el plazo de entrega de la documentación',
     'created_by_hr' => 'cargó la licencia en nombre del colaborador',
 ];
 
@@ -428,10 +478,66 @@ function vacation_left(array $user, int $year, ?int $excludeId = null): float
 }
 
 /**
+ * Primer día hábil igual o posterior a la fecha indicada.
+ */
+function working_day_from(string $date): string
+{
+    $d = new DateTimeImmutable($date);
+    for ($i = 0; $i < 20; $i++) {
+        if ((int) $d->format('N') < 6 && !isset(holidays_between($d->format('Y-m-d'), $d->format('Y-m-d'))[$d->format('Y-m-d')])) {
+            break;
+        }
+        $d = $d->modify('+1 day');
+    }
+
+    return $d->format('Y-m-d');
+}
+
+/**
+ * Fecha límite automática para entregar la documentación, según el tipo de licencia.
+ *
+ * Se cuenta desde que se informa la licencia o desde su último día, y si cae en un día
+ * no hábil se traslada al siguiente hábil. Devuelve null si el tipo no admite documentación.
+ */
+function doc_auto_due(array $r): ?string
+{
+    if (!accepts_documents($r)) {
+        return null;
+    }
+    $days = (int) ($r['doc_due_days'] ?? 0) ?: 3;
+    $base = ($r['doc_due_from'] ?? 'end') === 'created' ? substr((string) $r['created_at'], 0, 10) : $r['end_date'];
+
+    return working_day_from(date('Y-m-d', strtotime("$base +$days days")));
+}
+
+/**
+ * Indica si la documentación de la solicitud está pendiente de entrega.
+ */
+function doc_pending(array $r): bool
+{
+    return accepts_documents($r) && in_array($r['doc_status'], ['none', 'observed'], true)
+        && in_array($r['status'], ['approved', 'registered'], true);
+}
+
+/**
+ * Indica si el usuario actual puede modificar el plazo de entrega de la documentación.
+ */
+function can_set_doc_due(array $r): bool
+{
+    $u = current_user();
+    if (!$u || !accepts_documents($r) || in_array($r['status'], ['rejected', 'cancelled'], true) || $r['doc_status'] === 'verified') {
+        return false;
+    }
+
+    return is_hr() || (int) $r['approver_id'] === (int) $u['id'] || (int) $r['manager_id'] === (int) $u['id'];
+}
+
+/**
  * Etapas de seguimiento de una solicitud, según su tipo y estado.
  *
- * Solo se incluyen las etapas que aplican: la documentación y su verificación aparecen
- * únicamente en los tipos que admiten adjuntos, y la autorización solo en los que la requieren.
+ * Orden: solicitud, autorización (si corresponde), registro de la ausencia y, después,
+ * documentación y verificación de RRHH (solo en los tipos que admiten adjuntos). La
+ * documentación se entrega una vez autorizada o informada la licencia, dentro del plazo.
  *
  * @param array<int, array> $docs   Adjuntos de la solicitud.
  * @param array<int, array> $events Historial de la solicitud (orden cronológico).
@@ -450,11 +556,12 @@ function request_stages(array $r, array $docs, array $events): array
 
         return $found;
     };
-    $who = fn (?array $ev, string $fallback = '') => trim(($ev['user_name'] ?? $fallback) . ' · ' . fdatetime($ev['created_at'] ?? null), ' ·');
+    $who = fn (?array $ev) => trim(($ev['user_name'] ?? '') . ' · ' . fdatetime($ev['created_at'] ?? null), ' ·');
 
     $stages = [];
     $approval = (bool) $r['requires_approval'];
     $status = $r['status'];
+    $closed = in_array($status, ['approved', 'registered'], true);
 
     $stages[] = [
         'title' => $approval ? 'Solicitada' : 'Informada',
@@ -487,54 +594,54 @@ function request_stages(array $r, array $docs, array $events): array
         $stages[] = $auth;
     }
 
+    if ($status === 'rejected') {
+        return $stages;
+    }
+    if ($status === 'cancelled') {
+        $stages[] = ['title' => 'Cancelada', 'detail' => $who($last('cancelled')), 'state' => 'failed', 'note' => $last('cancelled')['comment'] ?? ''];
+
+        return $stages;
+    }
+
+    $stages[] = [
+        'title' => 'Ausencia registrada',
+        'detail' => $closed ? 'En el calendario del equipo' : 'Al ser autorizada',
+        'state' => $closed ? 'done' : 'todo',
+    ];
+
     if (accepts_documents($r)) {
         $label = $r['document_label'] ?: 'Documentación';
-        if ($docs) {
+        $due = $r['doc_due_date'] ? 'vence el ' . fdate($r['doc_due_date']) : '';
+        $overdue = $r['doc_due_date'] && $r['doc_due_date'] < date('Y-m-d') && doc_pending($r);
+        if ($docs && $r['doc_status'] !== 'observed') {
             $lastDoc = end($docs);
             $stages[] = [
                 'title' => $label,
                 'detail' => count($docs) . ' archivo' . (count($docs) > 1 ? 's' : '') . ' · ' . fdatetime($lastDoc['created_at']),
                 'state' => 'done',
             ];
-            $review = ['title' => 'Verificación de RRHH', 'detail' => 'Pendiente de revisión', 'state' => 'current'];
-            if ($r['doc_status'] === 'verified') {
-                $review = ['title' => 'Documentación verificada', 'detail' => $who($last('doc_verified')), 'state' => 'done'];
-            } elseif ($r['doc_status'] === 'observed') {
-                $ev = $last('doc_observed');
-                $review = ['title' => 'Documentación observada', 'detail' => $who($ev) . ' · requiere corrección', 'state' => 'failed', 'note' => $ev['comment'] ?? ''];
-            }
-            if (in_array($status, ['rejected', 'cancelled'], true) && $review['state'] === 'current') {
-                $review['state'] = 'todo';
-            }
-            $stages[] = $review;
-        } elseif ($r['requires_document']) {
-            $stages[] = ['title' => $label, 'detail' => 'Pendiente de carga (obligatoria)', 'state' => in_array($status, ['rejected', 'cancelled'], true) ? 'todo' : 'current'];
+        } elseif (!$closed) {
+            $stages[] = ['title' => $label, 'detail' => 'Se entrega una vez autorizada', 'state' => 'todo'];
+        } elseif ($overdue) {
+            $stages[] = ['title' => $label, 'detail' => 'Plazo vencido el ' . fdate($r['doc_due_date']), 'state' => 'failed'];
+        } elseif ($r['requires_document'] || $r['doc_status'] === 'observed') {
+            $stages[] = ['title' => $label, 'detail' => 'Pendiente de entrega' . ($due ? ' · ' . $due : ''), 'state' => 'current'];
         } else {
-            $stages[] = ['title' => $label, 'detail' => 'Opcional · se puede adjuntar más adelante', 'state' => 'optional'];
+            $stages[] = ['title' => $label, 'detail' => 'Opcional' . ($due ? ' · ' . $due : ''), 'state' => 'optional'];
         }
-    }
 
-    if ($status === 'cancelled') {
-        $stages[] = ['title' => 'Cancelada', 'detail' => $who($last('cancelled')), 'state' => 'failed', 'note' => $last('cancelled')['comment'] ?? ''];
-    } elseif ($status !== 'rejected') {
-        $final = in_array($status, ['approved', 'registered'], true);
-        $stages[] = [
-            'title' => 'Ausencia registrada',
-            'detail' => $final ? 'En el calendario del equipo' : 'Al ser autorizada',
-            'state' => $final ? 'done' : 'todo',
-        ];
-    }
-
-    // Si ninguna etapa quedó marcada como actual, la primera pendiente pasa a serlo.
-    $hasCurrent = (bool) array_filter($stages, fn ($s) => $s['state'] === 'current');
-    if (!$hasCurrent && !in_array($status, ['rejected', 'cancelled'], true)) {
-        foreach ($stages as &$s) {
-            if ($s['state'] === 'todo') {
-                $s['state'] = 'current';
-                break;
-            }
+        $review = ['title' => 'Verificación de RRHH', 'detail' => 'Al recibir la documentación', 'state' => 'todo'];
+        if ($r['doc_status'] === 'verified') {
+            $review = ['title' => 'Documentación verificada', 'detail' => $who($last('doc_verified')), 'state' => 'done'];
+        } elseif ($r['doc_status'] === 'uploaded') {
+            $review = ['title' => 'Verificación de RRHH', 'detail' => 'Pendiente de revisión', 'state' => 'current'];
+        } elseif ($r['doc_status'] === 'observed') {
+            $ev = $last('doc_observed');
+            $review = ['title' => 'Documentación observada', 'detail' => $who($ev) . ' · requiere una nueva entrega', 'state' => 'failed', 'note' => $ev['comment'] ?? ''];
         }
-        unset($s);
+        if ($r['requires_document'] || $docs) {
+            $stages[] = $review;
+        }
     }
 
     return $stages;

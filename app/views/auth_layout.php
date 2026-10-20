@@ -58,6 +58,7 @@
     </div>
   </section>
 </div>
-<script src="<?= url('/assets/js/app.js') ?>"></script>
+<script src="<?= url('/assets/js/ui.js') ?>?v=<?= filemtime(dirname(APP_ROOT) . '/public_html/assets/js/ui.js') ?>"></script>
+<script src="<?= url('/assets/js/app.js') ?>?v=<?= filemtime(dirname(APP_ROOT) . '/public_html/assets/js/app.js') ?>"></script>
 </body>
 </html>
