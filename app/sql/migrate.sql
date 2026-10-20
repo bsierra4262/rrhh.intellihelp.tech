@@ -25,6 +25,10 @@ UPDATE leave_types SET doc_due_days = 5, doc_due_from = 'created' WHERE code = '
 UPDATE leave_types SET doc_due_days = 2, doc_due_from = 'end' WHERE code = 'estudio' AND doc_due_days IS NULL;
 UPDATE leave_types SET doc_due_days = 5, doc_due_from = 'end' WHERE code IN ('mudanza', 'fallecimiento') AND doc_due_days IS NULL;
 UPDATE leave_types SET doc_due_days = 10, doc_due_from = 'end' WHERE code IN ('matrimonio', 'nacimiento') AND doc_due_days IS NULL;
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS drive_id VARCHAR(128) NULL AFTER stored_name;
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS drive_name VARCHAR(255) NULL AFTER drive_id;
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS drive_link VARCHAR(255) NULL AFTER drive_name;
+INSERT IGNORE INTO settings (k, v) VALUES ('drive_root_folder', '');
 INSERT IGNORE INTO settings (k, v) VALUES ('report_enabled', '0'), ('report_recipients', ''), ('report_day', '1'), ('report_last_sent', '');
 -- El día personal admite descuento opcional de vacaciones, a criterio de quien autoriza.
 UPDATE leave_types SET vacation_optional = 1 WHERE code = 'personal' AND name = 'Día personal';

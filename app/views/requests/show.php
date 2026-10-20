@@ -109,15 +109,18 @@ $gcal = gcal_link($r['type_name'] . ($mine ? '' : ' — ' . $r['user_name']), $r
       </div>
       <?php if ($docs): ?>
         <ul class="docs">
-          <?php foreach ($docs as $d): $isImg = str_starts_with($d['mime'], 'image/') && $d['mime'] !== 'image/heic'; ?>
+          <?php foreach ($docs as $d): $isImg = in_array($d['mime'], ['image/jpeg', 'image/png'], true); ?>
             <li>
               <a class="doc-thumb" href="<?= url('/archivos/' . $d['id']) ?>" target="_blank" rel="noopener">
                 <?php if ($isImg): ?><img src="<?= url('/archivos/' . $d['id']) ?>" alt="" loading="lazy"><?php else: ?><?= icon('file', 28) ?><?php endif ?>
               </a>
               <div class="doc-info">
-                <a href="<?= url('/archivos/' . $d['id']) ?>" target="_blank" rel="noopener"><b><?= e($d['original_name']) ?></b></a>
-                <small><?= e(round($d['size'] / 1024)) ?> KB · subido por <?= e($d['uploader']) ?> · <?= e(fdatetime($d['created_at'])) ?></small>
+                <a href="<?= url('/archivos/' . $d['id']) ?>" target="_blank" rel="noopener"><b><?= e($d['drive_name'] ?: $d['original_name']) ?></b></a>
+                <small><?= e(round($d['size'] / 1024)) ?> KB · subido por <?= e($d['uploader']) ?> · <?= e(fdatetime($d['created_at'])) ?><?= $d['drive_name'] ? ' · archivo original: ' . e($d['original_name']) : '' ?></small>
               </div>
+              <?php if ($d['drive_link'] && (is_hr() || !$mine)): ?>
+                <a class="icon-btn" href="<?= e($d['drive_link']) ?>" target="_blank" rel="noopener" title="Abrir en Google Drive"><?= icon('link', 18) ?></a>
+              <?php endif ?>
               <a class="icon-btn" href="<?= url('/archivos/' . $d['id'], ['descargar' => 1]) ?>" title="Descargar"><?= icon('download', 18) ?></a>
             </li>
           <?php endforeach ?>
@@ -169,9 +172,10 @@ $gcal = gcal_link($r['type_name'] . ($mine ? '' : ' — ' . $r['user_name']), $r
         <form method="post" action="<?= url('/solicitudes/' . $r['id'] . '/documentos') ?>" enctype="multipart/form-data" class="upload-inline">
           <?= csrf_field() ?>
           <label class="drop sm">
-            <input type="file" name="documents[]" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,.heic,application/pdf,image/*" required data-autosubmit>
+            <input type="file" name="documents[]" multiple accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" required data-autosubmit>
             <?= icon('upload', 20) ?> <b><?= $docs ? 'Agregar otro archivo' : 'Subir ' . e(mb_strtolower($r['document_label'] ?: 'documentación')) ?></b>
           </label>
+          <small class="muted upload-hint"><?= e(ALLOWED_FORMATS_LABEL) ?> · hasta <?= (int) config('upload_max_mb', 10) ?> MB por archivo · también desde la cámara del celular.</small>
         </form>
       <?php endif ?>
     </section>

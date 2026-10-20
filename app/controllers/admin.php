@@ -249,7 +249,7 @@ function admin_holidays_save(): void
 const SETTING_KEYS = ['company_name', 'hr_email', 'mail_driver', 'mail_from', 'mail_from_name', 'smtp_host', 'smtp_port', 'smtp_secure', 'smtp_user', 'smtp_pass',
     'wa_driver', 'wa_cloud_token', 'wa_cloud_phone_id', 'wa_cloud_template', 'wa_cloud_lang', 'reminder_hours',
     'wa_gw_url', 'wa_gw_key', 'wa_gw_instance', 'gchat_webhook', 'default_approver_id', 'signup_enabled', 'signup_domain',
-    'event_email', 'gcal_calendar_id', 'gcal_sa_json', 'support_email', 'ai_smtp_user', 'ai_smtp_pass', 'gcal_impersonate'];
+    'event_email', 'gcal_calendar_id', 'gcal_sa_json', 'support_email', 'ai_smtp_user', 'ai_smtp_pass', 'gcal_impersonate', 'drive_root_folder'];
 
 /**
  * Pantalla de configuración del sistema.
@@ -280,7 +280,7 @@ function admin_settings_save(): void
         }
         $v = trim((string) $_POST[$k]);
         if ($k === 'gcal_impersonate') {
-            @unlink(STORAGE . '/gcal_token.json');
+            array_map('unlink', glob(STORAGE . '/gtoken-*.json') ?: []);
         }
         if ($k === 'gcal_sa_json' && $v !== '' && $v !== '••••••••') {
             $j = json_decode($v, true);
@@ -288,7 +288,7 @@ function admin_settings_save(): void
                 flash('error', 'La clave de Google Calendar no es un JSON de cuenta de servicio válido. No se guardó.');
                 continue;
             }
-            @unlink(STORAGE . '/gcal_token.json');
+            array_map('unlink', glob(STORAGE . '/gtoken-*.json') ?: []);
         }
         // Los secretos se muestran enmascarados; si no se modificaron, se conservan.
         if (in_array($k, SECRET_SETTINGS, true) && ($v === '••••••••')) {
@@ -339,6 +339,18 @@ function admin_settings_test(): void
         save_setting('gcal_test_event_id', $ev['id']);
         save_setting('gcal_test_event_link', (string) ($ev['htmlLink'] ?? ''));
         flash('success', "Se creó el evento «✅ Evento de prueba — Portal RRHH» para hoy en el calendario «{$cal['summary']}». Revisalo en Google Calendar y, si está todo bien, tocá «Finalizar test» para borrarlo.");
+        redirect('/admin/configuracion#gcal');
+    } elseif ($channel === 'gdrive') {
+        if (!drive_enabled()) {
+            flash('error', 'Cargá el ID de la carpeta de Google Drive y la clave de la cuenta de servicio.');
+            redirect('/admin/configuracion#gcal');
+        }
+        [$code, $body] = drive_request('GET', 'https://www.googleapis.com/drive/v3/files/' . rawurlencode(setting('drive_root_folder')) . '?fields=name,capabilities(canAddChildren)&supportsAllDrives=true', null, [], $err);
+        $f = json_decode($body, true) ?: [];
+        $ok = $code === 200 && !empty($f['capabilities']['canAddChildren']);
+        flash($ok ? 'success' : 'error', $ok
+            ? "Conectado a la carpeta «{$f['name']}» de Google Drive. La documentación se guardará ahí."
+            : 'No se pudo acceder a la carpeta de Google Drive: ' . ($err ?: 'sin permiso para crear contenido.'));
         redirect('/admin/configuracion#gcal');
     } elseif ($channel === 'gcal_finish') {
         // Paso 2 del test: borra el evento de prueba

@@ -97,6 +97,14 @@
   </section>
 
   <section class="card">
+    <div class="card-head"><h2><?= icon('file') ?> Google Drive</h2><?= $s['drive_root_folder'] ? '<span class="badge badge-approved">Configurado</span>' : '' ?></div>
+    <p class="muted" style="margin-bottom:14px">La documentación se guarda en esta carpeta: <b>Nombre y Apellido / Año / Tipo de licencia / AAAAMMDD</b>. Usa la misma cuenta de servicio que Google Calendar.</p>
+    <label class="field"><span>ID de la carpeta raíz</span><input name="drive_root_folder" value="<?= e($s['drive_root_folder']) ?>" placeholder="1mGrbjfLIWUjCPssk9BSZvZ3ATiwRlO-K">
+      <small class="muted">Es la parte final del enlace de la carpeta: drive.google.com/drive/folders/<b>ID</b>.</small>
+    </label>
+  </section>
+
+  <section class="card">
     <div class="card-head"><h2><?= icon('bell') ?> Google Chat</h2></div>
     <label class="field"><span>Webhook del espacio de RRHH</span><input type="password" name="gchat_webhook" value="<?= e($s['gchat_webhook']) ?>" autocomplete="off" placeholder="https://chat.googleapis.com/v1/spaces/…/messages?key=…">
       <small class="muted">Gratis con Google Workspace. En Google Chat: creá un espacio (ej. «RRHH – Aprobaciones»), sumá a quienes autorizan → Apps e integraciones → Webhooks → Agregar, y pegá la URL acá. Cada novedad llega como notificación al celular.</small>
@@ -143,6 +151,10 @@
     <form method="post" action="<?= url('/admin/configuracion/prueba') ?>">
       <?= csrf_field() ?><input type="hidden" name="channel" value="gcal">
       <button class="btn btn-ghost btn-sm"><?= icon('calendar', 16) ?> Probar Google Calendar</button>
+    </form>
+    <form method="post" action="<?= url('/admin/configuracion/prueba') ?>">
+      <?= csrf_field() ?><input type="hidden" name="channel" value="gdrive">
+      <button class="btn btn-ghost btn-sm"><?= icon('file', 16) ?> Probar Google Drive</button>
     </form>
     <form method="post" action="<?= url('/admin/configuracion/prueba') ?>">
       <?= csrf_field() ?><input type="hidden" name="channel" value="gchat">

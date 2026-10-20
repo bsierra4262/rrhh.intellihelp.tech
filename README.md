@@ -124,7 +124,8 @@ Licencias aprobadas que impactan en vacaciones, con filtros por período y perso
 - Solo las vacaciones descuentan días de vacaciones; en el **día personal**, quien autoriza decide si se descuenta.
 - La documentación (certificados y constancias) se entrega **después** de pedir la licencia: una vez autorizada o, si solo se informa, cuando se tenga, dentro de un **plazo** con recordatorio previo.
 - Validaciones: superposición de fechas, topes anuales y por solicitud, anticipación sugerida.
-- Entrega de **certificados y constancias** en PDF o foto, también desde la cámara del celular.
+- Entrega de **certificados y constancias** en **PDF, JPG o PNG**, también desde la cámara del celular.
+- La documentación se guarda en **Google Drive**, ordenada en `Nombre y Apellido / Año / Tipo de licencia / AAAAMMDD.ext`, renombrada con la fecha de carga.
 - Historial completo, cancelación de solicitudes y notificaciones dentro del portal.
 - Calendario personal suscribible (iCal).
 
@@ -204,7 +205,8 @@ Aplicación **PHP 8.3 sin framework**, pensada para hosting compartido: sin proc
 │   ├── lib/
 │   │   ├── leave.php       # Reglas de negocio: conteo de días, vacaciones LCT, etapas, validaciones
 │   │   ├── notify.php      # Orquestación de notificaciones por evento
-│   │   ├── gcal.php        # Cliente de Google Calendar (JWT de cuenta de servicio)
+│   │   ├── gcal.php        # Autenticación de Google (JWT) y Google Calendar
+│   │   ├── gdrive.php      # Almacenamiento de la documentación en Google Drive
 │   │   ├── reports.php     # Reportes de vacaciones en Excel y envío mensual
 │   │   ├── mailer.php      # Envío SMTP y plantilla de email
 │   │   ├── gchat.php       # Notificaciones a Google Chat
@@ -224,6 +226,7 @@ Aplicación **PHP 8.3 sin framework**, pensada para hosting compartido: sin proc
 | Backend | PHP 8.3 (PDO, cURL, OpenSSL, fileinfo) |
 | Base de datos | MariaDB 11 / MySQL 8 |
 | Email | PHPMailer (SMTP de Google Workspace) |
+| Documentación | Google Drive API (estructura por persona, año y tipo de licencia) |
 | Reportes | PhpSpreadsheet (Excel con formato de tabla) |
 | Integraciones | Google Calendar API, Google Chat Webhooks, iCalendar |
 | Frontend | HTML + CSS propio + JavaScript sin dependencias |
@@ -235,7 +238,7 @@ Aplicación **PHP 8.3 sin framework**, pensada para hosting compartido: sin proc
 - Protección **CSRF** en todos los formularios y cookies de sesión `HttpOnly`, `Secure` y `SameSite`.
 - Consultas **parametrizadas** (PDO) y escape de salida en todas las vistas.
 - **Bloqueo por intentos fallidos** de ingreso y de recuperación de contraseña.
-- Certificados almacenados **fuera del docroot**, servidos solo a usuarios autorizados, con validación de tipo MIME y tamaño.
+- Documentación almacenada en **Google Drive** (nunca en el servidor web), servida desde el portal solo a usuarios autorizados; se valida el tipo real del archivo (PDF, JPG o PNG) y su tamaño.
 - **Secretos cifrados** en base de datos (AES-256-GCM): contraseña SMTP, clave de la cuenta de servicio, webhooks.
 - Validación de correo por enlace en el autoregistro y aprobación manual para dominios externos.
 - HTTPS forzado, HSTS y cabeceras `X-Frame-Options`, `X-Content-Type-Options` y `Referrer-Policy`.
@@ -285,6 +288,7 @@ Todo se configura desde **Administración → Configuración**, sin tocar códig
 | Registro | Habilitar autoregistro, dominios de confianza |
 | Email | Servidor SMTP, remitente, alcance de los avisos |
 | Google Calendar | ID del calendario, clave JSON de la cuenta de servicio, usuario a representar |
+| Google Drive | ID de la carpeta raíz de la documentación |
 | Google Chat | Webhook del espacio de aprobadores |
 
 <details>
@@ -295,6 +299,31 @@ Todo se configura desde **Administración → Configuración**, sin tocar códig
 3. Crear el calendario compartido de licencias y compartirlo con quienes autorizan.
 4. En el portal: cargar el ID del calendario, la clave JSON y el usuario dueño del calendario en «Actuar en nombre de».
 5. **Probar Google Calendar** crea un evento de prueba; después de verlo en el calendario, **Finalizar test** lo elimina.
+
+</details>
+
+<details>
+<summary><b>Configurar Google Drive</b></summary>
+
+1. En el proyecto de Google Cloud: habilitar **Google Drive API**.
+2. En la delegación de todo el dominio de la cuenta de servicio, agregar el permiso `https://www.googleapis.com/auth/drive` (junto al de Calendar).
+3. El usuario representado debe poder crear contenido en la carpeta raíz.
+4. En el portal: cargar el ID de la carpeta (la parte final de su enlace) y usar **Probar Google Drive**.
+
+Estructura generada automáticamente:
+
+```
+Carpeta raíz/
+└── Nombre y Apellido/
+    └── 2026/
+        ├── Vacaciones/
+        ├── Día de estudio / examen/
+        │   └── 20261029.pdf
+        ├── Enfermedad/
+        │   ├── 20261020.jpg
+        │   └── 20261020-2.pdf
+        └── … (una carpeta por cada tipo de licencia)
+```
 
 </details>
 

@@ -402,28 +402,44 @@ const ALLOWED_MIME = [
     'application/pdf' => 'pdf',
     'image/jpeg' => 'jpg',
     'image/png' => 'png',
-    'image/webp' => 'webp',
-    'image/heic' => 'heic',
-    'image/heif' => 'heic',
 ];
 
 /**
- * Valida y guarda archivos adjuntos fuera del docroot.
+ * Texto con los formatos de documentación admitidos.
+ */
+const ALLOWED_FORMATS_LABEL = 'PDF, JPG o PNG';
+
+/**
+ * Tipo de archivo real según su contenido (no según la extensión), o null si no está admitido.
+ */
+function detect_upload_mime(string $tmpPath): ?string
+{
+    $mime = (new finfo(FILEINFO_MIME_TYPE))->file($tmpPath) ?: '';
+
+    return isset(ALLOWED_MIME[$mime]) ? $mime : null;
+}
+
+/**
+ * Valida los archivos adjuntos y los guarda en Google Drive, en la carpeta
+ * Persona / Año de la licencia / Tipo de licencia, renombrados con la fecha de carga.
  *
- * @return array{0: int, 1: string[], 2: string[]} Cantidad guardada, errores y rutas almacenadas.
+ * @return array{0: int, 1: string[], 2: string[]} Cantidad guardada, errores e IDs de Drive.
  */
 function store_uploads(int $requestId, int $userId, array $files): array
 {
     $errors = [];
     $saved = 0;
-    $paths = [];
+    $ids = [];
     $max = (int) config('upload_max_mb', 10) * 1024 * 1024;
     $count = is_array($files['name'] ?? null) ? count($files['name']) : 0;
-    $dir = STORAGE . '/uploads/' . date('Y/m');
-    if (!is_dir($dir)) {
-        mkdir($dir, 0750, true);
+    if (!$count) {
+        return [0, [], []];
     }
-    $finfo = new finfo(FILEINFO_MIME_TYPE);
+    if (!drive_enabled()) {
+        return [0, ['La carga de documentación no está disponible: falta configurar la carpeta de Google Drive.'], []];
+    }
+    $r = load_request($requestId);
+    $folder = null;
 
     for ($i = 0; $i < $count; $i++) {
         if ($files['error'][$i] === UPLOAD_ERR_NO_FILE) {
@@ -438,29 +454,34 @@ function store_uploads(int $requestId, int $userId, array $files): array
             $errors[] = "«{$name}» supera los " . config('upload_max_mb', 10) . ' MB.';
             continue;
         }
-        $mime = $finfo->file($files['tmp_name'][$i]) ?: '';
-        if (!isset(ALLOWED_MIME[$mime])) {
-            $errors[] = "«{$name}» no es un formato permitido (PDF, JPG, PNG, WEBP o HEIC).";
+        $mime = detect_upload_mime($files['tmp_name'][$i]);
+        if ($mime === null) {
+            $errors[] = "«{$name}» no es un formato permitido. Se aceptan " . ALLOWED_FORMATS_LABEL . '.';
             continue;
         }
-        $stored = date('Y/m/') . bin2hex(random_bytes(16)) . '.' . ALLOWED_MIME[$mime];
-        if (!move_uploaded_file($files['tmp_name'][$i], STORAGE . '/uploads/' . $stored)) {
-            $errors[] = "No se pudo guardar «{$name}».";
+        $error = null;
+        $folder ??= drive_leave_folder($r['user_name'], (int) substr($r['start_date'], 0, 4), $r['type_name'], $error);
+        $file = $folder ? drive_upload($files['tmp_name'][$i], $mime, drive_file_name($folder, ALLOWED_MIME[$mime]), $folder, $error) : null;
+        if (!$file) {
+            $errors[] = "No se pudo guardar «{$name}» en Google Drive. Intentá nuevamente en unos minutos.";
             continue;
         }
         insert('documents', [
             'request_id' => $requestId,
             'user_id' => $userId,
             'original_name' => mb_substr($name, 0, 255),
-            'stored_name' => $stored,
+            'stored_name' => '',
+            'drive_id' => $file['id'],
+            'drive_name' => $file['name'],
+            'drive_link' => $file['webViewLink'] ?? null,
             'mime' => $mime,
             'size' => (int) $files['size'][$i],
         ]);
-        $paths[] = STORAGE . '/uploads/' . $stored;
+        $ids[] = $file['id'];
         $saved++;
     }
 
-    return [$saved, $errors, $paths];
+    return [$saved, $errors, $ids];
 }
 
 /**

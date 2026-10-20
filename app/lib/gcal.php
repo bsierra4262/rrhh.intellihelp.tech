@@ -37,12 +37,21 @@ function b64url(string $s): string
 }
 
 /**
- * Obtiene un token OAuth 2.0 de la cuenta de servicio (JWT firmado con RS256).
- * El token se cachea en storage hasta su vencimiento.
+ * Token OAuth 2.0 de la cuenta de servicio para el calendario.
  */
 function gcal_token(?string &$error = null): ?string
 {
-    $cache = STORAGE . '/gcal_token.json';
+    return google_token('https://www.googleapis.com/auth/calendar', $error);
+}
+
+/**
+ * Obtiene un token OAuth 2.0 de la cuenta de servicio para el permiso indicado
+ * (JWT firmado con RS256). Con delegación de dominio actúa en nombre del usuario
+ * configurado. El token se cachea en storage hasta su vencimiento.
+ */
+function google_token(string $scope, ?string &$error = null): ?string
+{
+    $cache = STORAGE . '/gtoken-' . md5($scope) . '.json';
     $sa = json_decode(setting('gcal_sa_json'), true);
     if (!is_array($sa) || empty($sa['client_email']) || empty($sa['private_key'])) {
         $error = 'La clave JSON de la cuenta de servicio no es válida.';
@@ -60,7 +69,7 @@ function gcal_token(?string &$error = null): ?string
     $now = time();
     $claims = [
         'iss' => $sa['client_email'],
-        'scope' => 'https://www.googleapis.com/auth/calendar',
+        'scope' => $scope,
         'aud' => 'https://oauth2.googleapis.com/token',
         'iat' => $now,
         'exp' => $now + 3600,
@@ -81,7 +90,7 @@ function gcal_token(?string &$error = null): ?string
     $j = json_decode((string) $body, true);
     if ($code !== 200 || empty($j['access_token'])) {
         $error = 'Google rechazó la autenticación: ' . mb_substr((string) $body, 0, 300);
-        log_line('gcal.log', 'ERROR token ' . $error);
+        log_line('google.log', 'ERROR token ' . $error);
 
         return null;
     }

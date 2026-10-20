@@ -391,17 +391,26 @@ function file_download(int $id): void
     if (!$r || !can_view_request($r)) {
         abort(404);
     }
-    $path = STORAGE . '/uploads/' . $d['stored_name'];
-    if (!is_file($path)) {
-        abort(404, 'El archivo ya no está disponible.');
+    if ($d['drive_id']) {
+        $content = drive_download($d['drive_id']);
+        if ($content === null) {
+            abort(404, 'No se pudo obtener el archivo desde Google Drive.');
+        }
+    } else {
+        $path = STORAGE . '/uploads/' . $d['stored_name'];
+        if (!is_file($path)) {
+            abort(404, 'El archivo ya no está disponible.');
+        }
+        $content = (string) file_get_contents($path);
     }
-    $inline = in_array($d['mime'], ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'], true) && !isset($_GET['descargar']);
+    $fileName = $d['drive_name'] ?: $d['original_name'];
+    $inline = in_array($d['mime'], ['application/pdf', 'image/jpeg', 'image/png'], true) && !isset($_GET['descargar']);
     header('Content-Type: ' . $d['mime']);
-    header('Content-Length: ' . filesize($path));
-    header('Content-Disposition: ' . ($inline ? 'inline' : 'attachment') . "; filename*=UTF-8''" . rawurlencode($d['original_name']));
+    header('Content-Length: ' . strlen($content));
+    header('Content-Disposition: ' . ($inline ? 'inline' : 'attachment') . "; filename*=UTF-8''" . rawurlencode($fileName));
     header('Cache-Control: private, no-store');
     header("Content-Security-Policy: default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; plugin-types application/pdf");
-    readfile($path);
+    echo $content;
     exit;
 }
 

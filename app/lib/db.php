@@ -13,10 +13,15 @@ declare(strict_types=1);
 
 /**
  * Conexión PDO compartida (UTF-8 y zona horaria de la aplicación).
+ *
+ * Con $reconnect se descarta la conexión actual y se abre una nueva.
  */
-function db(): PDO
+function db(bool $reconnect = false): PDO
 {
     static $pdo = null;
+    if ($reconnect) {
+        $pdo = null;
+    }
     if ($pdo === null) {
         $c = config('db');
         $pdo = new PDO(
@@ -40,8 +45,19 @@ function db(): PDO
  */
 function q(string $sql, array $params = []): PDOStatement
 {
-    $st = db()->prepare($sql);
-    $st->execute($params);
+    try {
+        $st = db()->prepare($sql);
+        $st->execute($params);
+    } catch (PDOException $ex) {
+        // El servidor cierra conexiones inactivas (por ejemplo, durante cargas a Google Drive):
+        // fuera de una transacción se reconecta y se reintenta una vez.
+        $lost = in_array((int) ($ex->errorInfo[1] ?? 0), [2006, 2013], true);
+        if (!$lost) {
+            throw $ex;
+        }
+        $st = db(true)->prepare($sql);
+        $st->execute($params);
+    }
 
     return $st;
 }
