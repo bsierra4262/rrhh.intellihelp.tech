@@ -494,20 +494,51 @@ function working_day_from(string $date): string
 }
 
 /**
+ * Suma días hábiles a una fecha (sin contar fines de semana ni feriados).
+ */
+function add_working_days(string $date, int $days): string
+{
+    $d = new DateTimeImmutable($date);
+    $hol = holidays_between($date, $d->modify('+' . ($days * 3 + 15) . ' days')->format('Y-m-d'));
+    while ($days > 0) {
+        $d = $d->modify('+1 day');
+        if ((int) $d->format('N') < 6 && !isset($hol[$d->format('Y-m-d')])) {
+            $days--;
+        }
+    }
+
+    return $d->format('Y-m-d');
+}
+
+/**
+ * Fecha mínima admitida como plazo de entrega: hoy, y nunca antes de que termine la licencia
+ * cuando la documentación se genera al finalizarla (por ejemplo, la constancia de examen).
+ */
+function doc_due_min(array $r): string
+{
+    $today = date('Y-m-d');
+    if (($r['doc_due_from'] ?? 'end') === 'end' && $r['end_date'] > $today) {
+        return $r['end_date'];
+    }
+
+    return $today;
+}
+
+/**
  * Fecha límite automática para entregar la documentación, según el tipo de licencia.
  *
- * Se cuenta desde que se informa la licencia o desde su último día, y si cae en un día
- * no hábil se traslada al siguiente hábil. Devuelve null si el tipo no admite documentación.
+ * El plazo se cuenta en días hábiles desde el último día de la licencia o desde que se
+ * informa, según el tipo. Devuelve null si el tipo no admite documentación.
  */
 function doc_auto_due(array $r): ?string
 {
     if (!accepts_documents($r)) {
         return null;
     }
-    $days = (int) ($r['doc_due_days'] ?? 0) ?: 3;
+    $days = (int) ($r['doc_due_days'] ?? 0) ?: 2;
     $base = ($r['doc_due_from'] ?? 'end') === 'created' ? substr((string) $r['created_at'], 0, 10) : $r['end_date'];
 
-    return working_day_from(date('Y-m-d', strtotime("$base +$days days")));
+    return add_working_days($base, $days);
 }
 
 /**

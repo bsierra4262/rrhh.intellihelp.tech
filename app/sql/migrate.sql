@@ -21,8 +21,9 @@ ALTER TABLE leave_requests ADD COLUMN IF NOT EXISTS doc_reminded_at DATETIME NUL
 ALTER TABLE leave_requests ADD COLUMN IF NOT EXISTS doc_overdue_at DATETIME NULL AFTER doc_reminded_at;
 -- Plazos automáticos de entrega de documentación (solo si no fueron configurados).
 UPDATE leave_types SET doc_due_days = 2, doc_due_from = 'created' WHERE code IN ('enfermedad', 'donacion') AND doc_due_days IS NULL;
-UPDATE leave_types SET doc_due_days = 7, doc_due_from = 'created' WHERE code = 'maternidad' AND doc_due_days IS NULL;
-UPDATE leave_types SET doc_due_days = 5, doc_due_from = 'end' WHERE code IN ('estudio', 'mudanza', 'fallecimiento') AND doc_due_days IS NULL;
+UPDATE leave_types SET doc_due_days = 5, doc_due_from = 'created' WHERE code = 'maternidad' AND doc_due_days IS NULL;
+UPDATE leave_types SET doc_due_days = 2, doc_due_from = 'end' WHERE code = 'estudio' AND doc_due_days IS NULL;
+UPDATE leave_types SET doc_due_days = 5, doc_due_from = 'end' WHERE code IN ('mudanza', 'fallecimiento') AND doc_due_days IS NULL;
 UPDATE leave_types SET doc_due_days = 10, doc_due_from = 'end' WHERE code IN ('matrimonio', 'nacimiento') AND doc_due_days IS NULL;
 INSERT IGNORE INTO settings (k, v) VALUES ('report_enabled', '0'), ('report_recipients', ''), ('report_day', '1'), ('report_last_sent', '');
 -- El día personal admite descuento opcional de vacaciones, a criterio de quien autoriza.

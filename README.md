@@ -132,8 +132,8 @@ Licencias aprobadas que impactan en vacaciones, con filtros por período y perso
 - Bandeja **Por autorizar** con aprobación en un clic; el rechazo exige un motivo.
 - **Descuento opcional de vacaciones** en el día personal, validando los días disponibles del colaborador.
 - Alerta de **superposición** con otras ausencias del equipo o del área.
-- Verificación u **observación de documentación**; una observación otorga un nuevo plazo de 48 h.
-- **Plazos de entrega de documentación**: automáticos según el tipo de licencia o fijados por quien autoriza; aviso al colaborador antes del vencimiento y aviso al responsable y RRHH si vence.
+- Verificación u **observación de documentación**; una observación otorga un nuevo plazo de 2 días hábiles.
+- **Plazos de entrega de documentación** en días hábiles: automáticos según el tipo de licencia (contados desde el fin de la licencia o desde que se informa, nunca antes de que termine) o fijados por quien autoriza; aviso al colaborador antes del vencimiento y aviso al responsable y RRHH si vence.
 - **Calendario** mensual de ausencias y listado general con **filtros y exportación CSV**.
 - **Recordatorios automáticos** de solicitudes pendientes.
 - Carga de licencias en nombre de un colaborador (con aprobación directa opcional).

@@ -6,7 +6,7 @@ if (!$selected && $preselect) {
 $typeData = array_map(fn($t) => [
     'id' => (int) $t['id'], 'code' => $t['code'], 'name' => $t['name'], 'description' => $t['description'],
     'approval' => (bool) $t['requires_approval'], 'docRequired' => (bool) $t['requires_document'], 'docLabel' => $t['document_label'] ?: ($t['requires_document'] ? 'Documentación' : null),
-    'docDays' => $t['doc_due_days'] ? (int) $t['doc_due_days'] : 3, 'docFrom' => $t['doc_due_from'],
+    'docDays' => $t['doc_due_days'] ? (int) $t['doc_due_days'] : 2, 'docFrom' => $t['doc_due_from'],
     'counting' => $t['counting'], 'vacOptional' => (bool) $t['vacation_optional'], 'byHours' => (bool) $t['by_hours'], 'maxReq' => $t['max_days_per_request'] ? (int) $t['max_days_per_request'] : null,
 ], $types);
 $holidayDates = array_column(rows('SELECT date FROM holidays WHERE date BETWEEN ? AND ?', [date('Y-01-01'), date('Y-12-31', strtotime('+1 year'))]), 'date');

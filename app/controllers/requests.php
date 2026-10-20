@@ -331,7 +331,7 @@ function request_review_doc(int $id): void
     update('leave_requests', $id, ['doc_status' => $result]);
     if ($result === 'observed') {
         update('leave_requests', $id, [
-            'doc_due_date' => working_day_from(date('Y-m-d', strtotime('+2 days'))),
+            'doc_due_date' => add_working_days(date('Y-m-d'), 2),
             'doc_reminded_at' => null,
             'doc_overdue_at' => null,
         ]);
@@ -350,7 +350,7 @@ function request_review_doc(int $id): void
 function apply_doc_due(int $id, array $r, string $mode, string $date): ?string
 {
     $custom = $mode === 'custom';
-    if ($custom && (!valid_date($date) || $date < date('Y-m-d'))) {
+    if ($custom && (!valid_date($date) || $date < doc_due_min($r))) {
         return null;
     }
     $due = $custom ? $date : doc_auto_due($r);
@@ -372,7 +372,7 @@ function request_set_due(int $id): void
     }
     $due = apply_doc_due($id, $r, post('doc_due_mode'), post('doc_due_date'));
     if (!$due) {
-        flash('error', 'Elegí una fecha válida, igual o posterior a hoy.');
+        flash('error', 'Elegí una fecha válida, a partir del ' . fdate(doc_due_min($r)) . '.');
         redirect('/solicitudes/' . $id);
     }
     defer(fn () => on_doc_due_changed($id));

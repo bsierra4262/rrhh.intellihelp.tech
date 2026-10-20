@@ -150,7 +150,7 @@
     steps.push(['Ausencia registrada', t.approval ? 'Al ser autorizada' : 'En el calendario del equipo', 'todo']);
     if (t.docLabel) {
       const from = t.docFrom === 'created' ? 'desde que la informás' : 'después de la licencia';
-      const when = t.docDays + ' día' + (t.docDays === 1 ? '' : 's') + ' ' + from;
+      const when = t.docDays + ' día' + (t.docDays === 1 ? ' hábil' : 's hábiles') + ' ' + from;
       steps.push([t.docLabel, (t.docRequired ? 'Obligatoria' : 'Opcional') + ' · plazo: ' + when, t.docRequired ? 'todo' : 'optional']);
       if (t.docRequired) steps.push(['Verificación de RRHH', 'Al recibir la documentación', 'todo']);
     }

@@ -90,7 +90,7 @@ $gcal = gcal_link($r['type_name'] . ($mine ? '' : ' — ' . $r['user_name']), $r
             <legend><?= icon('clock', 15) ?> Plazo para entregar <?= e(mb_strtolower($r['document_label'] ?: 'documentación')) ?></legend>
             <label class="due-opt"><input type="radio" name="doc_due_mode" value="auto" checked> <span>Automático: <b><?= e(fdate($autoDue)) ?></b></span></label>
             <label class="due-opt"><input type="radio" name="doc_due_mode" value="custom"> <span>Elegir fecha</span>
-              <input type="date" name="doc_due_date" min="<?= date('Y-m-d') ?>" value="<?= e($autoDue) ?>" data-due-date>
+              <input type="date" name="doc_due_date" min="<?= e(doc_due_min($r)) ?>" value="<?= e($autoDue) ?>" data-due-date>
             </label>
           </fieldset>
         <?php endif ?>
@@ -158,7 +158,7 @@ $gcal = gcal_link($r['type_name'] . ($mine ? '' : ' — ' . $r['user_name']), $r
             <?= csrf_field() ?>
             <label class="due-opt"><input type="radio" name="doc_due_mode" value="auto" <?= $r['doc_due_custom'] ? '' : 'checked' ?>> <span>Automático: <b><?= e(fdate(doc_auto_due($r))) ?></b></span></label>
             <label class="due-opt"><input type="radio" name="doc_due_mode" value="custom" <?= $r['doc_due_custom'] ? 'checked' : '' ?>> <span>Elegir fecha</span>
-              <input type="date" name="doc_due_date" min="<?= date('Y-m-d') ?>" value="<?= e($r['doc_due_date']) ?>" data-due-date>
+              <input type="date" name="doc_due_date" min="<?= e(doc_due_min($r)) ?>" value="<?= e($r['doc_due_date']) ?>" data-due-date>
             </label>
             <button class="btn btn-primary btn-sm"><?= icon('check', 14) ?> Guardar plazo</button>
           </form>

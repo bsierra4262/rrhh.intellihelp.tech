@@ -36,7 +36,7 @@ foreach (array_merge([$blank], $types) as $t): $isNew = !$t['id']; ?>
           </select>
         </label>
         <label class="field"><span>Nombre de la documentación</span><input name="document_label" value="<?= e($t['document_label']) ?>" placeholder="Ej.: Certificado médico" maxlength="120"></label>
-        <label class="field"><span>Plazo para entregar la documentación (días)</span><input type="number" min="1" name="doc_due_days" value="<?= e($t['doc_due_days']) ?>" placeholder="3"></label>
+        <label class="field"><span>Plazo para entregar la documentación (días hábiles)</span><input type="number" min="1" name="doc_due_days" value="<?= e($t['doc_due_days']) ?>" placeholder="3"></label>
         <label class="field"><span>El plazo se cuenta desde</span>
           <select name="doc_due_from">
             <option value="end" <?= ($t['doc_due_from'] ?? 'end') === 'end' ? 'selected' : '' ?>>El último día de la licencia</option>
