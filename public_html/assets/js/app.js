@@ -118,9 +118,9 @@
     for (let i = 0; i < first; i++) html += '<span></span>';
     for (let d = 1; d <= total; d++) {
       const date = new Date(y, m, d), key = iso(date);
-      const off = date.getDay() === 0 || date.getDay() === 6 || holidays.has(key);
-      const cls = ['mc-day', off ? 'off' : '', key === from.value ? 'sel' : '', key === today ? 'today' : ''].join(' ');
-      html += '<button type="button" class="' + cls + '" data-day="' + key + '"' + (off ? ' disabled title="No hábil"' : '') + '>' + d + '</button>';
+      const off = date.getDay() === 0 || date.getDay() === 6 || holidays.has(key) || key < form.dataset.today;
+      const cls = ['mc-day', off ? 'off' : '', key < form.dataset.today ? 'past' : '', key === from.value ? 'sel' : '', key === today ? 'today' : ''].join(' ');
+      html += '<button type="button" class="' + cls + '" data-day="' + key + '"' + (off ? ' disabled title="' + (key < form.dataset.today ? 'Fecha pasada' : 'No hábil') + '"' : '') + '>' + d + '</button>';
     }
     box.innerHTML = html + '</div>';
   }
@@ -199,9 +199,14 @@
     clearTimeout(timer);
     const t = current();
     if (from.value && (!to.value || to.value < from.value)) to.value = from.value;
-    to.min = from.value || '';
+    to.min = from.value || form.dataset.today;
     const hourly = !!t?.byHours;
     if (hourly) {
+      const isToday = from.value === form.dataset.today;
+      [...tStart.options].forEach((o) => (o.disabled = !!o.value && isToday && o.value <= form.dataset.now));
+      [...tEnd.options].forEach((o) => (o.disabled = !!o.value && ((isToday && o.value <= form.dataset.now) || (tStart.value && o.value <= tStart.value))));
+      if (tStart.selectedOptions[0]?.disabled) tStart.value = '';
+      if (tEnd.selectedOptions[0]?.disabled) tEnd.value = '';
       to.value = from.value;
       $('#sumDates').textContent = from.value ? fmt(from.value) + (tStart.value && tEnd.value ? ' · ' + tStart.value + ' a ' + tEnd.value : '') : '—';
     } else {

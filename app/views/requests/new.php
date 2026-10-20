@@ -22,7 +22,7 @@ for ($m = 7 * 60; $m <= 20 * 60; $m += 15) {
   </div>
 </div>
 
-<form method="post" action="<?= url('/solicitudes/nueva') ?>" class="new-req" id="newReq" data-types='<?= e(json_encode($typeData, JSON_UNESCAPED_UNICODE)) ?>' data-api="<?= url('/api/dias') ?>" data-holidays='<?= e(json_encode($holidayDates)) ?>'>
+<form method="post" action="<?= url('/solicitudes/nueva') ?>" class="new-req" id="newReq" data-types='<?= e(json_encode($typeData, JSON_UNESCAPED_UNICODE)) ?>' data-api="<?= url('/api/dias') ?>" data-holidays='<?= e(json_encode($holidayDates)) ?>' data-today="<?= date('Y-m-d') ?>" data-now="<?= date('H:i') ?>">
   <?= csrf_field() ?>
   <div class="stack">
     <section class="card">
@@ -64,8 +64,8 @@ for ($m = 7 * 60; $m <= 20 * 60; $m += 15) {
     <section class="card">
       <h2 class="step"><span>2</span> ¿Cuándo?</h2>
       <div class="form-row" id="rangeFields">
-        <label class="field"><span>Desde</span><input type="date" name="start_date" id="from" value="<?= e(old('start_date')) ?>" required></label>
-        <label class="field"><span>Hasta</span><input type="date" name="end_date" id="to" value="<?= e(old('end_date')) ?>" required></label>
+        <label class="field"><span>Desde</span><input type="date" name="start_date" id="from" value="<?= e(old('start_date')) ?>" min="<?= date('Y-m-d') ?>" required></label>
+        <label class="field"><span>Hasta</span><input type="date" name="end_date" id="to" value="<?= e(old('end_date')) ?>" min="<?= date('Y-m-d') ?>" required></label>
         <div class="days-preview" id="daysPreview" aria-live="polite">
           <b>—</b><small>Elegí las fechas</small>
         </div>

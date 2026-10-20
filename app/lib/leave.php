@@ -206,6 +206,9 @@ function validate_request(array $user, array $type, string $from, string $to, ?i
     if ($to < $from) {
         return [['La fecha de fin no puede ser anterior a la de inicio.'], [], 0];
     }
+    if ($from < date('Y-m-d')) {
+        return [['No se pueden cargar licencias con fechas pasadas: elegí hoy o una fecha futura.'], [], 0];
+    }
     if (substr($from, 0, 4) !== substr($to, 0, 4)) {
         $errors[] = 'La solicitud no puede abarcar dos años distintos. Cargá una solicitud por año.';
     }
@@ -273,6 +276,12 @@ function validate_hourly_request(array $user, array $type, string $date, string 
     }
     if ($end <= $start) {
         return [['El horario de regreso tiene que ser posterior al de salida.'], [], 0.0];
+    }
+    if ($date < date('Y-m-d')) {
+        return [['No se pueden cargar trámites en días pasados: elegí hoy o una fecha futura.'], [], 0.0];
+    }
+    if ($date === date('Y-m-d') && $start <= date('H:i')) {
+        return [['El horario de salida ya pasó: elegí un horario posterior a las ' . date('H:i') . '.'], [], 0.0];
     }
     $hours = (strtotime("$date $end") - strtotime("$date $start")) / 3600;
 
