@@ -73,12 +73,15 @@ function count_days(string $from, string $to, string $counting): int
  * Días de vacaciones del año según antigüedad al 31/12 (LCT art. 150 y 153).
  *
  * Menos de 5 años: 14 días; 5 a 10: 21; 10 a 20: 28; más de 20: 35. Con menos de seis meses
- * trabajados en el año corresponde un día cada veinte trabajados. Admite un valor manual por persona.
+ * trabajados en el año corresponde un día cada veinte trabajados. Admite un valor manual por
+ * persona que rige solo para el año en que se cargó; los demás años se calculan por antigüedad.
  */
 function vacation_entitlement(array $user, int $year): int
 {
-    if ($user['vacation_days_override'] !== null && $user['vacation_days_override'] !== '') {
-        return (int) $user['vacation_days_override'];
+    $manual = $user['vacation_days_override'] ?? null;
+    $manualYear = $user['vacation_override_year'] ?? null;
+    if ($manual !== null && $manual !== '' && ($manualYear === null || (int) $manualYear === $year)) {
+        return (int) $manual;
     }
     if (empty($user['hire_date'])) {
         return 14;

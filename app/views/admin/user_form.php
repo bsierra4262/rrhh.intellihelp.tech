@@ -61,7 +61,9 @@ unset($_SESSION['new_password']);
     <label class="field"><span>Puesto</span><input name="position" value="<?= e($v('position')) ?>" maxlength="120"></label>
     <label class="field"><span>Celular (WhatsApp)</span><input name="phone" value="<?= e($v('phone')) ?>" placeholder="+54 9 11 1234 5678"></label>
     <label class="field"><span>Fecha de ingreso</span><input type="date" name="hire_date" value="<?= e($v('hire_date')) ?>"><small class="muted">Define los días de vacaciones por antigüedad (LCT).</small></label>
-    <label class="field"><span>Días de vacaciones (manual)</span><input type="number" name="vacation_days_override" min="0" max="60" value="<?= e($v('vacation_days_override')) ?>" placeholder="Automático según antigüedad"></label>
+<?php $manualYear = (int) ($u['vacation_override_year'] ?? 0); $manualActive = $u && $u['vacation_days_override'] !== null && (!$manualYear || $manualYear === (int) date('Y')); ?>
+    <label class="field"><span>Días de vacaciones <?= date('Y') ?> (manual)</span><input type="number" name="vacation_days_override" min="0" max="60" value="<?= e($manualActive ? $v('vacation_days_override') : '') ?>" placeholder="Automático según antigüedad">
+      <small class="muted">Solo para <?= date('Y') ?>. El año siguiente vuelve a calcularse por antigüedad.</small></label>
   </div>
   <div class="form-foot">
     <label class="switch"><input type="checkbox" name="active" <?= (!$u || $u['active']) ? 'checked' : '' ?>><span></span> Activa</label>

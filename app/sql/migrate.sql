@@ -29,6 +29,7 @@ ALTER TABLE documents ADD COLUMN IF NOT EXISTS drive_id VARCHAR(128) NULL AFTER 
 ALTER TABLE documents ADD COLUMN IF NOT EXISTS drive_name VARCHAR(255) NULL AFTER drive_id;
 ALTER TABLE documents ADD COLUMN IF NOT EXISTS drive_link VARCHAR(255) NULL AFTER drive_name;
 INSERT IGNORE INTO settings (k, v) VALUES ('drive_root_folder', '');
+ALTER TABLE users ADD COLUMN IF NOT EXISTS vacation_override_year SMALLINT NULL AFTER vacation_days_override;
 INSERT IGNORE INTO settings (k, v) VALUES ('report_enabled', '0'), ('report_recipients', ''), ('report_day', '1'), ('report_last_sent', '');
 -- El día personal admite descuento opcional de vacaciones, a criterio de quien autoriza.
 UPDATE leave_types SET vacation_optional = 1 WHERE code = 'personal' AND name = 'Día personal';

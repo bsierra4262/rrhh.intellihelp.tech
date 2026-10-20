@@ -75,6 +75,7 @@ function admin_user_save(int $id = 0): void
         'phone' => preg_replace('/[^\d+]/', '', post('phone')) ?: null,
         'hire_date' => valid_date(post('hire_date')) ? post('hire_date') : null,
         'vacation_days_override' => post('vacation_days_override') === '' ? null : max(0, (int) post('vacation_days_override')),
+        'vacation_override_year' => post('vacation_days_override') === '' ? null : (int) date('Y'),
         'active' => isset($_POST['active']) ? 1 : 0,
     ];
     if ($data['name'] === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {

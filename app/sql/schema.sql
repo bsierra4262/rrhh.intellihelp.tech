@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS users (
   wa_apikey VARCHAR(60) NULL,
   hire_date DATE NULL,
   vacation_days_override SMALLINT NULL,
+  vacation_override_year SMALLINT NULL,
   notify_email TINYINT(1) NOT NULL DEFAULT 1,
   notify_whatsapp TINYINT(1) NOT NULL DEFAULT 0,
   must_change_password TINYINT(1) NOT NULL DEFAULT 0,
