@@ -103,7 +103,7 @@ function request_submit(): void
         'decided_by' => $autoApprove ? $me['id'] : null,
         'decided_at' => $autoApprove ? date('Y-m-d H:i:s') : null,
     ]);
-    [$saved, $upErrors, $paths] = store_uploads($id, (int) $me['id'], $_FILES['documents'] ?? []);
+    [$saved, $upErrors, $paths] = accepts_documents($type) ? store_uploads($id, (int) $me['id'], $_FILES['documents'] ?? []) : [0, [], []];
     if ($type['requires_document'] && $saved === 0) {
         db()->rollBack();
         foreach ($paths as $p) {
@@ -174,6 +174,7 @@ function request_show(int $id): void
         'docs' => rows('SELECT d.*, u.name AS uploader FROM documents d JOIN users u ON u.id = d.user_id WHERE d.request_id = ? ORDER BY d.created_at', [$id]),
         'events' => rows('SELECT e.*, u.name AS user_name FROM request_events e LEFT JOIN users u ON u.id = e.user_id WHERE e.request_id = ? ORDER BY e.created_at, e.id', [$id]),
         'balances' => (can_decide($r) || is_hr()) ? balances($owner, $year) : [],
+        'vacation_left' => (can_decide($r) && !empty($r['vacation_optional'])) ? vacation_left($owner, $year, $r['id']) : null,
         'overlaps' => $overlaps,
         'can_decide' => can_decide($r),
         'can_cancel' => can_cancel($r),
@@ -204,6 +205,9 @@ function can_cancel(array $r): bool
  */
 function can_upload(array $r): bool
 {
+    if (!accepts_documents($r)) {
+        return false;
+    }
     if (in_array($r['status'], ['cancelled', 'rejected'], true)) {
         return false;
     }
@@ -230,10 +234,20 @@ function request_decide(int $id): void
         flash('error', 'Contale al colaborador/a el motivo del rechazo.');
         redirect('/solicitudes/' . $id);
     }
+    // Tipos con descuento opcional (día personal): quien autoriza decide si impacta en vacaciones.
+    $deduct = $decision === 'approved' && !empty($r['vacation_optional']) && post('deduct_vacation') === '1';
+    if ($deduct) {
+        $owner = row('SELECT * FROM users WHERE id = ?', [$r['user_id']]);
+        $left = vacation_left($owner, (int) substr($r['start_date'], 0, 4), $id);
+        if ($left < (float) $r['days']) {
+            flash('error', "No se puede descontar de vacaciones: a {$r['user_name']} le quedan " . fdays($left) . ' disponibles.');
+            redirect('/solicitudes/' . $id);
+        }
+    }
     // La condición sobre el estado evita decisiones duplicadas concurrentes.
     $n = q(
-        "UPDATE leave_requests SET status = ?, decided_by = ?, decided_at = NOW(), decision_comment = ? WHERE id = ? AND status = 'pending'",
-        [$decision, $me['id'], $comment ?: null, $id]
+        "UPDATE leave_requests SET status = ?, decided_by = ?, decided_at = NOW(), decision_comment = ?, deduct_vacation = ? WHERE id = ? AND status = 'pending'",
+        [$decision, $me['id'], $comment ?: null, $deduct ? 1 : 0, $id]
     )->rowCount();
     if (!$n) {
         flash('warning', 'Esta solicitud ya había sido resuelta.');
@@ -241,8 +255,13 @@ function request_decide(int $id): void
     }
     q('UPDATE notifications SET read_at = NOW() WHERE request_id = ? AND user_id = ? AND read_at IS NULL', [$id, $me['id']]);
     log_event($id, $decision, $comment ?: null);
+    if ($deduct) {
+        log_event($id, 'vacation_deducted', fdays($r['days']) . ' descontados de las vacaciones.');
+    }
     defer(fn () => on_request_decided($id));
-    flash('success', $decision === 'approved' ? 'Solicitud aprobada. Avisamos al colaborador/a.' : 'Solicitud rechazada. Avisamos al colaborador/a.');
+    flash('success', $decision === 'approved'
+        ? 'Solicitud aprobada' . ($deduct ? ' y descontada de las vacaciones' : '') . '. Avisamos al colaborador/a.'
+        : 'Solicitud rechazada. Avisamos al colaborador/a.');
     redirect(post('back') === 'aprobaciones' ? '/aprobaciones' : '/solicitudes/' . $id);
 }
 

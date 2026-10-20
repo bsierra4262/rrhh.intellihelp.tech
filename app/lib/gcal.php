@@ -132,7 +132,7 @@ function gcal_event_payload(array $r): array
     $pending = $r['status'] === 'pending';
     $lines = [
         $r['user_name'] . ' — ' . $r['type_name'],
-        fdays_kind($r['days'], $r['counting']),
+        fdays_kind($r['days'], $r['counting']) . ($r['deduct_vacation'] ? ' (descontados de vacaciones)' : ''),
         'Estado: ' . (STATUS_LABELS[$r['status']] ?? $r['status']) . ($r['decider_name'] && !$pending ? ' por ' . $r['decider_name'] : ''),
     ];
     if ($pending) {

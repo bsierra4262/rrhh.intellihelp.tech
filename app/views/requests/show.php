@@ -1,13 +1,15 @@
 <?php
 $mine = (int) $r['user_id'] === uid();
-$statusIcon = ['pending' => 'clock', 'approved' => 'check-circle', 'rejected' => 'x-circle', 'cancelled' => 'x', 'registered' => 'check-circle'][$r['status']];
-$statusText = match ($r['status']) {
-    'pending' => $r['approver_name'] ? 'Esperando la autorización de ' . $r['approver_name'] : 'Esperando la autorización de RRHH',
-    'approved' => 'Aprobada por ' . $r['decider_name'] . ' el ' . fdatetime($r['decided_at']),
-    'rejected' => 'Rechazada por ' . $r['decider_name'] . ' el ' . fdatetime($r['decided_at']),
-    'cancelled' => 'Esta solicitud fue cancelada',
-    'registered' => 'Licencia informada — no requiere autorización',
-};
+$stages = request_stages($r, $docs, $events);
+$next = null;
+foreach ($stages as $st) {
+    if ($st['state'] === 'current') {
+        $next = $st;
+        break;
+    }
+}
+$stageIcon = ['done' => 'check', 'current' => 'clock', 'failed' => 'x', 'todo' => '', 'optional' => 'paperclip'];
+$showDocs = accepts_documents($r) || $docs;
 $gcal = gcal_link($r['type_name'] . ($mine ? '' : ' — ' . $r['user_name']), $r['start_date'], $r['end_date'], url('/solicitudes/' . $r['id']));
 ?>
 <div class="page-head">
@@ -18,12 +20,23 @@ $gcal = gcal_link($r['type_name'] . ($mine ? '' : ' — ' . $r['user_name']), $r
   <div class="head-badges"><?= status_badge($r['status']) ?> <?= doc_badge($r['doc_status']) ?></div>
 </div>
 
-<div class="status-banner status-<?= e($r['status']) ?>">
-  <?= icon($statusIcon, 22) ?>
-  <div><b><?= e($statusText) ?></b>
-    <?php if ($r['decision_comment']): ?><p>«<?= nl2br(e($r['decision_comment'])) ?>»</p><?php endif ?>
-  </div>
-</div>
+<section class="card stages-card">
+  <ol class="stages">
+    <?php foreach ($stages as $i => $st): ?>
+      <li class="stage stage-<?= e($st['state']) ?>">
+        <span class="stage-dot"><?= $stageIcon[$st['state']] ? icon($stageIcon[$st['state']], 15) : $i + 1 ?></span>
+        <div class="stage-txt">
+          <b><?= e($st['title']) ?></b>
+          <?php if ($st['detail']): ?><small><?= e($st['detail']) ?></small><?php endif ?>
+          <?php if (!empty($st['note'])): ?><p>«<?= nl2br(e($st['note'])) ?>»</p><?php endif ?>
+        </div>
+      </li>
+    <?php endforeach ?>
+  </ol>
+  <?php if ($next): ?>
+    <p class="stages-next"><?= icon('arrow-right', 15) ?> <span>Etapa actual: <b><?= e($next['title']) ?></b><?= $next['detail'] ? ' — ' . e($next['detail']) : '' ?></span></p>
+  <?php endif ?>
+</section>
 
 <div class="grid-main">
   <div class="stack">
@@ -59,6 +72,14 @@ $gcal = gcal_link($r['type_name'] . ($mine ? '' : ' — ' . $r['user_name']), $r
         <label class="field"><span>Comentario para <?= e(explode(' ', $r['user_name'])[0]) ?> <small class="muted">(obligatorio si rechazás)</small></span>
           <textarea name="comment" rows="2" maxlength="2000" placeholder="Ej.: ¡Que lo disfrutes! / Necesitamos cubrir la guardia esa semana…"></textarea>
         </label>
+        <?php if (!empty($r['vacation_optional'])): ?>
+          <label class="deduct">
+            <input type="checkbox" name="deduct_vacation" value="1">
+            <span><b>Descontar de las vacaciones</b>
+              <small><?= e(fdays($r['days'])) ?> de las vacaciones de <?= e(explode(' ', $r['user_name'])[0]) ?> · le quedan <?= e(fdays($vacation_left ?? 0)) ?> disponibles</small>
+            </span>
+          </label>
+        <?php endif ?>
         <div class="btn-row">
           <button class="btn btn-positive btn-lg" name="decision" value="approved"><?= icon('check', 18) ?> Autorizar</button>
           <button class="btn btn-outline-danger btn-lg" name="decision" value="rejected" data-confirm="¿Rechazar la solicitud?"><?= icon('x', 18) ?> Rechazar</button>
@@ -67,6 +88,7 @@ $gcal = gcal_link($r['type_name'] . ($mine ? '' : ' — ' . $r['user_name']), $r
     </section>
     <?php endif ?>
 
+    <?php if ($showDocs): ?>
     <section class="card">
       <div class="card-head">
         <h2><?= icon('paperclip') ?> <?= e($r['document_label'] ?: 'Documentación') ?><?= $r['requires_document'] ? ' <small class="req-mark">obligatoria</small>' : '' ?></h2>
@@ -87,7 +109,7 @@ $gcal = gcal_link($r['type_name'] . ($mine ? '' : ' — ' . $r['user_name']), $r
           <?php endforeach ?>
         </ul>
       <?php else: ?>
-        <p class="empty-sm"><?= $r['requires_document'] ? icon('alert', 16) . ' Todavía no se subió la documentación.' : 'Sin archivos adjuntos.' ?></p>
+        <p class="empty-sm"><?= $r['requires_document'] ? icon('alert', 16) . ' Todavía no se subió la documentación.' : 'Opcional: se puede adjuntar cuando esté disponible.' ?></p>
       <?php endif ?>
 
       <?php if (is_hr() && $docs && in_array($r['doc_status'], ['uploaded', 'observed'], true)): ?>
@@ -111,12 +133,13 @@ $gcal = gcal_link($r['type_name'] . ($mine ? '' : ' — ' . $r['user_name']), $r
         </form>
       <?php endif ?>
     </section>
+    <?php endif ?>
   </div>
 
   <aside class="stack">
     <?php if ($balances): ?>
     <section class="card card-soft">
-      <h3 class="sub">Saldos de <?= e(explode(' ', $r['user_name'])[0]) ?> <?= substr($r['start_date'], 0, 4) ?></h3>
+      <h3 class="sub">Días disponibles de <?= e(explode(' ', $r['user_name'])[0]) ?> · <?= substr($r['start_date'], 0, 4) ?></h3>
       <?php partial('balances', ['balances' => $balances]) ?>
     </section>
     <?php endif ?>

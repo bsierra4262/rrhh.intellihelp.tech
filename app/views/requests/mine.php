@@ -1,5 +1,5 @@
 <div class="page-head">
-  <div><h1>Mis solicitudes</h1><p class="muted">Historial y saldos de <?= $year ?>.</p></div>
+  <div><h1>Mis solicitudes</h1><p class="muted">Historial y días disponibles de <?= $year ?>.</p></div>
   <a class="btn btn-primary" href="<?= url('/solicitudes/nueva') ?>"><?= icon('plus', 16) ?> Nueva solicitud</a>
 </div>
 

@@ -38,7 +38,10 @@ if (is_approver()) {
     </a>
     <nav class="nav">
       <?php foreach ($nav as [$href, $ic, $label, $badge]):
-          $isActive = $href === '/solicitudes' ? ($path === '/solicitudes' || preg_match('#^/solicitudes/\d+#', $path)) : ($active($href) !== '');
+          // "Mis solicitudes" solo se marca en el detalle de una solicitud propia.
+          $isActive = $href === '/solicitudes'
+              ? ($path === '/solicitudes' || (preg_match('#^/solicitudes/\d+#', $path) && (int) ($r['user_id'] ?? 0) === uid()))
+              : ($active($href) !== '');
       ?>
         <a href="<?= url($href) ?>" class="<?= $isActive ? 'active' : '' ?>"><?= icon($ic) ?><span><?= e($label) ?></span><?php if ($badge): ?><em class="count"><?= $badge ?></em><?php endif ?></a>
       <?php endforeach ?>

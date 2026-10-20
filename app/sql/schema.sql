@@ -40,6 +40,7 @@ CREATE TABLE IF NOT EXISTS leave_types (
   max_days_per_request SMALLINT NULL,
   counting ENUM('corridos','habiles') NOT NULL DEFAULT 'habiles',
   uses_vacation_balance TINYINT(1) NOT NULL DEFAULT 0,
+  vacation_optional TINYINT(1) NOT NULL DEFAULT 0,
   min_notice_days SMALLINT NOT NULL DEFAULT 0,
   active TINYINT(1) NOT NULL DEFAULT 1,
   sort SMALLINT NOT NULL DEFAULT 0
@@ -52,6 +53,7 @@ CREATE TABLE IF NOT EXISTS leave_requests (
   start_date DATE NOT NULL,
   end_date DATE NOT NULL,
   days DECIMAL(5,1) NOT NULL,
+  deduct_vacation TINYINT(1) NOT NULL DEFAULT 0,
   reason TEXT NULL,
   status ENUM('pending','approved','rejected','cancelled','registered') NOT NULL DEFAULT 'pending',
   approver_id INT UNSIGNED NULL,

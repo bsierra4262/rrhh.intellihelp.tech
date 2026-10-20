@@ -105,15 +105,15 @@ function mail_template(string $heading, string $intro, array $rows = [], ?array 
     }
 
     return '<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"></head>'
-        . '<body style="margin:0;padding:0;background:#f4f2f8;font-family:Saira,Segoe UI,Arial,sans-serif">'
-        . '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f4f2f8;padding:32px 12px"><tr><td align="center">'
-        . '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #e7e3ef">'
+        . '<body style="margin:0;padding:0;background:#fff6ff;font-family:Saira,Segoe UI,Arial,sans-serif">'
+        . '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#fff6ff;padding:32px 12px"><tr><td align="center">'
+        . '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #ebe2ef">'
         . '<tr><td style="background:#663399;padding:20px 28px"><img src="' . $logo . '" alt="ITH Intellihelp" height="36" style="display:block;height:36px"></td></tr>'
         . '<tr><td style="padding:28px 28px 8px"><h1 style="margin:0 0 10px;font-size:21px;line-height:1.3;color:#161922">' . e($heading) . '</h1>'
         . '<p style="margin:0 0 18px;font-size:15px;line-height:1.55;color:#3d4150">' . $intro . '</p>'
         . ($tr ? '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-top:1px solid #eee;border-bottom:1px solid #eee;margin:4px 0">' . $tr . '</table>' : '')
         . $btn . ($footerHtml ? '<p style="margin:16px 0 0;font-size:13px;color:#6b6f7b;line-height:1.5">' . $footerHtml . '</p>' : '')
-        . '</td></tr><tr><td style="padding:22px 28px 26px;font-size:12px;color:#9a9daa;border-top:1px solid #f0edf5;margin-top:16px">'
+        . '</td></tr><tr><td style="padding:22px 28px 26px;font-size:12px;color:#9a9daa;border-top:1px solid #f5eef7;margin-top:16px">'
         . 'Portal de Recursos Humanos · Intellihelp<br>Este es un mensaje automático, no respondas a este correo.<br>'
         . '¿Problemas con la plataforma? Escribí a <a href="mailto:' . e(support_email()) . '" style="color:#663399">' . e(support_email()) . '</a></td></tr>'
         . '</table></td></tr></table></body></html>';

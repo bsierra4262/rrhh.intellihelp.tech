@@ -3,7 +3,7 @@
 /**
  * Portal de Recursos Humanos — Intellihelp
  *
- * Reglas de negocio de licencias: conteo de días, saldos según la LCT, validaciones,
+ * Reglas de negocio de licencias: conteo de días, días disponibles según la LCT, validaciones,
  * permisos sobre solicitudes y gestión de adjuntos.
  *
  * @author    Brian Gabriel Sierra <bsierra@intellihelp.tech>
@@ -127,11 +127,12 @@ function days_used(int $userId, int $typeId, int $year, ?int $excludeId = null):
 function vacation_used(int $userId, int $year, string $statuses = "'approved'"): float
 {
     return (float) val("SELECT COALESCE(SUM(r.days),0) FROM leave_requests r JOIN leave_types t ON t.id = r.type_id
-        WHERE r.user_id = ? AND t.uses_vacation_balance = 1 AND YEAR(r.start_date) = ? AND r.status IN ($statuses)", [$userId, $year]);
+        WHERE r.user_id = ? AND (t.uses_vacation_balance = 1 OR r.deduct_vacation = 1)
+          AND YEAR(r.start_date) = ? AND r.status IN ($statuses)", [$userId, $year]);
 }
 
 /**
- * Saldos del colaborador para el año: vacaciones y tipos con tope anual.
+ * Días disponibles del colaborador en el año: vacaciones y tipos con tope anual.
  *
  * @return array<int, array{code: string, name: string, color: string, total: int, used: float, pending: float, left: float}>
  */
@@ -191,7 +192,7 @@ function hr_users(): array
 /**
  * Valida una solicitud de licencia.
  *
- * Con $byHr las excepciones de saldo y topes se informan como advertencias en lugar de errores.
+ * Con $byHr las excepciones de días disponibles y topes se informan como advertencias en lugar de errores.
  *
  * @return array{0: string[], 1: string[], 2: int} Errores, advertencias y cantidad de días.
  */
@@ -231,7 +232,7 @@ function validate_request(array $user, array $type, string $from, string $to, ?i
             $used -= (float) val('SELECT days FROM leave_requests WHERE id = ?', [$excludeId]);
         }
         if ($used + $days > $ent) {
-            $msg = 'Superás tu saldo de vacaciones ' . $year . ': te quedan ' . fdays(max(0, $ent - $used)) . '.';
+            $msg = 'No alcanzan los días de vacaciones disponibles de ' . $year . ': quedan ' . fdays(max(0, $ent - $used)) . '.';
             $byHr ? $warnings[] = $msg : $errors[] = $msg;
         }
     } elseif ($type['max_days_per_year']) {
@@ -260,7 +261,7 @@ function validate_request(array $user, array $type, string $from, string $to, ?i
  */
 function load_request(int $id): ?array
 {
-    return row('SELECT r.*, t.name AS type_name, t.code AS type_code, t.color, t.requires_approval, t.requires_document, t.document_label, t.counting,
+    return row('SELECT r.*, t.name AS type_name, t.code AS type_code, t.color, t.requires_approval, t.requires_document, t.document_label, t.counting, t.vacation_optional,
             u.name AS user_name, u.email AS user_email, u.department, u.position, u.manager_id,
             a.name AS approver_name, d.name AS decider_name
         FROM leave_requests r
@@ -340,6 +341,7 @@ const EVENT_LABELS = [
     'doc_verified' => 'verificó la documentación',
     'doc_observed' => 'observó la documentación',
     'reminder' => 'se envió un recordatorio al aprobador',
+    'vacation_deducted' => 'descontó los días de las vacaciones',
     'created_by_hr' => 'cargó la licencia en nombre del colaborador',
 ];
 
@@ -409,6 +411,141 @@ function store_uploads(int $requestId, int $userId, array $files): array
     }
 
     return [$saved, $errors, $paths];
+}
+
+/**
+ * Días de vacaciones que le quedan al colaborador en el año (descuenta aprobadas y pendientes).
+ */
+function vacation_left(array $user, int $year, ?int $excludeId = null): float
+{
+    $used = vacation_used((int) $user['id'], $year, "'approved','pending'");
+    if ($excludeId) {
+        $used -= (float) val('SELECT days FROM leave_requests r JOIN leave_types t ON t.id = r.type_id
+            WHERE r.id = ? AND (t.uses_vacation_balance = 1 OR r.deduct_vacation = 1)', [$excludeId]);
+    }
+
+    return max(0, vacation_entitlement($user, $year) - $used);
+}
+
+/**
+ * Etapas de seguimiento de una solicitud, según su tipo y estado.
+ *
+ * Solo se incluyen las etapas que aplican: la documentación y su verificación aparecen
+ * únicamente en los tipos que admiten adjuntos, y la autorización solo en los que la requieren.
+ *
+ * @param array<int, array> $docs   Adjuntos de la solicitud.
+ * @param array<int, array> $events Historial de la solicitud (orden cronológico).
+ * @return array<int, array{title: string, detail: string, state: string, note?: string}>
+ *         state: done | current | todo | optional | failed
+ */
+function request_stages(array $r, array $docs, array $events): array
+{
+    $last = function (string $action) use ($events): ?array {
+        $found = null;
+        foreach ($events as $ev) {
+            if ($ev['action'] === $action) {
+                $found = $ev;
+            }
+        }
+
+        return $found;
+    };
+    $who = fn (?array $ev, string $fallback = '') => trim(($ev['user_name'] ?? $fallback) . ' · ' . fdatetime($ev['created_at'] ?? null), ' ·');
+
+    $stages = [];
+    $approval = (bool) $r['requires_approval'];
+    $status = $r['status'];
+
+    $stages[] = [
+        'title' => $approval ? 'Solicitada' : 'Informada',
+        'detail' => $r['user_name'] . ' · ' . fdatetime($r['created_at']),
+        'state' => 'done',
+    ];
+
+    if ($approval) {
+        $auth = ['title' => 'Autorización', 'detail' => '', 'state' => 'todo'];
+        if ($status === 'pending') {
+            $auth['state'] = 'current';
+            $auth['detail'] = 'En revisión: ' . ($r['approver_name'] ?: 'Recursos Humanos');
+        } elseif ($status === 'approved' || ($status === 'cancelled' && $r['decided_by'])) {
+            $auth['state'] = 'done';
+            $auth['title'] = 'Autorizada';
+            $auth['detail'] = $r['decider_name'] . ' · ' . fdatetime($r['decided_at']);
+            if ($r['deduct_vacation']) {
+                $auth['detail'] .= ' · descontada de vacaciones';
+            }
+        } elseif ($status === 'rejected') {
+            $auth['state'] = 'failed';
+            $auth['title'] = 'Rechazada';
+            $auth['detail'] = $r['decider_name'] . ' · ' . fdatetime($r['decided_at']);
+        } elseif ($status === 'cancelled') {
+            $auth['detail'] = 'Sin decisión';
+        }
+        if ($r['decision_comment']) {
+            $auth['note'] = $r['decision_comment'];
+        }
+        $stages[] = $auth;
+    }
+
+    if (accepts_documents($r)) {
+        $label = $r['document_label'] ?: 'Documentación';
+        if ($docs) {
+            $lastDoc = end($docs);
+            $stages[] = [
+                'title' => $label,
+                'detail' => count($docs) . ' archivo' . (count($docs) > 1 ? 's' : '') . ' · ' . fdatetime($lastDoc['created_at']),
+                'state' => 'done',
+            ];
+            $review = ['title' => 'Verificación de RRHH', 'detail' => 'Pendiente de revisión', 'state' => 'current'];
+            if ($r['doc_status'] === 'verified') {
+                $review = ['title' => 'Documentación verificada', 'detail' => $who($last('doc_verified')), 'state' => 'done'];
+            } elseif ($r['doc_status'] === 'observed') {
+                $ev = $last('doc_observed');
+                $review = ['title' => 'Documentación observada', 'detail' => $who($ev) . ' · requiere corrección', 'state' => 'failed', 'note' => $ev['comment'] ?? ''];
+            }
+            if (in_array($status, ['rejected', 'cancelled'], true) && $review['state'] === 'current') {
+                $review['state'] = 'todo';
+            }
+            $stages[] = $review;
+        } elseif ($r['requires_document']) {
+            $stages[] = ['title' => $label, 'detail' => 'Pendiente de carga (obligatoria)', 'state' => in_array($status, ['rejected', 'cancelled'], true) ? 'todo' : 'current'];
+        } else {
+            $stages[] = ['title' => $label, 'detail' => 'Opcional · se puede adjuntar más adelante', 'state' => 'optional'];
+        }
+    }
+
+    if ($status === 'cancelled') {
+        $stages[] = ['title' => 'Cancelada', 'detail' => $who($last('cancelled')), 'state' => 'failed', 'note' => $last('cancelled')['comment'] ?? ''];
+    } elseif ($status !== 'rejected') {
+        $final = in_array($status, ['approved', 'registered'], true);
+        $stages[] = [
+            'title' => 'Ausencia registrada',
+            'detail' => $final ? 'En el calendario del equipo' : 'Al ser autorizada',
+            'state' => $final ? 'done' : 'todo',
+        ];
+    }
+
+    // Si ninguna etapa quedó marcada como actual, la primera pendiente pasa a serlo.
+    $hasCurrent = (bool) array_filter($stages, fn ($s) => $s['state'] === 'current');
+    if (!$hasCurrent && !in_array($status, ['rejected', 'cancelled'], true)) {
+        foreach ($stages as &$s) {
+            if ($s['state'] === 'todo') {
+                $s['state'] = 'current';
+                break;
+            }
+        }
+        unset($s);
+    }
+
+    return $stages;
+}
+
+/**
+ * Indica si el tipo de licencia admite documentación respaldatoria.
+ */
+function accepts_documents(array $typeOrRequest): bool
+{
+    return !empty($typeOrRequest['requires_document']) || trim((string) ($typeOrRequest['document_label'] ?? '')) !== '';
 }
 
 /**

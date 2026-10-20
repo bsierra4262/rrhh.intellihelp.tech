@@ -6,7 +6,7 @@ if (!$selected && $preselect) {
 $typeData = array_map(fn($t) => [
     'id' => (int) $t['id'], 'code' => $t['code'], 'name' => $t['name'], 'description' => $t['description'],
     'approval' => (bool) $t['requires_approval'], 'docRequired' => (bool) $t['requires_document'], 'docLabel' => $t['document_label'],
-    'counting' => $t['counting'], 'maxReq' => $t['max_days_per_request'] ? (int) $t['max_days_per_request'] : null,
+    'counting' => $t['counting'], 'vacOptional' => (bool) $t['vacation_optional'], 'maxReq' => $t['max_days_per_request'] ? (int) $t['max_days_per_request'] : null,
 ], $types);
 ?>
 <div class="page-head">
@@ -27,7 +27,7 @@ $typeData = array_map(fn($t) => [
             <input type="radio" name="type_id" value="<?= (int) $t['id'] ?>" <?= (string) $t['id'] === (string) $selected ? 'checked' : '' ?> required>
             <span class="type-ic"><?= icon(type_icon($t['code']), 20) ?></span>
             <span class="type-txt"><b><?= e($t['name']) ?></b>
-              <small><?= $t['requires_approval'] ? 'Requiere autorización' : 'Solo se informa' ?><?= $t['requires_document'] ? ' · con ' . e(mb_strtolower($t['document_label'] ?: 'documentación')) : '' ?></small>
+              <small><?= $t['requires_approval'] ? 'Requiere autorización' : 'Se informa, sin autorización' ?><?= $t['requires_document'] ? ' · con ' . e(mb_strtolower($t['document_label'] ?: 'documentación')) : '' ?></small>
             </span>
           </label>
         <?php endforeach ?>
@@ -73,7 +73,7 @@ $typeData = array_map(fn($t) => [
         <span>Comentario <small class="muted">(opcional)</small></span>
         <textarea name="reason" rows="3" maxlength="2000" placeholder="Ej.: examen final de Base de Datos, viaje familiar…"><?= e(old('reason')) ?></textarea>
       </label>
-      <div class="field" id="docField">
+      <div class="field" id="docField" hidden>
         <span id="docLabel">Documentación <small class="muted">(opcional)</small></span>
         <label class="drop" id="drop">
           <input type="file" name="documents[]" id="docs" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,.heic,application/pdf,image/*">
@@ -99,7 +99,7 @@ $typeData = array_map(fn($t) => [
       <button class="btn btn-primary btn-block btn-lg" id="submitBtn"><?= icon('check', 18) ?> <span>Enviar solicitud</span></button>
     </section>
     <section class="card card-soft">
-      <h3 class="sub">Tus saldos <?= date('Y') ?></h3>
+      <h3 class="sub">Tus días disponibles · <?= date('Y') ?></h3>
       <?php partial('balances', ['balances' => $balances]) ?>
     </section>
   </aside>

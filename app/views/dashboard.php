@@ -6,7 +6,7 @@ $quick = [
     ['vacaciones', 'sun', 'Pedir vacaciones', '#663399'],
     ['estudio', 'book', 'Día de estudio', '#2E86AB'],
     ['enfermedad', 'heart', 'Informar enfermedad', '#D1495B'],
-    ['personal', 'clock', 'Trámite personal', '#E0A100'],
+    ['personal', 'clock', 'Día personal', '#E0A100'],
 ];
 ?>
 <section class="hero">
@@ -54,7 +54,7 @@ $quick = [
   <div class="stack">
     <section class="card">
       <div class="card-head">
-        <h2>Mis saldos <?= $year ?></h2>
+        <h2>Mis días disponibles · <?= $year ?></h2>
         <a class="link" href="<?= url('/solicitudes') ?>">Historial <?= icon('arrow-right', 14) ?></a>
       </div>
       <?php partial('balances', ['balances' => $balances]) ?>

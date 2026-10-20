@@ -36,12 +36,12 @@
         </li>
         <li>
           <span class="af-ic"><?= icon('chart', 20) ?></span>
-          <div><b>Saldos conforme a la LCT</b><small>Días disponibles calculados según antigüedad, siempre actualizados.</small></div>
+          <div><b>Vacaciones conforme a la LCT</b><small>Días disponibles calculados según antigüedad, siempre actualizados.</small></div>
         </li>
       </ul>
     </div>
 
-    <svg class="auth-waves" viewBox="0 0 220 160" aria-hidden="true"><defs><linearGradient id="g" x1="0" x2="1"><stop offset="0" stop-color="#ffffff" stop-opacity=".9"/><stop offset="1" stop-color="#9CC930"/></linearGradient></defs><g fill="none" stroke="url(#g)" stroke-width="6" stroke-linecap="round"><path d="M10 70a140 140 0 0 1 200 0"/><path d="M45 105a90 90 0 0 1 130 0"/><path d="M80 138a40 40 0 0 1 60 0"/></g></svg>
+    <svg class="auth-waves" viewBox="0 0 220 160" aria-hidden="true"><g fill="none" stroke="#ffffff" stroke-width="6" stroke-linecap="round"><path d="M10 70a140 140 0 0 1 200 0"/><path d="M45 105a90 90 0 0 1 130 0"/><path d="M80 138a40 40 0 0 1 60 0"/></g></svg>
     <footer class="auth-foot">
       <span><?= icon('shield', 14) ?> Conexión cifrada · Acceso exclusivo para colaboradores</span>
       <span>© <?= date('Y') ?> Intellihelp</span>

@@ -26,7 +26,7 @@ Reemplaza los pedidos por mail o mensajería por un circuito único y trazable:
 - el colaborador **pide** desde el portal (también desde el celular);
 - quien autoriza **recibe el aviso** por Google Chat, email y Google Calendar;
 - **autoriza o rechaza** con un clic y el colaborador recibe la respuesta;
-- todo queda **registrado** con historial, saldos y documentación respaldatoria.
+- todo queda **registrado** con historial, días disponibles y documentación respaldatoria.
 
 Las licencias que no requieren autorización (por ejemplo, enfermedad) se **informan**, y el certificado médico es **obligatorio** para poder enviarlas.
 
@@ -50,21 +50,21 @@ Las licencias que no requieren autorización (por ejemplo, enfermedad) se **info
 
 <p align="center"><img src="docs/screenshots/login.png" alt="Pantalla de ingreso" width="100%"></p>
 
-### Inicio — vista de Recursos Humanos
+### Inicio — vista del responsable
 
-Solicitudes por autorizar, documentación para verificar, ausentes del día y saldos.
+Solicitudes por autorizar, ausentes del día y próximos 14 días, y días disponibles propios.
 
 <p align="center"><img src="docs/screenshots/dashboard-rrhh.png" alt="Inicio de RRHH" width="100%"></p>
 
 ### Nueva solicitud
 
-Selección del tipo de licencia, cálculo automático de días (corridos o hábiles, descontando feriados), fecha de regreso, validación de saldos y adjuntos.
+Selección del tipo de licencia, cálculo automático de días (corridos o hábiles, descontando feriados), fecha de regreso, validación de días disponibles y adjuntos.
 
 <p align="center"><img src="docs/screenshots/nueva-solicitud.png" alt="Nueva solicitud" width="100%"></p>
 
-### Decisión del responsable
+### Seguimiento y decisión
 
-Detalle de la solicitud, saldos del colaborador, alerta de superposición con el equipo e historial.
+Cada solicitud muestra su **seguimiento por etapas** (solicitada, autorización, documentación, verificación y registro), con la etapa actual destacada. Junto a la decisión se ven los días disponibles del colaborador y las superposiciones con el equipo.
 
 <p align="center"><img src="docs/screenshots/decision-responsable.png" alt="Autorizar o rechazar" width="100%"></p>
 
@@ -102,7 +102,9 @@ Detalle de la solicitud, saldos del colaborador, alerta de superposición con el
 ### Colaboradores
 - Solicitud de **vacaciones, días de estudio/examen, trámites, mudanza, matrimonio, nacimiento, fallecimiento, maternidad, donación de sangre** y **enfermedad**.
 - Cálculo automático de días **corridos o hábiles**, descontando fines de semana y **feriados nacionales**.
-- **Saldos** por tipo de licencia; vacaciones calculadas según antigüedad conforme a la **LCT (art. 150)**: 14, 21, 28 o 35 días.
+- **Días disponibles** por tipo de licencia; vacaciones calculadas según antigüedad conforme a la **LCT (art. 150)**: 14, 21, 28 o 35 días.
+- Solo las vacaciones descuentan días de vacaciones; en el **día personal**, quien autoriza decide si se descuenta.
+- La carga de adjuntos aparece únicamente en los tipos de licencia que admiten documentación.
 - Validaciones: superposición de fechas, topes anuales y por solicitud, anticipación sugerida.
 - Carga de **certificados y constancias** (PDF o foto, también desde la cámara del celular).
 - Historial completo, cancelación de solicitudes y notificaciones dentro del portal.
@@ -110,6 +112,7 @@ Detalle de la solicitud, saldos del colaborador, alerta de superposición con el
 
 ### Responsables y Recursos Humanos
 - Bandeja **Por autorizar** con aprobación en un clic; el rechazo exige un motivo.
+- **Descuento opcional de vacaciones** en el día personal, validando los días disponibles del colaborador.
 - Alerta de **superposición** con otras ausencias del equipo o del área.
 - Verificación u **observación de documentación** médica.
 - **Calendario** mensual de ausencias y listado general con **filtros y exportación CSV**.
@@ -117,7 +120,7 @@ Detalle de la solicitud, saldos del colaborador, alerta de superposición con el
 - Carga de licencias en nombre de un colaborador (con aprobación directa opcional).
 
 ### Administración
-- Alta de **personas** con rol, responsable directo, área, empresa, fecha de ingreso y saldo manual opcional.
+- Alta de **personas** con rol, responsable directo, área, empresa, fecha de ingreso y días de vacaciones manuales opcionales.
 - **Autoregistro** de colaboradores: los correos del dominio corporativo se activan solos; los de **personal tercerizado** quedan pendientes de aprobación por RRHH.
 - **Tipos de licencia** configurables: autorización, documentación obligatoria, topes, forma de conteo, color.
 - **Feriados** editables por año.
@@ -151,7 +154,7 @@ flowchart LR
 | Estado | Significado | En Google Calendar |
 |---|---|---|
 | Pendiente | Espera la decisión del responsable | 🟡 `⏳ [Pendiente] Tipo — Persona` |
-| Aprobada | Autorizada | 🟢 `Tipo — Persona` |
+| Aprobada | Autorizada (indica si se descontó de vacaciones) | 🟢 `Tipo — Persona` |
 | Informada | Licencia sin autorización (ej. enfermedad) | 🟣 `Tipo — Persona` |
 | Rechazada / Cancelada | Sin efecto | Se elimina |
 
@@ -176,7 +179,7 @@ Aplicación **PHP 8.3 sin framework**, pensada para hosting compartido: sin proc
 │   ├── routes.php          # Rutas y despacho
 │   ├── controllers/        # Autenticación, registro, solicitudes, calendario, perfil, administración
 │   ├── lib/
-│   │   ├── leave.php       # Reglas de negocio: conteo de días, saldos LCT, validaciones
+│   │   ├── leave.php       # Reglas de negocio: conteo de días, vacaciones LCT, etapas, validaciones
 │   │   ├── notify.php      # Orquestación de notificaciones por evento
 │   │   ├── gcal.php        # Cliente de Google Calendar (JWT de cuenta de servicio)
 │   │   ├── mailer.php      # Envío SMTP y plantilla de email
@@ -199,7 +202,7 @@ Aplicación **PHP 8.3 sin framework**, pensada para hosting compartido: sin proc
 | Email | PHPMailer (SMTP de Google Workspace) |
 | Integraciones | Google Calendar API, Google Chat Webhooks, iCalendar |
 | Frontend | HTML + CSS propio + JavaScript sin dependencias |
-| Identidad | Tipografía Saira · `#663399` · `#161922` · `#9CC930` |
+| Identidad | Tipografía Saira · paleta `#663399` · `#9f88b1` · `#fff6ff` · `#fffade` · colores planos |
 
 ## Seguridad
 

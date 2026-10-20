@@ -64,7 +64,7 @@ function request_mail_rows(array $r): array
         ['Colaborador/a', e($r['user_name'])],
         ['Tipo', e($r['type_name'])],
         ['Fechas', e(frange($r['start_date'], $r['end_date']))],
-        ['Duración', e(fdays_kind($r['days'], $r['counting']))],
+        ['Duración', e(fdays_kind($r['days'], $r['counting'])) . (!empty($r['deduct_vacation']) ? ' · descontados de vacaciones' : '')],
     ];
     if (!empty($r['reason'])) {
         $rows[] = ['Motivo', nl2br(e($r['reason']))];
@@ -159,9 +159,13 @@ function on_request_created(int $id): void
                 'link' => '/solicitudes/' . $r['id']]);
         }
         hr_copy($r, "Nueva solicitud: {$r['user_name']} — {$r['type_name']}", e($r['user_name']) . ' cargó una solicitud pendiente de autorización.');
-        send_gchat("🟣 *Nueva solicitud para autorizar*
-{$r['user_name']} pidió *{$r['type_name']}* del {$range} (" . fdays($r['days']) . ')
-👉 ' . url('/solicitudes/' . $r['id']));
+        send_gchat(
+            '🟣 *Nueva solicitud para autorizar*
+        '
+            . "{$r['user_name']} pidió *{$r['type_name']}* del {$range} (" . fdays($r['days']) . ')
+        '
+            . '👉 ' . url('/solicitudes/' . $r['id'])
+        );
 
         return;
     }
@@ -185,10 +189,15 @@ function on_request_created(int $id): void
         );
     }
     hr_copy($r, "Licencia informada: {$r['user_name']} — {$r['type_name']}", e($r['user_name']) . ' informó una licencia.' . $docTxt);
-    send_gchat("📋 *Licencia informada*
-{$r['user_name']} informó *{$r['type_name']}* del {$range} (" . fdays($r['days']) . ')' . ($docs ? '
-📎 Ya subió ' . mb_strtolower($r['document_label'] ?: 'la documentación') : '') . '
-👉 ' . url('/solicitudes/' . $r['id']));
+    send_gchat(
+        '📋 *Licencia informada*
+    '
+        . "{$r['user_name']} informó *{$r['type_name']}* del {$range} (" . fdays($r['days']) . ')
+    '
+        . ($docs ? '📎 Ya subió ' . mb_strtolower($r['document_label'] ?: 'la documentación') . '
+    ' : '')
+        . '👉 ' . url('/solicitudes/' . $r['id'])
+    );
     if ($owner) {
         notify_user(
             $owner,
@@ -217,7 +226,8 @@ function on_request_decided(int $id): void
             $owner,
             $r,
             $approved ? "✅ Aprobada: {$r['type_name']} ({$range})" : "Rechazada: {$r['type_name']} ({$range})",
-            e($r['decider_name']) . ($approved ? ' <b>aprobó</b>' : ' <b>rechazó</b>') . ' tu solicitud de ' . e($r['type_name']) . ' del ' . e($range) . '.' . $comment,
+            e($r['decider_name']) . ($approved ? ' <b>aprobó</b>' : ' <b>rechazó</b>') . ' tu solicitud de ' . e($r['type_name']) . ' del ' . e($range) . '.'
+            . ($approved && $r['deduct_vacation'] ? ' Los días se descuentan de tus vacaciones.' : '') . $comment,
             [
                 'heading' => $approved ? '¡Tu solicitud fue aprobada!' : 'Tu solicitud fue rechazada',
                 'ics' => $approved,
@@ -235,8 +245,13 @@ function on_request_decided(int $id): void
             'title' => "{$r['decider_name']} " . ($approved ? 'aprobó' : 'rechazó') . " la solicitud de {$r['user_name']}",
             'body' => "{$r['type_name']} · {$range}", 'link' => '/solicitudes/' . $r['id']]);
     }
-    send_gchat(($approved ? '✅' : '❌') . " {$r['decider_name']} " . ($approved ? 'aprobó' : 'rechazó') . " *{$r['type_name']}* de {$r['user_name']} ({$range})
-👉 " . url('/solicitudes/' . $r['id']));
+    send_gchat(
+        ($approved ? '✅' : '❌') . " {$r['decider_name']} " . ($approved ? 'aprobó' : 'rechazó')
+        . " *{$r['type_name']}* de {$r['user_name']} ({$range})"
+        . ($approved && $r['deduct_vacation'] ? ' — descontado de vacaciones' : '') . '
+    '
+        . '👉 ' . url('/solicitudes/' . $r['id'])
+    );
     hr_copy($r, ($approved ? 'Aprobada' : 'Rechazada') . ": {$r['user_name']} — {$r['type_name']}", e($r['decider_name']) . ($approved ? ' aprobó' : ' rechazó') . ' la solicitud.' . $comment);
 }
 
@@ -267,8 +282,11 @@ function on_document_uploaded(int $id, int $count): void
 {
     $r = load_request($id);
     $label = $r['document_label'] ?: 'documentación';
-    send_gchat("📎 {$r['user_name']} subió " . mb_strtolower($label) . " ({$r['type_name']})
-👉 " . url('/solicitudes/' . $r['id']));
+    send_gchat(
+        "📎 {$r['user_name']} subió " . mb_strtolower($label) . " ({$r['type_name']})
+    "
+        . '👉 ' . url('/solicitudes/' . $r['id'])
+    );
     foreach (notify_unique([...hr_users(), user_by_id((int) $r['manager_id'])], uid()) as $t) {
         notify_user(
             $t,

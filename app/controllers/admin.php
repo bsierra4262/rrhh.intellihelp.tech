@@ -190,6 +190,7 @@ function admin_types_save(): void
         'max_days_per_request' => post('max_days_per_request') === '' ? null : max(1, (int) post('max_days_per_request')),
         'counting' => post('counting') === 'habiles' ? 'habiles' : 'corridos',
         'uses_vacation_balance' => isset($_POST['uses_vacation_balance']) ? 1 : 0,
+        'vacation_optional' => isset($_POST['vacation_optional']) && !isset($_POST['uses_vacation_balance']) ? 1 : 0,
         'min_notice_days' => max(0, (int) post('min_notice_days')),
         'active' => isset($_POST['active']) ? 1 : 0,
         'sort' => (int) post('sort'),

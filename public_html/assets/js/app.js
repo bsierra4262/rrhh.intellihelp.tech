@@ -97,6 +97,13 @@
     $('#sumType').textContent = t?.name || '—';
     const label = $('#docLabel');
     const drop = $('#drop');
+    // El campo de adjuntos solo aparece en los tipos que admiten documentación.
+    const acceptsDocs = !!(t && (t.docRequired || t.docLabel));
+    $('#docField').hidden = !acceptsDocs;
+    if (!acceptsDocs) {
+      docs.value = '';
+      renderFiles();
+    }
     if (t?.docRequired) {
       label.innerHTML = esc(t.docLabel || 'Documentación') + ' <small class="req-mark">obligatorio</small>';
       drop.classList.add('required');
@@ -110,7 +117,8 @@
     const btn = $('#submitBtn span');
     if (!t) { note.textContent = 'Elegí un tipo de licencia.'; }
     else if (t.approval) {
-      note.textContent = 'Se envía para su autorización. Te avisamos en el portal cuando se resuelva.';
+      note.textContent = 'Se envía para su autorización. Te avisamos en el portal cuando se resuelva.'
+        + (t.vacOptional ? ' Quien autoriza define si se descuenta de tus vacaciones.' : '');
       btn.textContent = 'Enviar solicitud';
     } else {
       note.textContent = 'No requiere autorización: queda registrada y se avisa a RRHH y a tu responsable' + (t.docRequired ? ' con el certificado adjunto.' : '.');
@@ -151,6 +159,7 @@
 
   function renderFiles() {
     const list = $('#fileList');
+    if (!list) return;
     list.innerHTML = '';
     [...docs.files].forEach((f) => list.insertAdjacentHTML('beforeend', '<li>📎 ' + esc(f.name) + ' · ' + Math.max(1, Math.round(f.size / 1024)) + ' KB</li>'));
   }

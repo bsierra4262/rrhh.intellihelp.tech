@@ -14,7 +14,7 @@ declare(strict_types=1);
 /**
  * Consulta base de solicitudes con tipo y colaborador.
  */
-const REQ_SELECT = 'SELECT r.*, t.name AS type_name, t.code AS type_code, t.color, t.counting, u.name AS user_name, u.department
+const REQ_SELECT = 'SELECT r.*, t.name AS type_name, t.code AS type_code, t.color, t.counting, t.vacation_optional, u.name AS user_name, u.department
     FROM leave_requests r JOIN leave_types t ON t.id = r.type_id JOIN users u ON u.id = r.user_id';
 
 /**
@@ -49,7 +49,7 @@ function team_scope(array $u): array
 }
 
 /**
- * Inicio: saldos, solicitudes propias y, según el rol, pendientes, ausentes y documentación.
+ * Inicio: días disponibles, solicitudes propias y, según el rol, pendientes, ausentes y documentación.
  */
 function dashboard(): void
 {
@@ -79,7 +79,7 @@ function dashboard(): void
         $data['stats'] = [
             'employees' => (int) val('SELECT COUNT(*) FROM users WHERE active = 1'),
             'sick_month' => (float) val("SELECT COALESCE(SUM(r.days),0) FROM leave_requests r JOIN leave_types t ON t.id=r.type_id WHERE t.code='enfermedad' AND r.status='registered' AND r.start_date >= ?", [date('Y-m-01')]),
-            'vac_year' => (float) val("SELECT COALESCE(SUM(r.days),0) FROM leave_requests r JOIN leave_types t ON t.id=r.type_id WHERE t.uses_vacation_balance=1 AND r.status='approved' AND YEAR(r.start_date)=?", [$year]),
+            'vac_year' => (float) val("SELECT COALESCE(SUM(r.days),0) FROM leave_requests r JOIN leave_types t ON t.id=r.type_id WHERE (t.uses_vacation_balance=1 OR r.deduct_vacation=1) AND r.status='approved' AND YEAR(r.start_date)=?", [$year]),
         ];
     }
     view('dashboard', $data);

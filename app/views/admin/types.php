@@ -5,7 +5,7 @@
 
 <?php
 $blank = ['id' => 0, 'name' => '', 'description' => '', 'color' => '#663399', 'requires_approval' => 1, 'requires_document' => 0, 'document_label' => '',
-    'max_days_per_year' => null, 'max_days_per_request' => null, 'counting' => 'habiles', 'uses_vacation_balance' => 0, 'min_notice_days' => 0, 'active' => 1, 'sort' => 50, 'code' => 'nuevo'];
+    'max_days_per_year' => null, 'max_days_per_request' => null, 'counting' => 'habiles', 'uses_vacation_balance' => 0, 'vacation_optional' => 0, 'min_notice_days' => 0, 'active' => 1, 'sort' => 50, 'code' => 'nuevo'];
 foreach (array_merge([$blank], $types) as $t): $isNew = !$t['id']; ?>
   <details class="card type-edit" <?= $isNew ? 'id="newType"' : '' ?> <?= $isNew ? 'hidden' : '' ?>>
     <summary>
@@ -15,6 +15,7 @@ foreach (array_merge([$blank], $types) as $t): $isNew = !$t['id']; ?>
           <?= $t['requires_approval'] ? 'Requiere autorización' : 'Solo se informa' ?>
           <?= $t['requires_document'] ? ' · ' . e($t['document_label'] ?: 'documentación') . ' obligatoria' : '' ?>
           · <?= $t['counting'] === 'habiles' ? 'días hábiles' : 'días corridos' ?>
+          <?= $t['uses_vacation_balance'] ? ' · descuenta de vacaciones' : (!empty($t['vacation_optional']) ? ' · descuento de vacaciones a criterio' : '') ?>
           <?= $t['max_days_per_year'] ? ' · máx. ' . (int) $t['max_days_per_year'] . '/año' : '' ?>
         </small><?php endif ?>
       </span>
@@ -43,7 +44,8 @@ foreach (array_merge([$blank], $types) as $t): $isNew = !$t['id']; ?>
       <div class="form-foot">
         <label class="switch"><input type="checkbox" name="requires_approval" <?= $t['requires_approval'] ? 'checked' : '' ?>><span></span> Requiere autorización</label>
         <label class="switch"><input type="checkbox" name="requires_document" <?= $t['requires_document'] ? 'checked' : '' ?>><span></span> Documentación obligatoria</label>
-        <label class="switch"><input type="checkbox" name="uses_vacation_balance" <?= $t['uses_vacation_balance'] ? 'checked' : '' ?>><span></span> Descuenta del saldo de vacaciones</label>
+        <label class="switch"><input type="checkbox" name="uses_vacation_balance" <?= $t['uses_vacation_balance'] ? 'checked' : '' ?>><span></span> Descuenta de las vacaciones</label>
+        <label class="switch"><input type="checkbox" name="vacation_optional" <?= !empty($t['vacation_optional']) ? 'checked' : '' ?>><span></span> Quien autoriza decide si descuenta de las vacaciones</label>
         <label class="switch"><input type="checkbox" name="active" <?= $t['active'] ? 'checked' : '' ?>><span></span> Activo</label>
         <button class="btn btn-primary btn-sm"><?= icon('check', 16) ?> Guardar</button>
       </div>
