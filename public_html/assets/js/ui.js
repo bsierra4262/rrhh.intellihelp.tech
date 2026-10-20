@@ -25,10 +25,6 @@
   const pad = (n) => String(n).padStart(2, '0');
   const iso = (d) => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
   const parse = (v) => (/^\d{4}-\d{2}-\d{2}$/.test(v) ? new Date(v + 'T12:00:00') : null);
-  const human = (v) => {
-    const d = parse(v);
-    return d ? d.getDate() + ' ' + MONTHS[d.getMonth()].slice(0, 3) + ' ' + d.getFullYear() : '';
-  };
   const chevron = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
   const calIcon = '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="16.5" rx="2"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/></svg>';
   const check = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4.5 12.5 5 5 10-11"/></svg>';
@@ -52,6 +48,10 @@
   }
 
   // ---------------------------------------------------------------- Calendario
+  /**
+   * Campo de fecha escribible (dd/mm/aaaa) con calendario desplegable. El calendario permite
+   * saltar por meses y años desde el encabezado para fechas lejanas.
+   */
   function enhanceDate(input) {
     const wrap = document.createElement('div');
     wrap.className = 'ui-field ui-date';
@@ -60,27 +60,68 @@
     input.classList.add('ui-native');
     input.tabIndex = -1;
 
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'ui-trigger';
-    btn.innerHTML = '<span class="ui-ico">' + calIcon + '</span><span class="ui-value"></span>';
+    const box = document.createElement('div');
+    box.className = 'ui-trigger ui-date-box';
+    box.innerHTML = '<button type="button" class="ui-ico ui-cal-btn" aria-label="Abrir calendario">' + calIcon + '</button>'
+      + '<input type="text" class="ui-date-text" inputmode="numeric" autocomplete="off" placeholder="dd/mm/aaaa" maxlength="10" aria-label="Fecha (dd/mm/aaaa)">';
+    const text = box.querySelector('.ui-date-text');
+    const calBtn = box.querySelector('.ui-cal-btn');
+    const hint = document.createElement('small');
+    hint.className = 'ui-date-error';
+    hint.hidden = true;
     const pop = document.createElement('div');
     pop.className = 'ui-pop ui-cal';
     pop.hidden = true;
-    wrap.append(btn, pop);
+    wrap.append(box, pop, hint);
 
-    let view = parse(input.value) || new Date();
-    view = new Date(view.getFullYear(), view.getMonth(), 1);
+    let view = new Date();
+    let mode = 'days';
     let last = null;
+    const toText = (v) => {
+      const d = parse(v);
+      return d ? pad(d.getDate()) + '/' + pad(d.getMonth() + 1) + '/' + d.getFullYear() : '';
+    };
+    const showError = (msg) => {
+      hint.textContent = msg || '';
+      hint.hidden = !msg;
+      box.classList.toggle('invalid', !!msg);
+    };
 
     const render = () => {
       const y = view.getFullYear(), m = view.getMonth();
+      const min = input.min || '', max = input.max || '';
+      let h = '';
+      if (mode === 'years') {
+        const start = y - (y % 12);
+        h = '<div class="ui-cal-head"><button type="button" class="ui-nav" data-nav="-12" aria-label="Años anteriores">‹</button>'
+          + '<b>' + start + ' – ' + (start + 11) + '</b>'
+          + '<button type="button" class="ui-nav" data-nav="12" aria-label="Años siguientes">›</button></div><div class="ui-cal-grid ui-cal-big">';
+        for (let i = 0; i < 12; i++) {
+          const yy = start + i;
+          const disabled = (min && String(yy) < min.slice(0, 4)) || (max && String(yy) > max.slice(0, 4));
+          h += '<button type="button" class="ui-cell' + (yy === y ? ' sel' : '') + '" data-year="' + yy + '"' + (disabled ? ' disabled' : '') + '>' + yy + '</button>';
+        }
+        pop.innerHTML = h + '</div>';
+        return;
+      }
+      if (mode === 'months') {
+        h = '<div class="ui-cal-head"><button type="button" class="ui-nav" data-nav="-12" aria-label="Año anterior">‹</button>'
+          + '<button type="button" class="ui-cal-title" data-mode="years">' + y + '</button>'
+          + '<button type="button" class="ui-nav" data-nav="12" aria-label="Año siguiente">›</button></div><div class="ui-cal-grid ui-cal-big">';
+        MONTHS.forEach((name, i) => {
+          const key = y + '-' + pad(i + 1);
+          const disabled = (min && key < min.slice(0, 7)) || (max && key > max.slice(0, 7));
+          h += '<button type="button" class="ui-cell' + (i === m ? ' sel' : '') + '" data-month="' + i + '"' + (disabled ? ' disabled' : '') + '>'
+            + name.charAt(0).toUpperCase() + name.slice(1, 3) + '</button>';
+        });
+        pop.innerHTML = h + '</div>';
+        return;
+      }
       const first = (new Date(y, m, 1).getDay() + 6) % 7;
       const total = new Date(y, m + 1, 0).getDate();
       const today = iso(new Date());
-      const min = input.min || '', max = input.max || '';
-      let h = '<div class="ui-cal-head"><button type="button" class="ui-nav" data-nav="-1" aria-label="Mes anterior">‹</button>'
-        + '<b>' + MONTHS[m].charAt(0).toUpperCase() + MONTHS[m].slice(1) + ' ' + y + '</b>'
+      h = '<div class="ui-cal-head"><button type="button" class="ui-nav" data-nav="-1" aria-label="Mes anterior">‹</button>'
+        + '<button type="button" class="ui-cal-title" data-mode="months" title="Elegir mes y año">' + MONTHS[m].charAt(0).toUpperCase() + MONTHS[m].slice(1) + ' ' + y + ' ' + chevron + '</button>'
         + '<button type="button" class="ui-nav" data-nav="1" aria-label="Mes siguiente">›</button></div><div class="ui-cal-grid">';
       DOW.forEach((d, i) => (h += '<span class="ui-dow' + (i > 4 ? ' we' : '') + '">' + d + '</span>'));
       for (let i = 0; i < first; i++) h += '<span></span>';
@@ -101,12 +142,14 @@
     const sync = () => {
       if (input.value === last) return;
       last = input.value;
-      btn.querySelector('.ui-value').textContent = input.value ? human(input.value) : 'Elegir fecha';
-      btn.classList.toggle('is-empty', !input.value);
+      if (document.activeElement !== text) text.value = toText(input.value);
+      showError('');
     };
     const set = (v) => {
       input.value = v;
-      sync();
+      last = v;
+      text.value = toText(v);
+      showError('');
       input.dispatchEvent(new Event('input', { bubbles: true }));
       input.dispatchEvent(new Event('change', { bubbles: true }));
     };
@@ -116,33 +159,117 @@
         wrap.classList.remove('open');
       },
     };
-
-    btn.addEventListener('click', () => {
-      if (!pop.hidden) {
-        closeOpen();
-        return;
-      }
+    const open = () => {
       closeOpen();
       const cur = parse(input.value) || parse(input.min) || new Date();
       view = new Date(cur.getFullYear(), cur.getMonth(), 1);
+      mode = 'days';
       render();
       pop.hidden = false;
       wrap.classList.add('open');
       place(wrap, pop);
       openPop = api;
+    };
+
+    // Escritura: agrega las barras mientras se tipea y valida al confirmar.
+    text.addEventListener('input', () => {
+      const parts = text.value.split(/[/\-.]/);
+      // Si los separadores están en su lugar (o no hay), se reformatea desde los dígitos;
+      // si se escribió a mano en formato corto (9/1/2024), se respeta.
+      const auto = parts.slice(0, -1).every((p) => p.replace(/\D/g, '').length === 2);
+      if (auto) {
+        const digits = text.value.replace(/\D/g, '').slice(0, 8);
+        text.value = digits.length > 4 ? digits.slice(0, 2) + '/' + digits.slice(2, 4) + '/' + digits.slice(4)
+          : digits.length > 2 ? digits.slice(0, 2) + '/' + digits.slice(2) : digits;
+      } else {
+        text.value = text.value.replace(/[^\d/\-.]/g, '').slice(0, 10);
+      }
+      showError('');
     });
+    const commit = () => {
+      const raw = text.value.trim();
+      if (raw === '') {
+        if (input.value) set('');
+        return true;
+      }
+      let dd, mm, yy;
+      const parts = raw.split(/[/\-.]/);
+      if (parts.length === 3) {
+        [dd, mm, yy] = parts;
+      } else {
+        const digits = raw.replace(/\D/g, '');
+        if (digits.length !== 8) {
+          showError('Escribí la fecha completa: dd/mm/aaaa.');
+          return false;
+        }
+        [dd, mm, yy] = [digits.slice(0, 2), digits.slice(2, 4), digits.slice(4)];
+      }
+      if (yy && yy.length === 2) yy = '20' + yy;
+      const d = new Date(Number(yy), Number(mm) - 1, Number(dd), 12);
+      if (!yy || yy.length !== 4 || isNaN(d) || d.getDate() !== Number(dd) || d.getMonth() !== Number(mm) - 1) {
+        showError('La fecha no es válida.');
+        return false;
+      }
+      const key = iso(d);
+      if (input.min && key < input.min) {
+        showError('La fecha no puede ser anterior al ' + toText(input.min) + '.');
+        return false;
+      }
+      if (input.max && key > input.max) {
+        showError('La fecha no puede ser posterior al ' + toText(input.max) + '.');
+        return false;
+      }
+      if (key !== input.value) set(key);
+      else text.value = toText(key);
+      return true;
+    };
+    text.addEventListener('blur', () => setTimeout(() => { if (!wrap.contains(document.activeElement)) commit(); }, 120));
+    text.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        if (commit()) closeOpen();
+      } else if (e.key === 'ArrowDown' && pop.hidden) {
+        e.preventDefault();
+        open();
+      }
+    });
+    text.closest('form')?.addEventListener('submit', (e) => {
+      if (!commit()) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        text.focus();
+      }
+    }, true);
+
+    calBtn.addEventListener('click', () => (pop.hidden ? open() : closeOpen()));
     pop.addEventListener('click', (e) => {
       e.stopPropagation();
       const nav = e.target.closest('[data-nav]');
       const day = e.target.closest('[data-day]');
       const act = e.target.closest('[data-act]');
+      const goMode = e.target.closest('[data-mode]');
+      const month = e.target.closest('[data-month]');
+      const year = e.target.closest('[data-year]');
       if (nav) {
-        view.setMonth(view.getMonth() + Number(nav.dataset.nav));
+        const step = Number(nav.dataset.nav);
+        if (mode === 'days') view.setMonth(view.getMonth() + step);
+        else view.setFullYear(view.getFullYear() + (mode === 'months' ? step / 12 : step));
+        render();
+      } else if (goMode) {
+        mode = goMode.dataset.mode;
+        render();
+      } else if (year && !year.disabled) {
+        view.setFullYear(Number(year.dataset.year));
+        mode = 'months';
+        render();
+      } else if (month && !month.disabled) {
+        view.setMonth(Number(month.dataset.month));
+        mode = 'days';
         render();
       } else if (day && !day.disabled) {
         set(day.dataset.day);
         closeOpen();
-        btn.focus();
+        text.focus();
       } else if (act) {
         set(act.dataset.act === 'today' ? iso(new Date()) : '');
         closeOpen();

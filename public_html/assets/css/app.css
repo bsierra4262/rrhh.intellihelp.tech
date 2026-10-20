@@ -582,6 +582,23 @@ input[type=checkbox], input[type=radio] { width: auto; }
 .ui-cal-foot { display: flex; justify-content: space-between; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line-2); }
 .ui-cal-foot button { border: 0; background: transparent; font-family: inherit; font-size: 13.5px; font-weight: 600; color: var(--primary); cursor: pointer; padding: 4px 8px; border-radius: 8px; }
 .ui-cal-foot button:hover { background: var(--primary-50); }
+.ui-date-box { cursor: text; gap: 8px; padding-top: 0; padding-bottom: 0; }
+.ui-date-box.invalid { border-color: var(--danger); box-shadow: 0 0 0 3px var(--danger-50); }
+.ui-date-box:focus-within { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-50); }
+.ui-cal-btn { border: 0; background: transparent; padding: 4px; margin-left: -4px; border-radius: 8px; cursor: pointer; }
+.ui-cal-btn:hover { background: var(--primary-50); color: var(--primary); }
+.ui-date-text { border: 0; padding: 10px 0; box-shadow: none; font-size: 15px; background: transparent; min-width: 0; flex: 1; letter-spacing: .02em; }
+.ui-date-text:focus { outline: 0; box-shadow: none; border: 0; }
+.field.sm .ui-date-text, .due-opt .ui-date-text { padding: 7px 0; font-size: 14px; }
+.ui-date-error { display: block; color: var(--danger); font-size: 12px; margin-top: 4px; }
+.ui-cal-title { border: 0; background: transparent; font-family: inherit; font-size: 15px; font-weight: 600; color: var(--ink); cursor: pointer; padding: 4px 10px; border-radius: 9px; display: inline-flex; align-items: center; gap: 4px; }
+.ui-cal-title:hover { background: var(--primary-50); color: var(--primary); }
+.ui-cal-title svg { color: var(--lilac); }
+.ui-cal-big { grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.ui-cell { height: 42px; border: 0; border-radius: 10px; background: transparent; font-family: inherit; font-size: 14px; color: var(--ink); cursor: pointer; }
+.ui-cell:hover { background: var(--primary-50); color: var(--primary); }
+.ui-cell.sel { background: var(--primary); color: #fff; font-weight: 600; }
+.ui-cell:disabled { opacity: .3; cursor: not-allowed; background: transparent; }
 .due-opt .ui-date { width: auto; min-width: 190px; }
 .due-opt .ui-trigger { min-height: 38px; padding: 7px 11px; font-size: 14px; }
 
