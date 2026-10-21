@@ -15,7 +15,7 @@ foreach (array_merge([$blank], $types) as $t): $isNew = !$t['id']; ?>
           <?= $t['requires_approval'] ? 'Requiere autorización' : 'Solo se informa' ?>
           <?= $t['requires_document'] ? ' · ' . e($t['document_label'] ?: 'documentación') . ' obligatoria' : '' ?>
           · <?= $t['counting'] === 'habiles' ? 'días hábiles' : 'días corridos' ?>
-          <?= $t['uses_vacation_balance'] ? ' · descuenta de vacaciones' : (!empty($t['vacation_optional']) ? ' · descuento de vacaciones a criterio' : '') ?>
+          <?= $t['uses_vacation_balance'] ? ' · descuenta de vacaciones' : (!empty($t['vacation_optional']) ? ' · descuento de vacaciones a criterio' : '') ?><?= !empty($t['weekend_rule']) ? ' · suma el fin de semana' : '' ?>
           <?= $t['max_days_per_year'] ? ' · máx. ' . (int) $t['max_days_per_year'] . '/año' : '' ?>
         </small><?php endif ?>
       </span>
@@ -53,7 +53,8 @@ foreach (array_merge([$blank], $types) as $t): $isNew = !$t['id']; ?>
         <label class="switch"><input type="checkbox" name="requires_document" <?= $t['requires_document'] ? 'checked' : '' ?>><span></span> Documentación obligatoria (se entrega después, dentro del plazo)</label>
         <label class="switch"><input type="checkbox" name="uses_vacation_balance" <?= $t['uses_vacation_balance'] ? 'checked' : '' ?>><span></span> Descuenta de las vacaciones</label>
         <label class="switch"><input type="checkbox" name="vacation_optional" <?= !empty($t['vacation_optional']) ? 'checked' : '' ?>><span></span> Quien autoriza decide si descuenta de las vacaciones</label>
-        <label class="switch"><input type="checkbox" name="active" <?= $t['active'] ? 'checked' : '' ?>><span></span> Activo</label>
+        <label class="switch"><input type="checkbox" name="weekend_rule" <?= !empty($t['weekend_rule']) ? 'checked' : '' ?>><span></span> Al tomar una semana completa se suma el fin de semana siguiente; si es menos de una semana, decide quien autoriza (solo días corridos)</label>
+        <label class="switch"><input type="checkbox" name="active"<?= $t['active'] ? 'checked' : '' ?>><span></span> Activo</label>
         <button class="btn btn-primary btn-sm"><?= icon('check', 16) ?> Guardar</button>
       </div>
     </form>

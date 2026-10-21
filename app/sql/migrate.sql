@@ -36,3 +36,6 @@ UPDATE leave_types SET vacation_optional = 1 WHERE code = 'personal' AND name = 
 INSERT IGNORE INTO settings (k, v) VALUES ('support_email', 'soporte@intellihelp.tech'), ('ai_smtp_user', ''), ('ai_smtp_pass', ''), ('gcal_impersonate', '');
 INSERT IGNORE INTO settings (k, v) VALUES ('event_email', 'off'), ('gcal_calendar_id', ''), ('gcal_sa_json', '');
 INSERT IGNORE INTO settings (k, v) VALUES ('signup_enabled', '1'), ('signup_domain', 'intellihelp.tech'), ('default_approver_id', '0');
+-- Regla del fin de semana: al tomar una semana completa se suma el fin de semana siguiente.
+ALTER TABLE leave_types ADD COLUMN IF NOT EXISTS weekend_rule TINYINT(1) NULL AFTER counting;
+UPDATE leave_types SET weekend_rule = IF(code = 'vacaciones', 1, 0) WHERE weekend_rule IS NULL;

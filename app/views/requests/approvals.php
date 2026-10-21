@@ -18,7 +18,7 @@
         <form method="post" action="<?= url('/solicitudes/' . $r['id'] . '/decidir') ?>" class="approval-actions">
           <?= csrf_field() ?>
           <input type="hidden" name="back" value="aprobaciones">
-          <?php if (!empty($r['vacation_optional'])): ?>
+          <?php if (!empty($r['vacation_optional']) || week_choice($r)): ?>
             <a class="btn btn-positive btn-sm" href="<?= url('/solicitudes/' . $r['id']) ?>#decidir"><?= icon('check', 16) ?> Revisar y decidir</a>
           <?php else: ?>
             <button class="btn btn-positive btn-sm" name="decision" value="approved"><?= icon('check', 16) ?> Autorizar</button>

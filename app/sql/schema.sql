@@ -42,6 +42,7 @@ CREATE TABLE IF NOT EXISTS leave_types (
   max_days_per_year SMALLINT NULL,
   max_days_per_request SMALLINT NULL,
   counting ENUM('corridos','habiles') NOT NULL DEFAULT 'habiles',
+  weekend_rule TINYINT(1) NULL,
   by_hours TINYINT(1) NOT NULL DEFAULT 0,
   uses_vacation_balance TINYINT(1) NOT NULL DEFAULT 0,
   vacation_optional TINYINT(1) NOT NULL DEFAULT 0,

@@ -82,7 +82,12 @@ function forgot_submit(): void
         redirect('/olvide');
     }
     insert('login_attempts', ['ip' => client_ip(), 'email' => $email]);
-    $u = row('SELECT * FROM users WHERE email = ? AND active = 1', [$email]);
+    // Una cuenta que todavía no confirmó su correo recibe de nuevo el enlace de confirmación.
+    $pendingId = (int) val('SELECT id FROM users WHERE email = ? AND pending_activation = 1', [$email]);
+    if ($pendingId) {
+        send_activation($pendingId);
+    }
+    $u = $pendingId ? null : row('SELECT * FROM users WHERE email = ? AND active = 1', [$email]);
     if ($u) {
         $token = bin2hex(random_bytes(32));
         insert('password_resets', [

@@ -64,6 +64,7 @@ $routes = [
     ['POST', '/admin/usuarios/(\d+)', 'admin_user_save'],
     ['POST', '/admin/usuarios/(\d+)/password', 'admin_user_reset_password'],
     ['POST', '/admin/usuarios/(\d+)/aprobar', 'admin_user_approve'],
+    ['POST', '/admin/usuarios/(\d+)/activacion', 'admin_user_resend_activation'],
     ['GET',  '/admin/reportes', 'reports_page'],
     ['GET',  '/admin/reportes/excel', 'reports_excel'],
     ['POST', '/admin/reportes/configuracion', 'reports_settings_save'],

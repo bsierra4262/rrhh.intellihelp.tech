@@ -70,6 +70,61 @@ function count_days(string $from, string $to, string $counting): int
 }
 
 /**
+ * Cantidad de días de lunes a viernes de un rango (inclusive), sin descontar feriados.
+ */
+function weekdays_between(string $from, string $to): int
+{
+    $n = 0;
+    for ($d = new DateTimeImmutable($from), $b = new DateTimeImmutable($to); $d <= $b; $d = $d->modify('+1 day')) {
+        $n += (int) $d->format('N') < 6 ? 1 : 0;
+    }
+
+    return $n;
+}
+
+/**
+ * Aplica la regla del fin de semana a un rango de días corridos.
+ *
+ * Si el tipo tiene la regla activa y la ausencia cubre al menos una semana laboral completa
+ * (cinco días de lunes a viernes) terminando el viernes o el sábado, se suma el fin de semana
+ * siguiente: la licencia pasa a terminar el domingo. Si la ausencia tiene menos de cinco días
+ * y no sale de esa semana, quien autoriza decide si se computan solo esos días o la semana
+ * completa (siete días).
+ *
+ * @return array{to: string, added: int, choice: bool, week_end: ?string}
+ *         Fecha de fin ajustada, días agregados, si corresponde la decisión de quien autoriza
+ *         y el domingo con el que cerraría la semana completa.
+ */
+function weekend_adjustment(array $type, string $from, string $to): array
+{
+    $result = ['to' => $to, 'added' => 0, 'choice' => false, 'week_end' => null];
+    if (empty($type['weekend_rule']) || ($type['counting'] ?? '') !== 'corridos' || !empty($type['by_hours']) || $to < $from) {
+        return $result;
+    }
+    $end = new DateTimeImmutable($to);
+    $dow = (int) $end->format('N');
+    $sunday = $end->modify('+' . (7 - $dow) . ' days')->format('Y-m-d');
+    $weekdays = weekdays_between($from, $to);
+    if ($weekdays >= 5 && in_array($dow, [5, 6], true)) {
+        $result['to'] = $sunday;
+        $result['added'] = 7 - $dow;
+    } elseif ($weekdays < 5 && $dow < 6 && (new DateTimeImmutable($from))->format('o-W') === $end->format('o-W')) {
+        $result['choice'] = true;
+        $result['week_end'] = $sunday;
+    }
+
+    return $result;
+}
+
+/**
+ * Indica si quien autoriza puede computar la solicitud como semana completa.
+ */
+function week_choice(array $r): bool
+{
+    return $r['status'] === 'pending' && weekend_adjustment($r, $r['start_date'], $r['end_date'])['choice'];
+}
+
+/**
  * Días de vacaciones del año según antigüedad al 31/12 (LCT art. 150 y 153).
  *
  * Menos de 5 años: 14 días; 5 a 10: 21; 10 a 20: 28; más de 20: 35. Con menos de seis meses
@@ -196,8 +251,9 @@ function hr_users(): array
  * Valida una solicitud de licencia.
  *
  * Con $byHr las excepciones de días disponibles y topes se informan como advertencias en lugar de errores.
+ * Aplica la regla del fin de semana del tipo, por lo que la fecha de fin puede extenderse.
  *
- * @return array{0: string[], 1: string[], 2: int} Errores, advertencias y cantidad de días.
+ * @return array{0: string[], 1: string[], 2: int, 3: string} Errores, advertencias, cantidad de días y fecha de fin.
  */
 function validate_request(array $user, array $type, string $from, string $to, ?int $excludeId = null, bool $byHr = false): array
 {
@@ -215,6 +271,7 @@ function validate_request(array $user, array $type, string $from, string $to, ?i
     if (substr($from, 0, 4) !== substr($to, 0, 4)) {
         $errors[] = 'La solicitud no puede abarcar dos años distintos. Cargá una solicitud por año.';
     }
+    $to = weekend_adjustment($type, $from, $to)['to'];
     $days = count_days($from, $to, $type['counting']);
     if ($days <= 0) {
         $errors[] = 'El rango elegido no tiene días hábiles.';
@@ -259,7 +316,7 @@ function validate_request(array $user, array $type, string $from, string $to, ?i
         $errors[] = 'Una licencia por enfermedad no puede informarse con tanta anticipación.';
     }
 
-    return [$errors, $warnings, $days];
+    return [$errors, $warnings, $days, $to];
 }
 
 /**
@@ -320,7 +377,7 @@ function validate_hourly_request(array $user, array $type, string $date, string 
  */
 function load_request(int $id): ?array
 {
-    return row('SELECT r.*, t.name AS type_name, t.code AS type_code, t.color, t.requires_approval, t.requires_document, t.document_label, t.doc_due_days, t.doc_due_from, t.counting, t.by_hours, t.vacation_optional,
+    return row('SELECT r.*, t.name AS type_name, t.code AS type_code, t.color, t.requires_approval, t.requires_document, t.document_label, t.doc_due_days, t.doc_due_from, t.counting, t.by_hours, t.vacation_optional, t.weekend_rule, t.uses_vacation_balance,
             u.name AS user_name, u.email AS user_email, u.department, u.position, u.manager_id,
             a.name AS approver_name, d.name AS decider_name
         FROM leave_requests r
@@ -401,6 +458,7 @@ const EVENT_LABELS = [
     'doc_observed' => 'observó la documentación',
     'reminder' => 'se envió un recordatorio al aprobador',
     'vacation_deducted' => 'descontó los días de las vacaciones',
+    'full_week' => 'computó la semana completa',
     'doc_due_set' => 'definió el plazo de entrega de la documentación',
     'doc_reminder' => 'se recordó la entrega de la documentación',
     'doc_overdue' => 'venció el plazo de entrega de la documentación',

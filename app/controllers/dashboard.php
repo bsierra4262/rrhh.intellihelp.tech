@@ -14,7 +14,7 @@ declare(strict_types=1);
 /**
  * Consulta base de solicitudes con tipo y colaborador.
  */
-const REQ_SELECT = 'SELECT r.*, t.name AS type_name, t.code AS type_code, t.color, t.counting, t.by_hours, t.vacation_optional, u.name AS user_name, u.department
+const REQ_SELECT = 'SELECT r.*, t.name AS type_name, t.code AS type_code, t.color, t.counting, t.by_hours, t.vacation_optional, t.weekend_rule, u.name AS user_name, u.department
     FROM leave_requests r JOIN leave_types t ON t.id = r.type_id JOIN users u ON u.id = r.user_id';
 
 /**

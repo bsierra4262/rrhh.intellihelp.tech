@@ -112,20 +112,54 @@ function register_submit(): void
             $id = (int) $u['id'];
             update('users', $id, $data);
         }
-        $token = bin2hex(random_bytes(32));
-        insert('password_resets', ['user_id' => $id, 'token_hash' => hash('sha256', $token), 'expires_at' => date('Y-m-d H:i:s', time() + 172800)]);
-        send_mail($email, 'Confirmá tu correo — Portal de RRHH Intellihelp', mail_template(
-            'Confirmá tu correo',
-            'Hola ' . e($name) . ', para continuar con el alta en el Portal de Recursos Humanos de Intellihelp confirmá tu correo y elegí una contraseña. El enlace vence en 48 horas.'
-            . ($trusted ? '' : '<br><br>Como tu correo no pertenece a Intellihelp, RRHH va a revisar y aprobar tu acceso.'),
-            [],
-            ['Confirmar correo', url('/activar', ['t' => $token])],
-            'Si no fuiste vos, ignorá este mensaje.'
-        ));
+        send_activation($id);
     }
     forget_input();
     flash('success', "Te enviamos un correo a {$email} para confirmar tu cuenta. Revisá también la carpeta de spam.");
     redirect('/login');
+}
+
+/**
+ * Envía el enlace para confirmar el correo y elegir la contraseña de una cuenta sin confirmar.
+ *
+ * Cada envío genera un enlace nuevo con 48 horas de vigencia; los anteriores siguen siendo válidos
+ * hasta que la cuenta se active.
+ */
+function send_activation(int $id): bool
+{
+    $u = row('SELECT * FROM users WHERE id = ? AND pending_activation = 1', [$id]);
+    if (!$u) {
+        return false;
+    }
+    $token = bin2hex(random_bytes(32));
+    insert('password_resets', ['user_id' => $id, 'token_hash' => hash('sha256', $token), 'expires_at' => date('Y-m-d H:i:s', time() + 172800)]);
+
+    return send_mail($u['email'], 'Confirmá tu correo — Portal de RRHH Intellihelp', mail_template(
+        'Confirmá tu correo',
+        'Hola ' . e($u['name']) . ', para continuar con el alta en el Portal de Recursos Humanos de Intellihelp confirmá tu correo y elegí una contraseña. El enlace vence en 48 horas.'
+        . (is_trusted_email($u['email']) ? '' : '<br><br>Como tu correo no pertenece a Intellihelp, RRHH va a revisar y aprobar tu acceso.'),
+        [],
+        ['Confirmar correo', url('/activar', ['t' => $token])],
+        'Si no fuiste vos, ignorá este mensaje.'
+    ));
+}
+
+/**
+ * Reenvía el correo de confirmación a una cuenta sin confirmar.
+ */
+function admin_user_resend_activation(int $id): void
+{
+    require_role('hr', 'admin');
+    $email = val('SELECT email FROM users WHERE id = ? AND pending_activation = 1', [$id]);
+    if (!$email) {
+        redirect("/admin/usuarios/$id");
+    }
+    if (send_activation($id)) {
+        flash('success', "Reenviamos el correo de confirmación a {$email}. El enlace vence en 48 horas.");
+    } else {
+        flash('error', 'No se pudo enviar el correo. Revisá la configuración de correo o generá una contraseña temporal.');
+    }
+    redirect("/admin/usuarios/$id");
 }
 
 /**

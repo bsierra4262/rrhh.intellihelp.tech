@@ -234,6 +234,8 @@
         msgs.innerHTML = '';
         (d.errors || []).forEach((m) => msgs.insertAdjacentHTML('beforeend', '<div class="alert alert-error"><span>' + esc(m) + '</span></div>'));
         (d.warnings || []).forEach((m) => msgs.insertAdjacentHTML('beforeend', '<div class="alert alert-warning"><span>' + esc(m) + '</span></div>'));
+        (d.notes || []).forEach((m) => msgs.insertAdjacentHTML('beforeend', '<div class="alert alert-info"><span>' + esc(m) + '</span></div>'));
+        if (!hourly && d.to && d.to !== to.value) $('#sumDates').textContent = fmt(from.value) + ' → ' + fmt(d.to);
         if (d.holidays?.length) msgs.insertAdjacentHTML('beforeend', '<div class="alert alert-info"><span>Feriados en el rango: ' + esc(d.holidays.join(', ')) + '</span></div>');
         $('#submitBtn').disabled = (d.errors || []).length > 0;
       } catch {

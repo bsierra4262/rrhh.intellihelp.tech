@@ -84,7 +84,7 @@ function request_submit(): void
         [$errors, $warnings, $hours] = validate_hourly_request($owner, $type, $from, $startTime, $endTime);
         $days = 0;
     } else {
-        [$errors, $warnings, $days] = validate_request($owner, $type, $from, $to, null, is_hr());
+        [$errors, $warnings, $days, $to] = validate_request($owner, $type, $from, $to, null, is_hr());
     }
 
     if ($errors) {
@@ -244,10 +244,27 @@ function request_decide(int $id): void
             redirect('/solicitudes/' . $id);
         }
     }
+    // Ausencias de menos de una semana: quien autoriza decide si se computa la semana completa.
+    $fullWeek = $decision === 'approved' && week_choice($r) && post('full_week') === '1';
+    $endDate = $r['end_date'];
+    $days = (float) $r['days'];
+    if ($fullWeek) {
+        $endDate = weekend_adjustment($r, $r['start_date'], $r['end_date'])['week_end'];
+        $days = 7;
+        if ($r['uses_vacation_balance']) {
+            $owner = row('SELECT * FROM users WHERE id = ?', [$r['user_id']]);
+            $left = vacation_left($owner, (int) substr($r['start_date'], 0, 4), $id);
+            if ($left < $days) {
+                flash('error', "No se puede computar la semana completa: a {$r['user_name']} le quedan " . fdays($left) . ' de vacaciones disponibles.');
+                redirect('/solicitudes/' . $id);
+            }
+        }
+    }
     // La condición sobre el estado evita decisiones duplicadas concurrentes.
     $n = q(
-        "UPDATE leave_requests SET status = ?, decided_by = ?, decided_at = NOW(), decision_comment = ?, deduct_vacation = ? WHERE id = ? AND status = 'pending'",
-        [$decision, $me['id'], $comment ?: null, $deduct ? 1 : 0, $id]
+        "UPDATE leave_requests SET status = ?, decided_by = ?, decided_at = NOW(), decision_comment = ?, deduct_vacation = ?, end_date = ?, days = ?
+        WHERE id = ? AND status = 'pending'",
+        [$decision, $me['id'], $comment ?: null, $deduct ? 1 : 0, $endDate, $days, $id]
     )->rowCount();
     if (!$n) {
         flash('warning', 'Esta solicitud ya había sido resuelta.');
@@ -258,6 +275,9 @@ function request_decide(int $id): void
     if ($decision === 'approved' && accepts_documents($r)) {
         $fresh = load_request($id);
         apply_doc_due($id, $fresh, post('doc_due_mode'), post('doc_due_date')) ?? apply_doc_due($id, $fresh, 'auto', '');
+    }
+    if ($fullWeek) {
+        log_event($id, 'full_week', 'Se computa la semana completa: ' . fdays($days) . ', hasta el ' . fdate($endDate) . '.');
     }
     if ($deduct) {
         log_event($id, 'vacation_deducted', fdays($r['days']) . ' descontados de las vacaciones.');
@@ -529,13 +549,22 @@ function api_days(): void
         ], JSON_UNESCAPED_UNICODE);
         exit;
     }
-    [$errors, $warnings, $days] = validate_request($owner, $type, $from, $to, null, is_hr());
+    $adjust = weekend_adjustment($type, $from, $to);
+    [$errors, $warnings, $days, $to] = validate_request($owner, $type, $from, $to, null, is_hr());
+    $notes = [];
+    if ($adjust['added']) {
+        $notes[] = 'Al tomar la semana completa se suma el fin de semana siguiente: la licencia termina el ' . flongdate($to) . '.';
+    } elseif ($adjust['choice']) {
+        $notes[] = 'Como es menos de una semana, quien autoriza define si se computan solo estos ' . fdays($days) . ' o la semana completa (7 días).';
+    }
     $hol = array_map(fn ($h) => fdate($h['date'], false) . ' ' . $h['name'], rows('SELECT * FROM holidays WHERE date BETWEEN ? AND ? ORDER BY date', [$from, $to]));
     echo json_encode([
         'days' => $days,
         'label' => fdays_kind($days, $type['counting']),
         'return' => $to >= $from ? flongdate(next_working_day($to)) : null,
         'holidays' => $type['counting'] === 'habiles' ? $hol : [],
+        'to' => $to,
+        'notes' => $notes,
         'errors' => $errors,
         'warnings' => $warnings,
     ], JSON_UNESCAPED_UNICODE);

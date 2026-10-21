@@ -33,6 +33,17 @@ unset($_SESSION['new_password']);
   </section>
 <?php endif ?>
 
+<?php if ($u && $u['pending_activation']): ?>
+  <section class="card card-accent">
+    <div class="card-head"><h2><?= icon('mail') ?> Cuenta sin confirmar</h2></div>
+    <p><b><?= e($u['name']) ?></b> todavía no confirmó su correo (<?= e($u['email']) ?>) ni eligió su contraseña, por eso no puede ingresar. Podés reenviarle el correo de confirmación o generarle una contraseña temporal desde <b>Acceso</b>, que habilita la cuenta en el momento.</p>
+    <form method="post" action="<?= url('/admin/usuarios/' . $u['id'] . '/activacion') ?>" class="btn-row" style="margin-top:14px">
+      <?= csrf_field() ?>
+      <button class="btn btn-primary btn-sm"><?= icon('mail', 16) ?> Reenviar correo de confirmación</button>
+    </form>
+  </section>
+<?php endif ?>
+
 <form method="post" class="card form" action="<?= url($u ? '/admin/usuarios/' . $u['id'] : '/admin/usuarios/nuevo') ?>">
   <?= csrf_field() ?>
   <div class="form-grid">
@@ -79,7 +90,11 @@ unset($_SESSION['new_password']);
   <form method="post" action="<?= url('/admin/usuarios/' . $u['id'] . '/password') ?>" class="btn-row">
     <?= csrf_field() ?>
     <label class="switch"><input type="checkbox" name="send" checked><span></span> Enviar por email</label>
-    <button class="btn btn-ghost btn-sm" data-confirm="Se generará una contraseña temporal nueva. ¿Continuar?"><?= icon('key', 16) ?> Restablecer contraseña</button>
+    <?php if ($u['pending_activation']): ?>
+      <button class="btn btn-ghost btn-sm" data-confirm="Se generará una contraseña temporal y la cuenta quedará habilitada. ¿Continuar?"><?= icon('key', 16) ?> Generar contraseña y habilitar</button>
+    <?php else: ?>
+      <button class="btn btn-ghost btn-sm" data-confirm="Se generará una contraseña temporal nueva. ¿Continuar?"><?= icon('key', 16) ?> Restablecer contraseña</button>
+    <?php endif ?>
   </form>
 </section>
 <?php endif ?>

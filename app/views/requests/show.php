@@ -85,6 +85,14 @@ $gcal = gcal_link($r['type_name'] . ($mine ? '' : ' — ' . $r['user_name']), $r
             </span>
           </label>
         <?php endif ?>
+        <?php if (week_choice($r)): $weekEnd = weekend_adjustment($r, $r['start_date'], $r['end_date'])['week_end']; ?>
+          <label class="deduct">
+            <input type="checkbox" name="full_week" value="1">
+            <span><b>Computar la semana completa (7 días)</b>
+              <small>Pidió <?= e(fdays($r['days'])) ?>, menos de una semana. Si lo marcás se computan 7 días, con el fin de semana incluido, hasta el <?= e(fdate($weekEnd)) ?>.</small>
+            </span>
+          </label>
+        <?php endif ?>
         <?php if (accepts_documents($r)): $autoDue = doc_auto_due(array_merge($r, ['status' => 'approved'])); ?>
           <fieldset class="due-box">
             <legend><?= icon('clock', 15) ?> Plazo para entregar <?= e(mb_strtolower($r['document_label'] ?: 'documentación')) ?></legend>

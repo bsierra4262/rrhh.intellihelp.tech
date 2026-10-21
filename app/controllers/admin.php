@@ -101,12 +101,19 @@ function admin_user_save(int $id = 0): void
         if ($target['role'] === 'admin' && $me['role'] !== 'admin') {
             abort(403, 'Solo un administrador puede editar a otro administrador.');
         }
-        // Una cuenta pendiente solo se activa desde «Aprobar acceso».
-        if (val('SELECT pending_approval FROM users WHERE id = ?', [$id])) {
+        $prev = row('SELECT email, pending_approval, pending_activation FROM users WHERE id = ?', [$id]);
+        // Una cuenta pendiente se activa al confirmar el correo o desde «Aprobar acceso».
+        if ($prev['pending_approval'] || $prev['pending_activation']) {
             unset($data['active']);
         }
         update('users', $id, $data);
-        flash('success', 'Datos actualizados.');
+        // Si se corrigió el correo de una cuenta sin confirmar, el enlace va a la dirección nueva.
+        if ($prev['pending_activation'] && $prev['email'] !== $email) {
+            send_activation($id);
+            flash('success', "Datos actualizados. Enviamos el correo de confirmación a {$email}.");
+        } else {
+            flash('success', 'Datos actualizados.');
+        }
     } else {
         $pass = random_password();
         $data['password_hash'] = password_hash($pass, PASSWORD_DEFAULT);
@@ -158,6 +165,11 @@ function admin_user_reset_password(int $id): void
     }
     $pass = random_password();
     q('UPDATE users SET password_hash = ?, must_change_password = 1 WHERE id = ?', [password_hash($pass, PASSWORD_DEFAULT), $id]);
+    // Generar la contraseña desde RRHH equivale a confirmar la cuenta: queda habilitada para ingresar.
+    if ($u['pending_activation']) {
+        q('UPDATE users SET pending_activation = 0, pending_approval = 0, active = 1 WHERE id = ?', [$id]);
+        q('UPDATE password_resets SET used_at = NOW() WHERE user_id = ? AND used_at IS NULL', [$id]);
+    }
     $sent = isset($_POST['send']) && send_welcome($u, $pass);
     $_SESSION['new_password'] = ['name' => $u['name'], 'email' => $u['email'], 'pass' => $pass, 'sent' => $sent];
     flash('success', 'Contraseña restablecida.');
@@ -192,6 +204,7 @@ function admin_types_save(): void
         'max_days_per_year' => post('max_days_per_year') === '' ? null : max(1, (int) post('max_days_per_year')),
         'max_days_per_request' => post('max_days_per_request') === '' ? null : max(1, (int) post('max_days_per_request')),
         'counting' => post('counting') === 'habiles' ? 'habiles' : 'corridos',
+        'weekend_rule' => isset($_POST['weekend_rule']) && post('counting') !== 'habiles' ? 1 : 0,
         'uses_vacation_balance' => isset($_POST['uses_vacation_balance']) ? 1 : 0,
         'vacation_optional' => isset($_POST['vacation_optional']) && !isset($_POST['uses_vacation_balance']) ? 1 : 0,
         'min_notice_days' => max(0, (int) post('min_notice_days')),
