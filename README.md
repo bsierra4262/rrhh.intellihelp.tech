@@ -75,6 +75,10 @@ Cada solicitud muestra su **seguimiento por etapas** (solicitada, autorización,
 
 <p align="center"><img src="docs/screenshots/decision-responsable.png" alt="Autorizar o rechazar" width="100%"></p>
 
+**Vacaciones y fin de semana.** Al tomar una semana completa (de lunes a viernes) se suma el fin de semana siguiente: cinco días hábiles cuentan como siete corridos y la licencia termina el domingo. Si la ausencia es de menos de una semana, quien autoriza decide si se computan solo esos días o la semana completa.
+
+<p align="center"><img src="docs/screenshots/semana-completa.png" alt="Computar la semana completa" width="100%"></p>
+
 <table>
   <tr>
     <td width="50%"><b>Por autorizar</b><br><img src="docs/screenshots/aprobaciones.png" alt="Bandeja de aprobaciones"></td>
@@ -121,6 +125,7 @@ Licencias aprobadas que impactan en vacaciones, con filtros por período y perso
 - **Trámites por horario**: día en un calendario y horario de salida y regreso; no impactan en las vacaciones.
 - Cálculo automático de días **corridos o hábiles**, descontando fines de semana y **feriados nacionales**.
 - **Días disponibles** por tipo de licencia; vacaciones calculadas según antigüedad conforme a la **LCT (art. 150)**: 14, 21, 28 o 35 días.
+- **Fin de semana en vacaciones**: una semana completa que termina el viernes suma el fin de semana siguiente (5 días hábiles = 7 corridos).
 - Solo las vacaciones descuentan días de vacaciones; en el **día personal**, quien autoriza decide si se descuenta.
 - La documentación (certificados y constancias) se entrega **después** de pedir la licencia: una vez autorizada o, si solo se informa, cuando se tenga, dentro de un **plazo** con recordatorio previo.
 - Validaciones: superposición de fechas, topes anuales y por solicitud, anticipación sugerida.
@@ -132,6 +137,7 @@ Licencias aprobadas que impactan en vacaciones, con filtros por período y perso
 ### Responsables y Recursos Humanos
 - Bandeja **Por autorizar** con aprobación en un clic; el rechazo exige un motivo.
 - **Descuento opcional de vacaciones** en el día personal, validando los días disponibles del colaborador.
+- **Semana completa a criterio**: en vacaciones de menos de una semana, quien autoriza elige computar solo los días pedidos o los 7 días.
 - Alerta de **superposición** con otras ausencias del equipo o del área.
 - Verificación u **observación de documentación**; una observación otorga un nuevo plazo de 2 días hábiles.
 - **Plazos de entrega de documentación** en días hábiles: automáticos según el tipo de licencia (contados desde el fin de la licencia o desde que se informa, nunca antes de que termine) o fijados por quien autoriza; aviso al colaborador antes del vencimiento y aviso al responsable y RRHH si vence.
@@ -142,7 +148,8 @@ Licencias aprobadas que impactan en vacaciones, con filtros por período y perso
 ### Administración
 - Alta de **personas** con rol, responsable directo, área, empresa, fecha de ingreso y días de vacaciones manuales opcionales.
 - **Autoregistro** de colaboradores: los correos del dominio corporativo se activan solos; los de **personal tercerizado** quedan pendientes de aprobación por RRHH.
-- **Tipos de licencia** configurables: autorización, documentación obligatoria y su plazo de entrega, topes, forma de conteo, descuento de vacaciones y color.
+- Cuentas sin confirmar: **reenvío del correo de confirmación** (también desde «¿La olvidaste?»), habilitación con contraseña temporal y eliminación de registros duplicados o con el correo mal escrito.
+- **Tipos de licencia** configurables: autorización, documentación obligatoria y su plazo de entrega, topes, forma de conteo, regla del fin de semana, descuento de vacaciones y color.
 - **Reportes** (solo administradores): exportación a Excel de las licencias que impactan en vacaciones y envío mensual automático a una o más casillas.
 - **Feriados** editables por año.
 - Configuración de **canales de notificación** con pruebas integradas (email, Google Chat, Google Calendar).

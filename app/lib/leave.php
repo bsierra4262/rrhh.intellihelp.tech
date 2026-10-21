@@ -260,13 +260,13 @@ function validate_request(array $user, array $type, string $from, string $to, ?i
     $errors = [];
     $warnings = [];
     if (!valid_date($from) || !valid_date($to)) {
-        return [['Las fechas no son válidas.'], [], 0];
+        return [['Las fechas no son válidas.'], [], 0, $to];
     }
     if ($to < $from) {
-        return [['La fecha de fin no puede ser anterior a la de inicio.'], [], 0];
+        return [['La fecha de fin no puede ser anterior a la de inicio.'], [], 0, $to];
     }
     if ($from < date('Y-m-d')) {
-        return [['No se pueden cargar licencias con fechas pasadas: elegí hoy o una fecha futura.'], [], 0];
+        return [['No se pueden cargar licencias con fechas pasadas: elegí hoy o una fecha futura.'], [], 0, $to];
     }
     if (substr($from, 0, 4) !== substr($to, 0, 4)) {
         $errors[] = 'La solicitud no puede abarcar dos años distintos. Cargá una solicitud por año.';
