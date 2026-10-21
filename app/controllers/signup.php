@@ -163,6 +163,22 @@ function admin_user_resend_activation(int $id): void
 }
 
 /**
+ * Elimina una cuenta que nunca se confirmó (registros duplicados o con el correo mal escrito).
+ */
+function admin_user_delete_unconfirmed(int $id): void
+{
+    require_role('hr', 'admin');
+    $u = row('SELECT * FROM users WHERE id = ? AND pending_activation = 1', [$id]);
+    if (!$u || val('SELECT COUNT(*) FROM leave_requests WHERE user_id = ?', [$id])) {
+        flash('error', 'Solo se pueden eliminar cuentas sin confirmar y sin solicitudes.');
+        redirect("/admin/usuarios/$id");
+    }
+    q('DELETE FROM users WHERE id = ?', [$id]);
+    flash('success', "Se eliminó la cuenta sin confirmar {$u['email']}.");
+    redirect('/admin/usuarios');
+}
+
+/**
  * Token de activación vigente de una cuenta pendiente.
  */
 function find_activation(string $token): ?array

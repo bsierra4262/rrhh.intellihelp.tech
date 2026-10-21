@@ -40,6 +40,7 @@ unset($_SESSION['new_password']);
     <form method="post" action="<?= url('/admin/usuarios/' . $u['id'] . '/activacion') ?>" class="btn-row" style="margin-top:14px">
       <?= csrf_field() ?>
       <button class="btn btn-primary btn-sm"><?= icon('mail', 16) ?> Reenviar correo de confirmación</button>
+      <button class="btn btn-outline-danger btn-sm" formaction="<?= url('/admin/usuarios/' . $u['id'] . '/eliminar') ?>" data-confirm="¿Eliminar la cuenta sin confirmar <?= e($u['email']) ?>? No se puede deshacer."><?= icon('trash', 16) ?> Eliminar cuenta</button>
     </form>
   </section>
 <?php endif ?>
