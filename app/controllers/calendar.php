@@ -86,36 +86,64 @@ function calendar_page(): void
         'byDay' => $byDay,
         'holidays' => $hol,
         'list' => $abs,
-        'feed' => url('/ical/' . $u['calendar_token'] . '.ics'),
+        'feeds' => calendar_feeds($u),
     ]);
 }
 
 /**
- * Feed iCal personal para suscribirse desde Google Calendar u otros clientes.
+ * Enlaces de los calendarios publicados de un usuario.
+ *
+ * @return array{approved: string, pending: string}
  */
-function ical_feed(string $token): void
+function calendar_feeds(array $u): array
+{
+    return [
+        'approved' => url('/ical/' . $u['calendar_token'] . '.ics'),
+        'pending' => url('/ical/' . $u['calendar_token'] . '-pendientes.ics'),
+    ];
+}
+
+/**
+ * Calendario publicado (iCal) para suscribirse desde Google Calendar, Outlook, Teams o Apple.
+ *
+ * Hay dos calendarios por persona: licencias autorizadas y pendientes de autorización, para que
+ * cada uno tenga su propio color en el cliente. Solo incluye solicitudes vigentes, por lo que las
+ * canceladas o rechazadas desaparecen en la siguiente actualización.
+ */
+function ical_feed(string $token, string $kind = ''): void
 {
     $u = row('SELECT * FROM users WHERE calendar_token = ? AND active = 1', [$token]);
     if (!$u) {
         abort(404);
     }
+    $pending = $kind === '-pendientes';
     $from = date('Y-m-d', strtotime('-3 months'));
     $to = date('Y-m-d', strtotime('+12 months'));
     $events = [];
     foreach (visible_absences($u, $from, $to) as $r) {
-        $ev = request_ics_event($r, $r['status'] === 'pending' ? 'TENTATIVE' : 'CONFIRMED');
-        if ($r['status'] === 'pending') {
+        if (($r['status'] === 'pending') !== $pending) {
+            continue;
+        }
+        $ev = request_ics_event($r, $pending ? 'TENTATIVE' : 'CONFIRMED', (int) ($r['cal_seq'] ?? 0));
+        $ev['categories'] = $pending ? 'Licencia pendiente' : 'Licencia autorizada';
+        if ($pending) {
             $ev['summary'] = '[Pendiente] ' . $ev['summary'];
         }
         if ($r['private']) {
-            $ev['summary'] = 'Ausente — ' . $r['user_name'];
+            $ev['summary'] = ($pending ? '[Pendiente] ' : '') . 'Ausente — ' . $r['user_name'];
             $ev['description'] = '';
             $ev['url'] = '';
         }
         $events[] = $ev;
     }
     header('Content-Type: text/calendar; charset=utf-8');
-    header('Content-Disposition: inline; filename="rrhh-intellihelp.ics"');
-    echo ics_calendar($events, 'PUBLISH', 'Licencias · Intellihelp');
+    header('Content-Disposition: inline; filename="' . ($pending ? 'licencias-pendientes' : 'licencias-autorizadas') . '.ics"');
+    header('Cache-Control: no-cache, max-age=0');
+    echo ics_calendar(
+        $events,
+        'PUBLISH',
+        $pending ? 'Licencias pendientes · Intellihelp' : 'Licencias autorizadas · Intellihelp',
+        $pending ? '#E0A100' : '#663399'
+    );
     exit;
 }

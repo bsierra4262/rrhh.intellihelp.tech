@@ -435,6 +435,32 @@ input[type=checkbox], input[type=radio] { width: auto; }
 .copy-field { display: flex; gap: 8px; margin: 14px 0 10px; }
 .copy-field input { font-size: 12px; padding: 8px 10px; background: var(--canvas); }
 .howto { font-size: 14px; padding-left: 20px; margin: 10px 0; color: var(--ink-2); }
+.howto li + li { margin-top: 6px; }
+.cal-sync-item { border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 14px; margin: 12px 0; background: var(--surface); }
+.cal-sync-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.cal-sync-head small { flex-basis: 100%; color: var(--muted); padding-left: 18px; }
+.cal-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.cal-sync-links { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.cal-sync-item .copy-field { margin: 10px 0 0; }
+.cal-sync-help { margin: 6px 0 10px; font-size: 14px; }
+.cal-sync-help summary { cursor: pointer; color: var(--primary); font-weight: 600; }
+
+/* Barras de desplazamiento con la paleta del portal. Chrome, Edge y Safari usan el diseño completo;
+   Firefox, el estándar con los mismos colores. */
+@supports not selector(::-webkit-scrollbar) {
+  html { scrollbar-color: var(--lilac) var(--canvas); scrollbar-width: thin; }
+  .sidebar, .sidebar * { scrollbar-color: rgba(255, 255, 255, .35) transparent; }
+}
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: var(--canvas); }
+::-webkit-scrollbar-thumb { background: var(--lilac); border-radius: 10px; border: 2px solid var(--canvas); }
+::-webkit-scrollbar-thumb:hover { background: var(--primary); }
+::-webkit-scrollbar-corner { background: var(--canvas); }
+::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
+.sidebar ::-webkit-scrollbar { width: 6px; }
+.sidebar ::-webkit-scrollbar-track { background: transparent; }
+.sidebar ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, .3); border: 0; }
+.sidebar ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, .55); }
 
 /* ---------- Notificaciones, perfil, admin ---------- */
 .notif-list { list-style: none; margin: -8px; padding: 0; }

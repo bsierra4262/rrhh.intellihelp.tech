@@ -73,7 +73,7 @@ function profile_form(): void
         'title' => 'Mi perfil',
         'u' => $u,
         'manager' => $u['manager_id'] ? row('SELECT name, email FROM users WHERE id = ?', [$u['manager_id']]) : null,
-        'feed' => url('/ical/' . $u['calendar_token'] . '.ics'),
+        'feeds' => calendar_feeds($u),
         'wa_driver' => setting('wa_driver', 'off'),
     ]);
 }

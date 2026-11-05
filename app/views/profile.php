@@ -53,9 +53,8 @@
   </section>
 
   <section class="card card-soft" id="calendario">
-    <div class="card-head"><h2><?= icon('calendar') ?> Google Calendar</h2></div>
-    <p class="muted">Suscribite a tu calendario de licencias<?= is_approver() ? ' (incluye a tu equipo)' : '' ?> desde Google Calendar → <b>Otros calendarios → Desde URL</b>.</p>
-    <div class="copy-field"><input readonly value="<?= e($feed) ?>" id="feedUrl"><button class="btn btn-ghost btn-sm" data-copy="#feedUrl"><?= icon('link', 16) ?> Copiar</button></div>
-    <form method="post" action="<?= url('/perfil/calendario') ?>"><?= csrf_field() ?><button class="link-sm" data-confirm="El enlace actual dejará de funcionar. ¿Continuar?">Generar un enlace nuevo</button></form>
+    <div class="card-head"><h2><?= icon('calendar') ?> Sincronizar con tu calendario</h2></div>
+    <?php partial('calendar_sync', ['feeds' => $feeds, 'team' => is_approver()]) ?>
+    <form method="post" action="<?= url('/perfil/calendario') ?>"><?= csrf_field() ?><button class="link-sm" data-confirm="Los enlaces actuales dejarán de funcionar y vas a tener que volver a agregar los calendarios. ¿Continuar?">Generar enlaces nuevos</button></form>
   </section>
 </div>

@@ -47,7 +47,7 @@ $routes = [
     ['GET',  '/aprobaciones', 'approvals'],
     ['GET',  '/equipo', 'team_requests'],
     ['GET',  '/calendario', 'calendar_page'],
-    ['GET',  '/ical/([a-f0-9]{40})\.ics', 'ical_feed'],
+    ['GET',  '/ical/([a-f0-9]{40})(-pendientes)?\.ics', 'ical_feed'],
     ['GET',  '/api/dias', 'api_days'],
 
     ['GET',  '/notificaciones', 'notifications_page'],

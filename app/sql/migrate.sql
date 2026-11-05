@@ -39,3 +39,13 @@ INSERT IGNORE INTO settings (k, v) VALUES ('signup_enabled', '1'), ('signup_doma
 -- Regla del fin de semana: al tomar una semana completa se suma el fin de semana siguiente.
 ALTER TABLE leave_types ADD COLUMN IF NOT EXISTS weekend_rule TINYINT(1) NULL AFTER counting;
 UPDATE leave_types SET weekend_rule = IF(code = 'vacaciones', 1, 0) WHERE weekend_rule IS NULL;
+-- Invitaciones de calendario por correo: secuencia por solicitud y registro de destinatarios.
+ALTER TABLE leave_requests ADD COLUMN IF NOT EXISTS cal_seq INT UNSIGNED NOT NULL DEFAULT 0 AFTER gcal_event_id;
+CREATE TABLE IF NOT EXISTS calendar_invites (
+  request_id INT UNSIGNED NOT NULL,
+  user_id INT UNSIGNED NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (request_id, user_id),
+  CONSTRAINT fk_inv_req FOREIGN KEY (request_id) REFERENCES leave_requests(id) ON DELETE CASCADE,
+  CONSTRAINT fk_inv_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

@@ -18,7 +18,9 @@ declare(strict_types=1);
 /**
  * Notifica a un usuario: aviso en el portal, email (según configuración) y WhatsApp.
  *
- * @param array{rows?: array, button?: array, ics?: bool|string, gcal?: ?string, heading?: string, accent?: string} $opts
+ * Con la opción "invite" el correo lleva la invitación de calendario con el estado actual de la solicitud.
+ *
+ * @param array{rows?: array, button?: array, invite?: bool, heading?: string, accent?: string} $opts
  */
 function notify_user(array $user, array $r, string $title, string $intro, array $opts = []): void
 {
@@ -31,28 +33,117 @@ function notify_user(array $user, array $r, string $title, string $intro, array 
         'link' => parse_url($link, PHP_URL_PATH),
     ]);
 
-    // Alcance de los emails de solicitudes: off | employees (solo al solicitante) | all.
-    $mode = setting('event_email', 'off');
-    $emailOk = $mode === 'all' || ($mode === 'employees' && (int) $user['id'] === (int) $r['user_id']);
-    if ($emailOk && !empty($user['notify_email'])) {
-        $ics = null;
-        if (!empty($opts['ics'])) {
-            $cancel = $opts['ics'] === 'CANCEL';
-            $ev = request_ics_event($r, $cancel ? 'CANCELLED' : 'CONFIRMED', $cancel ? 1 : 0);
-            $ev['organizer'] = [setting('mail_from', 'rrhh@intellihelp.tech'), setting('mail_from_name', 'RRHH Intellihelp')];
-            $ev['attendees'] = [[$user['email'], $user['name']]];
-            $ics = ics_calendar([$ev], $cancel ? 'CANCEL' : 'REQUEST');
+    if (request_email_allowed($user, $r)) {
+        $ics = !empty($opts['invite']) ? invite_for($user, $r) : null;
+        $html = mail_template($opts['heading'] ?? $title, $intro, $opts['rows'] ?? request_mail_rows($r), [$opts['button'][0] ?? 'Ver solicitud', $link], null, $opts['accent'] ?? '#663399');
+        if (send_mail($user['email'], $title, $html, [], $ics) && $ics) {
+            invite_delivered($user, $r);
         }
-        $footer = '';
-        if (!empty($opts['gcal'])) {
-            $footer = '📅 <a href="' . e($opts['gcal']) . '" style="color:#663399">Agregar a Google Calendar</a>';
-        }
-        $html = mail_template($opts['heading'] ?? $title, $intro, $opts['rows'] ?? request_mail_rows($r), [$opts['button'][0] ?? 'Ver solicitud', $link], $footer ?: null, $opts['accent'] ?? '#663399');
-        send_mail($user['email'], $title, $html, [], $ics);
     }
 
     $wa = "*{$title}*\n" . strip_tags(str_replace(['<br>', '</p>'], "\n", $intro)) . "\n" . $link;
     send_whatsapp($user, $wa);
+}
+
+/**
+ * Indica si corresponde enviar por correo los avisos de una solicitud a un usuario.
+ *
+ * Alcance configurable: off | employees (solo al solicitante) | all.
+ */
+function request_email_allowed(array $user, array $r): bool
+{
+    $mode = setting('event_email', 'off');
+    $ok = $mode === 'all' || ($mode === 'employees' && (int) $user['id'] === (int) $r['user_id']);
+
+    return $ok && !empty($user['notify_email']);
+}
+
+/**
+ * Indica si la solicitud debe figurar en los calendarios.
+ */
+function calendar_active(array $r): bool
+{
+    return in_array($r['status'], ['pending', 'approved', 'registered'], true);
+}
+
+/**
+ * Incrementa la secuencia de calendario de una solicitud antes de comunicar un cambio.
+ *
+ * Los clientes de calendario solo aplican una invitación si su secuencia es mayor a la anterior.
+ */
+function calendar_bump(int $id): void
+{
+    q('UPDATE leave_requests SET cal_seq = cal_seq + 1 WHERE id = ?', [$id]);
+}
+
+/**
+ * Invitación de calendario para un destinatario según el estado actual de la solicitud.
+ *
+ * @return string|null Invitación (alta, actualización o cancelación) o null si no corresponde enviar nada.
+ */
+function invite_for(array $user, array $r): ?string
+{
+    if (calendar_active($r)) {
+        return request_invite($r, $user);
+    }
+    $sent = val('SELECT 1 FROM calendar_invites WHERE request_id = ? AND user_id = ?', [$r['id'], $user['id']]);
+
+    return $sent ? request_invite($r, $user, true) : null;
+}
+
+/**
+ * Registra que un destinatario recibió la invitación vigente (o su cancelación).
+ */
+function invite_delivered(array $user, array $r): void
+{
+    if (calendar_active($r)) {
+        q('INSERT IGNORE INTO calendar_invites (request_id, user_id) VALUES (?, ?)', [$r['id'], $user['id']]);
+    } else {
+        q('DELETE FROM calendar_invites WHERE request_id = ? AND user_id = ?', [$r['id'], $user['id']]);
+    }
+    invites_round((int) $r['id'], (int) $user['id']);
+}
+
+/**
+ * Destinatarios que ya recibieron la invitación en la ronda de avisos actual.
+ *
+ * @return array<int, true>
+ */
+function invites_round(int $requestId, ?int $userId = null): array
+{
+    static $done = [];
+    if ($userId !== null) {
+        $done[$requestId][$userId] = true;
+    }
+
+    return $done[$requestId] ?? [];
+}
+
+/**
+ * Actualiza el evento en el calendario de quienes tienen la invitación y no recibieron otro aviso.
+ *
+ * Mantiene coherentes los calendarios de todos los involucrados: al autorizarse la solicitud el
+ * evento deja de figurar como pendiente, y al rechazarse o cancelarse se quita.
+ */
+function invites_refresh(array $r): void
+{
+    $active = calendar_active($r);
+    $done = invites_round((int) $r['id']);
+    foreach (rows('SELECT u.* FROM calendar_invites c JOIN users u ON u.id = c.user_id WHERE c.request_id = ?', [$r['id']]) as $u) {
+        if (isset($done[$u['id']]) || !request_email_allowed($u, $r)) {
+            continue;
+        }
+        $state = mb_strtolower(STATUS_LABELS[$r['status']] ?? $r['status']);
+        $subject = ($active ? 'Calendario actualizado: ' : 'Quitado del calendario: ') . "{$r['type_name']} — {$r['user_name']}";
+        $intro = $active
+            ? 'La solicitud de ' . e($r['type_name']) . ' de ' . e($r['user_name']) . ' del ' . e(fwhen($r)) . ' quedó <b>' . e($state) . '</b>. Actualizamos el evento en tu calendario.'
+            : 'La solicitud de ' . e($r['type_name']) . ' de ' . e($r['user_name']) . ' del ' . e(fwhen($r)) . ' fue <b>' . e($state) . '</b>, así que la quitamos de tu calendario.';
+        $ics = invite_for($u, $r);
+        $html = mail_template($active ? 'Calendario actualizado' : 'Evento quitado del calendario', $intro, request_mail_rows($r), ['Ver solicitud', url('/solicitudes/' . $r['id'])], null, $active ? '#663399' : '#161922');
+        if ($ics && send_mail($u['email'], $subject, $html, [], $ics)) {
+            invite_delivered($u, $r);
+        }
+    }
 }
 
 /**
@@ -134,6 +225,7 @@ function notify_unique(array $users, int $excludeId): array
  */
 function on_request_created(int $id): void
 {
+    calendar_bump($id);
     gcal_sync($id);
     $r = load_request($id);
     $owner = user_by_id((int) $r['user_id']);
@@ -149,14 +241,18 @@ function on_request_created(int $id): void
                 [
                     'heading' => 'Tenés una solicitud para autorizar',
                     'button' => ['Revisar y decidir', url('/solicitudes/' . $r['id'])],
-                    'gcal' => gcal_link("[Pendiente] {$r['type_name']} — {$r['user_name']}", $r['start_date'], $r['end_date'], url('/solicitudes/' . $r['id']), $r['start_time'], $r['end_time']),
+                    'invite' => true,
                 ]
             );
         }
         if ($owner) {
-            insert('notifications', ['user_id' => $owner['id'], 'request_id' => $r['id'],
-                'title' => 'Tu solicitud fue enviada', 'body' => "{$r['type_name']} · {$range}. Te avisamos cuando se resuelva.",
-                'link' => '/solicitudes/' . $r['id']]);
+            notify_user(
+                $owner,
+                $r,
+                'Tu solicitud fue enviada',
+                'Recibimos tu solicitud de <b>' . e($r['type_name']) . '</b> del ' . e($range) . '. Ya figura en tu calendario como pendiente y te avisamos cuando se resuelva.',
+                ['heading' => 'Solicitud enviada', 'invite' => true]
+            );
         }
         hr_copy($r, "Nueva solicitud: {$r['user_name']} — {$r['type_name']}", e($r['user_name']) . ' cargó una solicitud pendiente de autorización.');
         send_gchat(chat_message(
@@ -181,7 +277,7 @@ function on_request_created(int $id): void
             [
                 'heading' => 'Licencia informada',
                 'button' => ['Ver detalle', url('/solicitudes/' . $r['id'])],
-                'ics' => true,
+                'invite' => true,
                 'accent' => '#663399',
             ]
         );
@@ -200,7 +296,7 @@ function on_request_created(int $id): void
             "Registramos tu licencia: {$r['type_name']}",
             'Tu licencia de <b>' . e($r['type_name']) . '</b> del ' . e($range) . ' quedó registrada y RRHH fue notificado.'
             . ($dueTxt ? '<br><br><b>' . e(doc_due_text($r, true)) . '</b> desde la solicitud en el portal.' : ''),
-            ['heading' => 'Licencia registrada', 'ics' => true]
+            ['heading' => 'Licencia registrada', 'invite' => true]
         );
     }
 }
@@ -210,6 +306,7 @@ function on_request_created(int $id): void
  */
 function on_request_decided(int $id): void
 {
+    calendar_bump($id);
     gcal_sync($id);
     $r = load_request($id);
     $owner = user_by_id((int) $r['user_id']);
@@ -227,8 +324,7 @@ function on_request_decided(int $id): void
             . ($approved && doc_due_text($r) ? '<br><br><b>' . e(doc_due_text($r, true)) . '</b> desde la solicitud en el portal.' : '') . $comment,
             [
                 'heading' => $approved ? '¡Tu solicitud fue aprobada!' : 'Tu solicitud fue rechazada',
-                'ics' => $approved,
-                'gcal' => $approved ? gcal_link("{$r['type_name']}", $r['start_date'], $r['end_date'], url('/solicitudes/' . $r['id']), $r['start_time'], $r['end_time']) : null,
+                'invite' => true,
                 'accent' => $approved ? '#663399' : '#161922',
             ]
         );
@@ -248,6 +344,7 @@ function on_request_decided(int $id): void
         '👉 ' . url('/solicitudes/' . $r['id'])
     ));
     hr_copy($r, ($approved ? 'Aprobada' : 'Rechazada') . ": {$r['user_name']} — {$r['type_name']}", e($r['decider_name']) . ($approved ? ' aprobó' : ' rechazó') . ' la solicitud.' . $comment);
+    invites_refresh($r);
 }
 
 /**
@@ -255,6 +352,7 @@ function on_request_decided(int $id): void
  */
 function on_request_cancelled(int $id, string $prevStatus): void
 {
+    calendar_bump($id);
     gcal_sync($id);
     $r = load_request($id);
     send_gchat(chat_message("🚫 {$r['user_name']} canceló *{$r['type_name']}* (" . fwhen($r) . ')', '👉 ' . url('/solicitudes/' . $r['id'])));
@@ -265,9 +363,10 @@ function on_request_cancelled(int $id, string $prevStatus): void
             $r,
             "{$r['user_name']} canceló su solicitud de {$r['type_name']}",
             e($r['user_name']) . ' canceló la solicitud de ' . e($r['type_name']) . ' del ' . e(fwhen($r)) . '.',
-            ['heading' => 'Solicitud cancelada', 'ics' => in_array($prevStatus, ['approved', 'registered'], true) ? 'CANCEL' : false, 'accent' => '#161922']
+            ['heading' => 'Solicitud cancelada', 'invite' => true, 'accent' => '#161922']
         );
     }
+    invites_refresh($r);
 }
 
 /**

@@ -114,6 +114,12 @@ Licencias aprobadas que impactan en vacaciones, con filtros por período y perso
   <img src="docs/screenshots/mobile-enfermedad.png" alt="Informar enfermedad desde el celular" width="30%">
 </p>
 
+### Sincronización con Google Calendar, Outlook y Teams
+
+Cada persona agrega sus calendarios de licencias en un clic: uno con las **autorizadas** y otro con las **pendientes**, para verlos con colores distintos. Funcionan con Google Calendar, Outlook (Microsoft 365 y Outlook.com), Teams y Apple, y se actualizan solos.
+
+<p align="center"><img src="docs/screenshots/sincronizar-calendario.png" alt="Sincronizar con tu calendario" width="55%"></p>
+
 ### Email de notificación
 
 <p align="center"><img src="docs/screenshots/email-aprobacion.png" alt="Email de solicitud para autorizar" width="60%"></p>
@@ -132,7 +138,8 @@ Licencias aprobadas que impactan en vacaciones, con filtros por período y perso
 - Entrega de **certificados y constancias** en **PDF, JPG o PNG**, también desde la cámara del celular.
 - La documentación se guarda en **Google Drive**, ordenada en `Nombre y Apellido / Año / Tipo de licencia / AAAAMMDD.ext`, renombrada con la fecha de carga.
 - Historial completo, cancelación de solicitudes y notificaciones dentro del portal.
-- Calendario personal suscribible (iCal).
+- **Calendarios sincronizados** con Google Calendar, Outlook, Teams y Apple: autorizadas y pendientes por separado, cada una con su color.
+- Cada correo trae la **invitación de calendario**: al autorizarse se actualiza y, si se cancela o rechaza, se quita sola. En Outlook y Teams las licencias propias figuran como *Fuera de la oficina*.
 
 ### Responsables y Recursos Humanos
 - Bandeja **Por autorizar** con aprobación en un clic; el rechazo exige un motivo.
@@ -194,9 +201,10 @@ flowchart LR
 | Canal | Destinatarios | Contenido |
 |---|---|---|
 | **Portal** | Todos | Avisos con acceso directo a la solicitud |
-| **Email** | Colaborador, aprobadores y casilla de RRHH | Detalle de la solicitud, botón de acción e invitación `.ics` |
+| **Email** | Colaborador, aprobadores y casilla de RRHH | Detalle de la solicitud, botón de acción e invitación de calendario que se actualiza o se quita según el estado |
 | **Google Chat** | Espacio de aprobadores | Nuevas solicitudes, licencias informadas, certificados, decisiones y recordatorios |
-| **Google Calendar** | Calendario compartido de licencias | Evento por solicitud, actualizado según el estado |
+| **Google Calendar** | Calendario compartido de licencias | Evento por solicitud: violeta si está autorizada, amarillo si está pendiente; se elimina al cancelarse o rechazarse |
+| **Calendarios publicados** | Cada persona (Google, Outlook, Teams, Apple) | Licencias autorizadas y pendientes en dos calendarios separados, con actualización automática |
 
 La integración con Google Calendar usa una **cuenta de servicio** con **delegación de todo el dominio**, por lo que no requiere compartir el calendario con cuentas externas a la organización.
 

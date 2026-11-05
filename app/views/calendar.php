@@ -59,13 +59,7 @@ $month = $first->format('m');
     <?php else: ?><p class="empty-sm">No hay ausencias este mes.</p><?php endif ?>
   </section>
   <section class="card card-soft">
-    <div class="card-head"><h2><?= icon('calendar') ?> Verlo en Google Calendar</h2></div>
-    <p class="muted">Suscribite a este calendario y las ausencias aparecen solas en tu Google Calendar (se actualiza automáticamente).</p>
-    <div class="copy-field"><input readonly value="<?= e($feed) ?>" id="feedUrl"><button class="btn btn-ghost btn-sm" data-copy="#feedUrl"><?= icon('link', 16) ?> Copiar</button></div>
-    <ol class="howto">
-      <li>Abrí <a href="https://calendar.google.com/calendar/u/0/r/settings/addbyurl" target="_blank" rel="noopener">Google Calendar → Agregar calendario → Desde URL</a>.</li>
-      <li>Pegá el enlace y tocá <b>Agregar calendario</b>.</li>
-    </ol>
-    <small class="muted">Este enlace es personal: no lo compartas.</small>
+    <div class="card-head"><h2><?= icon('calendar') ?> Verlo en tu calendario</h2></div>
+    <?php partial('calendar_sync', ['feeds' => $feeds, 'team' => is_approver()]) ?>
   </section>
 </div>

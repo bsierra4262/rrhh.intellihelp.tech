@@ -10,7 +10,6 @@ foreach ($stages as $st) {
 }
 $stageIcon = ['done' => 'check', 'current' => 'clock', 'failed' => 'x', 'todo' => '', 'optional' => 'paperclip'];
 $showDocs = accepts_documents($r) || $docs;
-$gcal = gcal_link($r['type_name'] . ($mine ? '' : ' — ' . $r['user_name']), $r['start_date'], $r['end_date'], url('/solicitudes/' . $r['id']), $r['start_time'], $r['end_time']);
 ?>
 <div class="page-head">
   <div>
@@ -61,7 +60,7 @@ $gcal = gcal_link($r['type_name'] . ($mine ? '' : ' — ' . $r['user_name']), $r
       <?php endif ?>
       <?php if (in_array($r['status'], ['approved', 'registered', 'pending'], true)): ?>
         <div class="actions-row">
-          <a class="btn btn-ghost btn-sm" href="<?= e($gcal) ?>" target="_blank" rel="noopener"><?= icon('calendar', 16) ?> Agregar a Google Calendar</a>
+          <a class="btn btn-ghost btn-sm" href="<?= url('/perfil#calendario') ?>"><?= icon('calendar', 16) ?> Sincronizar con tu calendario</a>
         </div>
       <?php endif ?>
     </section>

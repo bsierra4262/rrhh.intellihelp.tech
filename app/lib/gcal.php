@@ -18,7 +18,8 @@ declare(strict_types=1);
 /**
  * Color de evento por estado (paleta de Google Calendar): amarillo, verde y violeta.
  */
-const GCAL_COLORS = ['pending' => '5', 'approved' => '10', 'registered' => '3']; // amarillo, verde, violeta
+// Autorizadas y registradas en violeta (Uva); pendientes en amarillo (Banana).
+const GCAL_COLORS = ['pending' => '5', 'approved' => '3', 'registered' => '3'];
 
 /**
  * Indica si la integración con Google Calendar está configurada.

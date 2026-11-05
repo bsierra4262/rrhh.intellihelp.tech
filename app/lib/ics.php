@@ -3,7 +3,7 @@
 /**
  * Portal de Recursos Humanos — Intellihelp
  *
- * Generación de eventos y calendarios iCalendar (RFC 5545) y enlaces a Google Calendar.
+ * Generación de eventos, invitaciones y calendarios iCalendar (RFC 5545) para Google, Outlook, Teams y Apple.
  *
  * @author    Brian Gabriel Sierra <bsierra@intellihelp.tech>
  * @copyright 2026 Intellihelp
@@ -65,8 +65,14 @@ function ics_event(array $ev): array
         'DESCRIPTION:' . ics_escape($ev['description'] ?? ''),
         'STATUS:' . ($ev['status'] ?? 'CONFIRMED'),
         'SEQUENCE:' . ($ev['sequence'] ?? 0),
-        'TRANSP:TRANSPARENT',
+        // Estado de disponibilidad: Outlook y Teams lo usan para mostrar "Fuera de la oficina" o "Provisional".
+        'TRANSP:' . (($ev['busy'] ?? 'FREE') === 'FREE' ? 'TRANSPARENT' : 'OPAQUE'),
+        'X-MICROSOFT-CDO-BUSYSTATUS:' . ($ev['busy'] ?? 'FREE'),
+        'X-MICROSOFT-CDO-INTENDEDSTATUS:' . ($ev['busy'] ?? 'FREE'),
     ];
+    if (!empty($ev['categories'])) {
+        $l[] = 'CATEGORIES:' . ics_escape($ev['categories']);
+    }
     if (!empty($ev['url'])) {
         $l[] = 'URL:' . $ev['url'];
     }
@@ -74,7 +80,7 @@ function ics_event(array $ev): array
         $l[] = 'ORGANIZER;CN=' . ics_escape($ev['organizer'][1]) . ':mailto:' . $ev['organizer'][0];
     }
     foreach ($ev['attendees'] ?? [] as [$mail, $name]) {
-        $l[] = 'ATTENDEE;CN=' . ics_escape($name) . ';ROLE=REQ-PARTICIPANT;PARTSTAT=ACCEPTED;RSVP=FALSE:mailto:' . $mail;
+        $l[] = 'ATTENDEE;CN=' . ics_escape($name) . ';ROLE=OPT-PARTICIPANT;PARTSTAT=ACCEPTED;RSVP=FALSE:mailto:' . $mail;
     }
     $l[] = 'END:VEVENT';
 
@@ -84,7 +90,7 @@ function ics_event(array $ev): array
 /**
  * Documento iCalendar completo.
  */
-function ics_calendar(array $events, string $method = 'PUBLISH', string $name = 'RRHH Intellihelp'): string
+function ics_calendar(array $events, string $method = 'PUBLISH', string $name = 'RRHH Intellihelp', ?string $color = null): string
 {
     $l = [
         'BEGIN:VCALENDAR',
@@ -95,6 +101,13 @@ function ics_calendar(array $events, string $method = 'PUBLISH', string $name = 
         'X-WR-CALNAME:' . ics_escape($name),
         'X-WR-TIMEZONE:' . config('timezone'),
     ];
+    if ($method === 'PUBLISH') {
+        // Frecuencia de actualización sugerida a los clientes suscriptos (Outlook la respeta).
+        array_push($l, 'REFRESH-INTERVAL;VALUE=DURATION:PT1H', 'X-PUBLISHED-TTL:PT1H');
+    }
+    if ($color) {
+        array_push($l, 'COLOR:' . $color, 'X-APPLE-CALENDAR-COLOR:' . $color);
+    }
     foreach ($events as $ev) {
         array_push($l, ...ics_event($ev));
     }
@@ -123,27 +136,45 @@ function request_ics_event(array $r, string $status = 'CONFIRMED', int $sequence
 }
 
 /**
- * Enlace "Agregar a Google Calendar" para un evento de día completo.
+ * Invitación de calendario de una solicitud para enviar por correo (Google, Outlook, Teams y Apple).
+ *
+ * Todas las invitaciones de una solicitud comparten el UID y llevan la secuencia vigente de la
+ * solicitud, por lo que cada envío actualiza el mismo evento en el calendario del destinatario.
+ * Las pendientes van como provisionales y marcadas como tales; las autorizadas, confirmadas, y en
+ * el calendario del propio colaborador figuran como "Fuera de la oficina". Con $cancel el evento
+ * se elimina del calendario.
+ *
+ * @param array{email: string, name: string, id: int|string} $to Destinatario.
  */
-function gcal_link(string $title, string $from, string $to, string $details = '', ?string $startTime = null, ?string $endTime = null): string
+function request_invite(array $r, array $to, bool $cancel = false): string
 {
-    if ($startTime && $endTime) {
-        $d = str_replace('-', '', $from);
-
-        return 'https://calendar.google.com/calendar/render?' . http_build_query([
-            'action' => 'TEMPLATE',
-            'text' => $title,
-            'dates' => $d . 'T' . str_replace(':', '', substr($startTime, 0, 5)) . '00/' . $d . 'T' . str_replace(':', '', substr($endTime, 0, 5)) . '00',
-            'details' => $details,
-            'ctz' => config('timezone'),
-        ]);
+    $pending = $r['status'] === 'pending';
+    $own = (int) $to['id'] === (int) $r['user_id'];
+    $ev = request_ics_event($r, $cancel ? 'CANCELLED' : ($pending ? 'TENTATIVE' : 'CONFIRMED'), (int) ($r['cal_seq'] ?? 0));
+    if ($pending) {
+        $ev['summary'] = '[Pendiente] ' . $ev['summary'];
     }
+    $ev['busy'] = $cancel ? 'FREE' : ($pending ? 'TENTATIVE' : ($own ? 'OOF' : 'FREE'));
+    $ev['categories'] = $pending ? 'Licencia pendiente' : 'Licencia autorizada';
+    $ev['organizer'] = [setting('mail_from', 'rrhh@intellihelp.tech'), setting('mail_from_name', 'RRHH Intellihelp')];
+    $ev['attendees'] = [[$to['email'], $to['name']]];
 
-    return 'https://calendar.google.com/calendar/render?' . http_build_query([
-        'action' => 'TEMPLATE',
-        'text' => $title,
-        'dates' => str_replace('-', '', $from) . '/' . date('Ymd', strtotime($to . ' +1 day')),
-        'details' => $details,
-        'ctz' => config('timezone'),
-    ]);
+    return ics_calendar([$ev], $cancel ? 'CANCEL' : 'REQUEST');
+}
+
+/**
+ * Enlaces para suscribirse a un calendario publicado desde cada servicio.
+ *
+ * @return array<string, string> Servicio => enlace.
+ */
+function calendar_subscribe_links(string $feedUrl, string $name): array
+{
+    $webcal = preg_replace('#^https?://#', 'webcal://', $feedUrl);
+
+    return [
+        'Google Calendar' => 'https://calendar.google.com/calendar/r?cid=' . rawurlencode($webcal),
+        'Outlook · Microsoft 365 y Teams' => 'https://outlook.office.com/calendar/0/addfromweb?' . http_build_query(['url' => $feedUrl, 'name' => $name]),
+        'Outlook.com' => 'https://outlook.live.com/calendar/0/addfromweb?' . http_build_query(['url' => $feedUrl, 'name' => $name]),
+        'Apple y otros' => $webcal,
+    ];
 }
