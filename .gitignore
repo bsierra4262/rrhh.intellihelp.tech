@@ -12,3 +12,6 @@ Thumbs.db
 # Credenciales de Google (cuenta de servicio)
 *-[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f].json
 rrhh-intellihelp-*.json
+
+# Credenciales de Google (cliente OAuth del ingreso con Google)
+client_secret*.json
