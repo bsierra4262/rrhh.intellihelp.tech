@@ -116,6 +116,7 @@ for ($m = 7 * 60; $m <= 20 * 60; $m += 15) {
         <dt>Vuelta al trabajo</dt><dd id="sumReturn">—</dd>
       </dl>
       <p class="flow-note" id="flowNote"><?= icon('info', 16) ?> <span>Elegí un tipo de licencia.</span></p>
+      <input type="hidden" name="exception_ack" id="exceptionAck" value="">
       <button class="btn btn-primary btn-block btn-lg" id="submitBtn"><?= icon('check', 18) ?> <span>Enviar solicitud</span></button>
     </section>
     <section class="card card-soft">
@@ -124,3 +125,40 @@ for ($m = 7 * 60; $m <= 20 * 60; $m += 15) {
     </section>
   </aside>
 </form>
+
+<div class="modal" id="excModal" hidden>
+  <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="excTitle1">
+    <div class="modal-step" data-step="1">
+      <span class="modal-ic"><?= icon('alert', 26) ?></span>
+      <h3 id="excTitle1">¿Estás seguro/a de enviarla así?</h3>
+      <p>Elegiste <b data-exc-days>—</b>, fuera del período habitual de vacaciones: <b>7 días corridos, de lunes a domingo</b>.</p>
+      <p class="muted">La solicitud puede ser rechazada o pueden contactarte para confirmarla.</p>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" data-exc="close">Volver</button>
+        <button type="button" class="btn btn-primary" data-exc="next">Sí, continuar</button>
+      </div>
+    </div>
+    <div class="modal-step" data-step="2" hidden>
+      <span class="modal-ic"><?= icon('phone', 26) ?></span>
+      <h3>Hablalo antes de enviarla</h3>
+      <p>Las vacaciones fuera del período habitual se acuerdan antes. Comunicate con:</p>
+      <ul class="contact-list">
+        <?php foreach (vacation_contacts() as $c): $tel = preg_replace('/\D/', '', (string) $c['phone']); ?>
+          <li>
+            <?= avatar($c['name']) ?>
+            <span><b><?= e($c['name']) ?></b>
+              <small>
+                <?php if ($tel): ?><a href="tel:+<?= e($tel) ?>"><?= icon('phone', 14) ?> <?= e(fphone($c['phone'])) ?></a><a href="https://wa.me/<?= e($tel) ?>" target="_blank" rel="noopener"><?= icon('whatsapp', 14) ?> WhatsApp</a><?php endif ?>
+                <a href="mailto:<?= e($c['email']) ?>"><?= icon('mail', 14) ?> <?= e($c['email']) ?></a>
+              </small>
+            </span>
+          </li>
+        <?php endforeach ?>
+      </ul>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" data-exc="close">Cancelar</button>
+        <button type="button" class="btn btn-primary" data-exc="confirm"><?= icon('check', 16) ?> Ya me comuniqué</button>
+      </div>
+    </div>
+  </div>
+</div>

@@ -237,7 +237,8 @@ function on_request_created(int $id): void
                 $a,
                 $r,
                 "Nueva solicitud de {$r['user_name']}: {$r['type_name']}",
-                e($r['user_name']) . ' solicitó <b>' . e($r['type_name']) . '</b> del ' . e($range) . ' (' . e(fduration($r, false)) . '). Entrá al portal para autorizarla o rechazarla.',
+                e($r['user_name']) . ' solicitó <b>' . e($r['type_name']) . '</b> del ' . e($range) . ' (' . e(fduration($r, false)) . '). Entrá al portal para autorizarla o rechazarla.'
+                . ($r['outside_period'] ? '<br><br><b>Fuera del período habitual de vacaciones:</b> pidió días sueltos dentro de la semana y declaró haberlo hablado antes. Podés aprobar solo esos días, computar la semana completa o rechazarla.' : ''),
                 [
                     'heading' => 'Tenés una solicitud para autorizar',
                     'button' => ['Revisar y decidir', url('/solicitudes/' . $r['id'])],
@@ -258,6 +259,7 @@ function on_request_created(int $id): void
         send_gchat(chat_message(
             '🟣 *Nueva solicitud para autorizar*',
             "{$r['user_name']} pidió *{$r['type_name']}* del {$range} (" . fduration($r, false) . ')',
+            $r['outside_period'] ? '⚠️ Fuera del período habitual de vacaciones' : '',
             '👉 ' . url('/solicitudes/' . $r['id'])
         ));
 

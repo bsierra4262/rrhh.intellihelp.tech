@@ -52,7 +52,7 @@ $showDocs = accepts_documents($r) || $docs;
           <div class="kv"><span>Desde</span><b><?= e(ucfirst(flongdate($r['start_date']))) ?></b></div>
           <div class="kv"><span>Hasta</span><b><?= e(ucfirst(flongdate($r['end_date']))) ?></b></div>
         <?php endif ?>
-        <div class="kv"><span>Duración</span><b><?= e(fduration($r)) ?></b></div>
+        <div class="kv"><span>Duración</span><b><?= e(fduration($r)) ?><?= !empty($r['outside_period']) ? ' <span class="badge badge-pending">Fuera del período habitual</span>' : '' ?></b></div>
         <div class="kv"><span>Cargada</span><b><?= e(fdatetime($r['created_at'])) ?></b></div>
       </div>
       <?php if ($r['reason']): ?>
@@ -68,6 +68,9 @@ $showDocs = accepts_documents($r) || $docs;
     <?php if ($can_decide): ?>
     <section class="card card-accent decide" id="decidir">
       <h2><?= icon('check-circle') ?> Tu decisión</h2>
+      <?php if (!empty($r['outside_period'])): ?>
+        <div class="alert alert-warning inline"><?= icon('alert') ?><span><b>Fuera del período habitual de vacaciones.</b> Pidió días sueltos dentro de la semana y declaró haberlo hablado antes con <?= e(implode(' o ', array_column(vacation_contacts(), 'name'))) ?>. Podés aprobar solo esos días, computar la semana completa o rechazarla.</span></div>
+      <?php endif ?>
       <?php if ($overlaps): ?>
         <div class="alert alert-warning inline"><?= icon('alert') ?><span>En esas fechas también faltan: <?= e(implode(', ', array_map(fn($o) => $o['user_name'] . ' (' . fwhen($o) . ')', $overlaps))) ?>.</span></div>
       <?php endif ?>
@@ -84,11 +87,11 @@ $showDocs = accepts_documents($r) || $docs;
             </span>
           </label>
         <?php endif ?>
-        <?php if (week_choice($r)): $weekEnd = weekend_adjustment($r, $r['start_date'], $r['end_date'])['week_end']; ?>
+        <?php if (week_choice($r)): $weekEnd = weekend_adjustment($r, $r['start_date'], $r['end_date'])['week_end']; $weekDays = count_days($r['start_date'], $weekEnd, $r['counting']); ?>
           <label class="deduct">
             <input type="checkbox" name="full_week" value="1">
-            <span><b>Computar la semana completa (7 días)</b>
-              <small>Pidió <?= e(fdays($r['days'])) ?>, menos de una semana. Si lo marcás se computan 7 días, con el fin de semana incluido, hasta el <?= e(fdate($weekEnd)) ?>.</small>
+            <span><b>Computar la semana completa (<?= e(fdays($weekDays)) ?>)</b>
+              <small>Pidió <?= e(fdays($r['days'])) ?>, fuera del período habitual. Si lo marcás se computa la semana completa, con el fin de semana incluido, hasta el <?= e(fdate($weekEnd)) ?>.</small>
             </span>
           </label>
         <?php endif ?>

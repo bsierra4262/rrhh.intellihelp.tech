@@ -70,50 +70,106 @@ function count_days(string $from, string $to, string $counting): int
 }
 
 /**
- * Cantidad de días de lunes a viernes de un rango (inclusive), sin descontar feriados.
- */
-function weekdays_between(string $from, string $to): int
-{
-    $n = 0;
-    for ($d = new DateTimeImmutable($from), $b = new DateTimeImmutable($to); $d <= $b; $d = $d->modify('+1 day')) {
-        $n += (int) $d->format('N') < 6 ? 1 : 0;
-    }
-
-    return $n;
-}
-
-/**
- * Aplica la regla del fin de semana a un rango de días corridos.
+ * Analiza un pedido de vacaciones según la regla de semanas completas.
  *
- * Si el tipo tiene la regla activa y la ausencia cubre al menos una semana laboral completa
- * (cinco días de lunes a viernes) terminando el viernes o el sábado, se suma el fin de semana
- * siguiente: la licencia pasa a terminar el domingo. Si la ausencia tiene menos de cinco días
- * y no sale de esa semana, quien autoriza decide si se computan solo esos días o la semana
- * completa (siete días).
+ * Las vacaciones se toman por semanas de lunes a domingo. Una semana está completa cuando cada
+ * día de lunes a viernes fue elegido o es feriado: en ese caso la licencia se extiende hasta el
+ * domingo, y los feriados posteriores al último día elegido se computan como vacaciones. Los
+ * feriados anteriores al primer día elegido no se computan. Si queda algún día hábil sin elegir,
+ * el pedido está fuera del período habitual: se puede cargar como excepción y quien autoriza
+ * decide si computa solo esos días o la semana completa.
  *
- * @return array{to: string, added: int, choice: bool, week_end: ?string}
- *         Fecha de fin ajustada, días agregados, si corresponde la decisión de quien autoriza
- *         y el domingo con el que cerraría la semana completa.
+ * @return array{to: string, added: int, complete: bool, choice: bool, week_end: ?string, leading: string[], trailing: string[]}
+ *         Fecha de fin ajustada, días agregados, si las semanas quedan completas, si corresponde la
+ *         decisión de quien autoriza, domingo de cierre de la última semana y feriados anteriores y
+ *         posteriores a los días elegidos.
  */
 function weekend_adjustment(array $type, string $from, string $to): array
 {
-    $result = ['to' => $to, 'added' => 0, 'choice' => false, 'week_end' => null];
+    $result = ['to' => $to, 'added' => 0, 'complete' => true, 'choice' => false, 'week_end' => null, 'leading' => [], 'trailing' => []];
     if (empty($type['weekend_rule']) || ($type['counting'] ?? '') !== 'corridos' || !empty($type['by_hours']) || $to < $from) {
         return $result;
     }
+    $start = new DateTimeImmutable($from);
     $end = new DateTimeImmutable($to);
-    $dow = (int) $end->format('N');
-    $sunday = $end->modify('+' . (7 - $dow) . ' days')->format('Y-m-d');
-    $weekdays = weekdays_between($from, $to);
-    if ($weekdays >= 5 && in_array($dow, [5, 6], true)) {
-        $result['to'] = $sunday;
-        $result['added'] = 7 - $dow;
-    } elseif ($weekdays < 5 && $dow < 6 && (new DateTimeImmutable($from))->format('o-W') === $end->format('o-W')) {
-        $result['choice'] = true;
-        $result['week_end'] = $sunday;
+    $monday = $start->modify('-' . ((int) $start->format('N') - 1) . ' days');
+    $sunday = $end->modify('+' . (7 - (int) $end->format('N')) . ' days');
+    $hol = holidays_between($monday->format('Y-m-d'), $sunday->format('Y-m-d'));
+    $missing = false;
+    for ($d = $monday; $d <= $sunday; $d = $d->modify('+1 day')) {
+        $day = $d->format('Y-m-d');
+        if ((int) $d->format('N') > 5 || ($day >= $from && $day <= $to)) {
+            continue;
+        }
+        if (isset($hol[$day])) {
+            $result[$day < $from ? 'leading' : 'trailing'][] = $day;
+        } else {
+            $missing = true;
+        }
     }
+    // Las solicitudes se cargan por año: la semana no se extiende más allá del 31 de diciembre.
+    $result['week_end'] = min($sunday->format('Y-m-d'), substr($from, 0, 4) . '-12-31');
+    if ($missing) {
+        $result['complete'] = false;
+        $result['choice'] = $result['week_end'] > $to;
+        $result['trailing'] = [];
+
+        return $result;
+    }
+    $result['to'] = max($to, $result['week_end']);
+    $result['added'] = (int) $end->diff(new DateTimeImmutable($result['to']))->days;
 
     return $result;
+}
+
+/**
+ * Textos explicativos del cómputo de vacaciones para mostrar al pedirlas.
+ *
+ * @return array{notes: string[], exception: ?string} Aclaraciones y, si el pedido está fuera del
+ *         período habitual, el aviso correspondiente.
+ */
+function week_messages(array $adj, int $days): array
+{
+    $day = fn (string $d) => DIAS[(int) date('w', strtotime($d))] . ' ' . (int) substr($d, 8, 2);
+    $list = function (array $dates) use ($day): string {
+        $names = array_map($day, $dates);
+        $last = array_pop($names);
+
+        return $names ? implode(', ', $names) . ' y el ' . $last : $last;
+    };
+    $notes = [];
+    if ($adj['leading']) {
+        $notes[] = count($adj['leading']) > 1
+            ? 'El ' . $list($adj['leading']) . ' son feriados: no se computan como vacaciones.'
+            : 'El ' . $day($adj['leading'][0]) . ' es feriado: no se computa como vacaciones.';
+    }
+    if ($adj['trailing']) {
+        $notes[] = (count($adj['trailing']) > 1 ? 'Como el ' . $list($adj['trailing']) . ' son feriados' : 'Como el ' . $day($adj['trailing'][0]) . ' es feriado')
+            . ', se computa la semana completa: ' . fdays($days) . ', hasta el ' . flongdate($adj['to']) . '.';
+    } elseif ($adj['added']) {
+        $notes[] = 'Al tomar la semana completa se suma el fin de semana: ' . fdays($days) . ', hasta el ' . flongdate($adj['to']) . '.';
+    }
+    $exception = $adj['complete'] ? null
+        : 'El período habitual de vacaciones es de 7 días corridos (de lunes a domingo). Podés pedir estos días como excepción, pero antes tenés que hablarlo con '
+            . implode(' o ', array_column(vacation_contacts(), 'name')) . '.';
+
+    return ['notes' => $notes, 'exception' => $exception];
+}
+
+/**
+ * Personas con quienes se acuerdan las excepciones al período habitual de vacaciones.
+ *
+ * @return array<int, array{name: string, email: string, phone: ?string}>
+ */
+function vacation_contacts(): array
+{
+    $emails = array_filter(array_map('trim', explode(',', mb_strtolower(setting('vacation_contacts')))));
+    if (!$emails) {
+        return array_map(fn ($u) => ['name' => $u['name'], 'email' => $u['email'], 'phone' => $u['phone'] ?: null], hr_users());
+    }
+    $in = implode(',', array_fill(0, count($emails), '?'));
+
+    return rows("SELECT name, email, phone FROM users WHERE active = 1 AND email IN ($in) ORDER BY FIELD(email, $in)", [...$emails, ...$emails]);
 }
 
 /**
@@ -459,6 +515,7 @@ const EVENT_LABELS = [
     'reminder' => 'se envió un recordatorio al aprobador',
     'vacation_deducted' => 'descontó los días de las vacaciones',
     'full_week' => 'computó la semana completa',
+    'outside_period' => 'pidió vacaciones fuera del período habitual',
     'doc_due_set' => 'definió el plazo de entrega de la documentación',
     'doc_reminder' => 'se recordó la entrega de la documentación',
     'doc_overdue' => 'venció el plazo de entrega de la documentación',

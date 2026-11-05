@@ -114,7 +114,7 @@ function update(string $table, int $id, array $data): void
 /**
  * Parámetros de configuración que se almacenan cifrados.
  */
-const SECRET_SETTINGS = ['smtp_pass', 'wa_cloud_token', 'wa_gw_key', 'gchat_webhook', 'gcal_sa_json', 'ai_smtp_pass'];
+const SECRET_SETTINGS = ['smtp_pass', 'wa_cloud_token', 'wa_gw_key', 'gchat_webhook', 'gcal_sa_json', 'ai_smtp_pass', 'google_client_secret'];
 
 /**
  * Lee un parámetro de configuración; los secretos se devuelven descifrados.

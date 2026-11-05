@@ -17,6 +17,7 @@
         </select>
         <small class="muted">Autoriza las solicitudes de quienes no tienen responsable directo asignado.</small>
       </label>
+      <label class="field span-2"><span>Excepciones de vacaciones: con quién hablarlo</span><input name="vacation_contacts" value="<?= e($s['vacation_contacts']) ?>" placeholder="nbaldelli@intellihelp.tech, cbaldelli@intellihelp.tech"><small class="muted">Correos separados por coma. Se muestran con su teléfono y correo cuando alguien pide vacaciones fuera del período habitual (semana incompleta). El teléfono se toma de la ficha de cada persona.</small></label>
       <label class="field"><span>Recordar al aprobador cada (horas)</span><input type="number" min="0" name="reminder_hours" value="<?= e($s['reminder_hours']) ?>"><small class="muted">0 = sin recordatorios. Requiere la tarea programada (cron).</small></label>
     </div>
   </section>
@@ -94,6 +95,16 @@
       <label class="field span-2"><span>Clave JSON de la cuenta de servicio</span><textarea name="gcal_sa_json" rows="4" spellcheck="false" placeholder='{"type": "service_account", "client_email": "...", "private_key": "..."}'><?= e($s['gcal_sa_json']) ?></textarea><small class="muted">Pegá el contenido completo del archivo .json descargado de Google Cloud. Se guarda cifrado.</small></label>
       <label class="field span-2"><span>Actuar en nombre de (delegación de dominio, opcional)</span><input type="email" name="gcal_impersonate" value="<?= e($s['gcal_impersonate']) ?>" placeholder="bsierra@intellihelp.tech"><small class="muted">Usalo si tu organización no permite compartir calendarios con cuentas externas: la cuenta de servicio escribe como este usuario, dueño del calendario. Requiere autorizar el Client ID en la Consola de administración → Seguridad → Controles de API → Delegación de todo el dominio.</small></label>
     </div>
+  </section>
+
+  <section class="card">
+    <div class="card-head"><h2><?= icon('key') ?> Ingreso con Google</h2><?= $s['google_client_id'] && $s['google_client_secret'] ? '<span class="badge badge-approved">Configurado</span>' : '' ?></div>
+    <p class="muted" style="margin-bottom:14px">Agrega el botón «Continuar con Google» en el ingreso, solo para cuentas de los dominios de confianza. El ingreso con correo y contraseña sigue disponible.</p>
+    <div class="form-grid">
+      <label class="field"><span>ID de cliente OAuth</span><input name="google_client_id" value="<?= e($s['google_client_id']) ?>" placeholder="…apps.googleusercontent.com"></label>
+      <label class="field"><span>Secreto del cliente</span><input type="password" name="google_client_secret" value="<?= e($s['google_client_secret']) ?>" autocomplete="off"></label>
+    </div>
+    <small class="muted">En Google Cloud → Google Auth Platform → Clientes (aplicación web), con el URI de redireccionamiento <code><?= e(url('/auth/google/callback')) ?></code>.</small>
   </section>
 
   <section class="card">

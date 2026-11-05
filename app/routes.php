@@ -13,6 +13,7 @@ declare(strict_types=1);
 
 require APP_ROOT . '/controllers/auth.php';
 require APP_ROOT . '/controllers/signup.php';
+require APP_ROOT . '/controllers/google_auth.php';
 require APP_ROOT . '/controllers/dashboard.php';
 require APP_ROOT . '/controllers/requests.php';
 require APP_ROOT . '/controllers/calendar.php';
@@ -30,6 +31,8 @@ $routes = [
     ['POST', '/registro', 'register_submit'],
     ['GET',  '/activar', 'activate_form'],
     ['POST', '/activar', 'activate_submit'],
+    ['GET',  '/auth/google', 'google_start'],
+    ['GET',  '/auth/google/callback', 'google_callback'],
     ['GET',  '/restablecer', 'reset_form'],
     ['POST', '/restablecer', 'reset_submit'],
 

@@ -75,7 +75,18 @@ Cada solicitud muestra su **seguimiento por etapas** (solicitada, autorización,
 
 <p align="center"><img src="docs/screenshots/decision-responsable.png" alt="Autorizar o rechazar" width="100%"></p>
 
-**Vacaciones y fin de semana.** Al tomar una semana completa (de lunes a viernes) se suma el fin de semana siguiente: cinco días hábiles cuentan como siete corridos y la licencia termina el domingo. Si la ausencia es de menos de una semana, quien autoriza decide si se computan solo esos días o la semana completa.
+**Vacaciones por semanas completas.** El período habitual es de 7 días corridos, de lunes a domingo. Una semana está completa cuando cada día de lunes a viernes fue pedido o es feriado, y en ese caso la licencia termina siempre el domingo:
+- Los feriados posteriores a los días pedidos cuentan como vacaciones. Por ejemplo, de lunes a jueves con el viernes feriado se computan 7 días.
+- Un feriado al inicio no cuenta. Por ejemplo, con el lunes feriado, de martes a domingo se computan 6 días.
+
+Los pedidos fuera del período habitual, como días sueltos, una semana y unos días o un inicio a mitad de semana, se pueden cargar como excepción con una doble confirmación. La primera pregunta «¿Estás seguro/a?». La segunda pide comunicarse antes con quienes autorizan las excepciones y muestra su teléfono, WhatsApp y correo. La solicitud queda marcada y quien autoriza decide si computa solo esos días o la semana completa.
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/excepcion-paso1.png" alt="Confirmación de vacaciones fuera del período habitual"></td>
+    <td width="50%"><img src="docs/screenshots/excepcion-paso2.png" alt="Contactos para acordar la excepción"></td>
+  </tr>
+</table>
 
 <p align="center"><img src="docs/screenshots/semana-completa.png" alt="Computar la semana completa" width="100%"></p>
 
@@ -131,7 +142,8 @@ Cada persona agrega sus calendarios de licencias en un clic: uno con las **autor
 - **Trámites por horario**: día en un calendario y horario de salida y regreso; no impactan en las vacaciones.
 - Cálculo automático de días **corridos o hábiles**, descontando fines de semana y **feriados nacionales**.
 - **Días disponibles** por tipo de licencia; vacaciones calculadas según antigüedad conforme a la **LCT (art. 150)**: 14, 21, 28 o 35 días.
-- **Fin de semana en vacaciones**: una semana completa que termina el viernes suma el fin de semana siguiente (5 días hábiles = 7 corridos).
+- **Vacaciones por semanas completas**: la semana termina siempre el domingo y los feriados posteriores completan la semana. Los pedidos fuera del período habitual requieren doble confirmación y quedan marcados para quien autoriza.
+- **Ingreso con Google** para las cuentas del dominio corporativo, además del ingreso con correo y contraseña.
 - Solo las vacaciones descuentan días de vacaciones; en el **día personal**, quien autoriza decide si se descuenta.
 - La documentación (certificados y constancias) se entrega **después** de pedir la licencia: una vez autorizada o, si solo se informa, cuando se tenga, dentro de un **plazo** con recordatorio previo.
 - Validaciones: superposición de fechas, topes anuales y por solicitud, anticipación sugerida.
@@ -144,7 +156,7 @@ Cada persona agrega sus calendarios de licencias en un clic: uno con las **autor
 ### Responsables y Recursos Humanos
 - Bandeja **Por autorizar** con aprobación en un clic; el rechazo exige un motivo.
 - **Descuento opcional de vacaciones** en el día personal, validando los días disponibles del colaborador.
-- **Semana completa a criterio**: en vacaciones de menos de una semana, quien autoriza elige computar solo los días pedidos o los 7 días.
+- **Excepciones de vacaciones a criterio**: en los pedidos fuera del período habitual, quien autoriza elige computar solo los días pedidos o la semana completa.
 - Alerta de **superposición** con otras ausencias del equipo o del área.
 - Verificación u **observación de documentación**; una observación otorga un nuevo plazo de 2 días hábiles.
 - **Plazos de entrega de documentación** en días hábiles: automáticos según el tipo de licencia (contados desde el fin de la licencia o desde que se informa, nunca antes de que termine) o fijados por quien autoriza; aviso al colaborador antes del vencimiento y aviso al responsable y RRHH si vence.

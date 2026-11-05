@@ -263,7 +263,8 @@ function admin_holidays_save(): void
 const SETTING_KEYS = ['company_name', 'hr_email', 'mail_driver', 'mail_from', 'mail_from_name', 'smtp_host', 'smtp_port', 'smtp_secure', 'smtp_user', 'smtp_pass',
     'wa_driver', 'wa_cloud_token', 'wa_cloud_phone_id', 'wa_cloud_template', 'wa_cloud_lang', 'reminder_hours',
     'wa_gw_url', 'wa_gw_key', 'wa_gw_instance', 'gchat_webhook', 'default_approver_id', 'signup_enabled', 'signup_domain',
-    'event_email', 'gcal_calendar_id', 'gcal_sa_json', 'support_email', 'ai_smtp_user', 'ai_smtp_pass', 'gcal_impersonate', 'drive_root_folder'];
+    'event_email', 'gcal_calendar_id', 'gcal_sa_json', 'support_email', 'ai_smtp_user', 'ai_smtp_pass', 'gcal_impersonate', 'drive_root_folder',
+    'google_client_id', 'google_client_secret', 'vacation_contacts'];
 
 /**
  * Pantalla de configuración del sistema.

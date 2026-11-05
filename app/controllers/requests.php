@@ -84,7 +84,15 @@ function request_submit(): void
         [$errors, $warnings, $hours] = validate_hourly_request($owner, $type, $from, $startTime, $endTime);
         $days = 0;
     } else {
+        $requested = $to;
         [$errors, $warnings, $days, $to] = validate_request($owner, $type, $from, $to, null, is_hr());
+    }
+    // Vacaciones fuera del período habitual (semana incompleta): se cargan como excepción, con la
+    // confirmación de que el colaborador lo habló antes con quien corresponde.
+    $outside = !$type['by_hours'] && !weekend_adjustment($type, $from, $requested ?? $to)['complete'];
+    if (!$errors && $outside && !$onBehalf && post('exception_ack') !== '1') {
+        $errors[] = 'Este pedido está fuera del período habitual de vacaciones: confirmá que lo hablaste con '
+            . implode(' o ', array_column(vacation_contacts(), 'name')) . ' antes de enviarlo.';
     }
 
     if ($errors) {
@@ -107,6 +115,7 @@ function request_submit(): void
         'end_time' => $endTime,
         'days' => $days,
         'hours' => $hours,
+        'outside_period' => $outside ? 1 : 0,
         'reason' => mb_substr(post('reason'), 0, 2000) ?: null,
         'status' => $status,
         'approver_id' => $type['requires_approval'] ? resolve_approver($owner) : null,
@@ -121,6 +130,11 @@ function request_submit(): void
         }
     }
     log_event($id, $onBehalf ? 'created_by_hr' : ($status === 'registered' ? 'registered' : 'created'), $warnings ? implode(' ', $warnings) : null);
+    if ($outside) {
+        log_event($id, 'outside_period', $onBehalf
+            ? 'Fuera del período habitual de vacaciones: cargada por RRHH.'
+            : 'Fuera del período habitual de vacaciones: declaró haberlo hablado antes con ' . implode(' o ', array_column(vacation_contacts(), 'name')) . '.');
+    }
     if ($autoApprove) {
         log_event($id, 'approved', 'Aprobada al cargarla RRHH.');
     }
@@ -250,7 +264,7 @@ function request_decide(int $id): void
     $days = (float) $r['days'];
     if ($fullWeek) {
         $endDate = weekend_adjustment($r, $r['start_date'], $r['end_date'])['week_end'];
-        $days = 7;
+        $days = count_days($r['start_date'], $endDate, $r['counting']);
         if ($r['uses_vacation_balance']) {
             $owner = row('SELECT * FROM users WHERE id = ?', [$r['user_id']]);
             $left = vacation_left($owner, (int) substr($r['start_date'], 0, 4), $id);
@@ -551,12 +565,7 @@ function api_days(): void
     }
     $adjust = weekend_adjustment($type, $from, $to);
     [$errors, $warnings, $days, $to] = validate_request($owner, $type, $from, $to, null, is_hr());
-    $notes = [];
-    if ($adjust['added']) {
-        $notes[] = 'Al tomar la semana completa se suma el fin de semana siguiente: la licencia termina el ' . flongdate($to) . '.';
-    } elseif ($adjust['choice']) {
-        $notes[] = 'Como es menos de una semana, quien autoriza define si se computan solo estos ' . fdays($days) . ' o la semana completa (7 días).';
-    }
+    ['notes' => $notes, 'exception' => $exception] = week_messages($adjust, (int) $days);
     $hol = array_map(fn ($h) => fdate($h['date'], false) . ' ' . $h['name'], rows('SELECT * FROM holidays WHERE date BETWEEN ? AND ? ORDER BY date', [$from, $to]));
     echo json_encode([
         'days' => $days,
@@ -565,6 +574,7 @@ function api_days(): void
         'holidays' => $type['counting'] === 'habiles' ? $hol : [],
         'to' => $to,
         'notes' => $notes,
+        'exception' => $errors ? null : $exception,
         'errors' => $errors,
         'warnings' => $warnings,
     ], JSON_UNESCAPED_UNICODE);

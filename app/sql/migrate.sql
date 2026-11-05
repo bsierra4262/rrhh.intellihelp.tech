@@ -39,6 +39,9 @@ INSERT IGNORE INTO settings (k, v) VALUES ('signup_enabled', '1'), ('signup_doma
 -- Regla del fin de semana: al tomar una semana completa se suma el fin de semana siguiente.
 ALTER TABLE leave_types ADD COLUMN IF NOT EXISTS weekend_rule TINYINT(1) NULL AFTER counting;
 UPDATE leave_types SET weekend_rule = IF(code = 'vacaciones', 1, 0) WHERE weekend_rule IS NULL;
+-- Vacaciones fuera del período habitual (semanas incompletas) e ingreso con Google.
+ALTER TABLE leave_requests ADD COLUMN IF NOT EXISTS outside_period TINYINT(1) NOT NULL DEFAULT 0 AFTER deduct_vacation;
+INSERT IGNORE INTO settings (k, v) VALUES ('vacation_contacts', 'nbaldelli@intellihelp.tech, cbaldelli@intellihelp.tech'), ('google_client_id', ''), ('google_client_secret', '');
 -- Invitaciones de calendario por correo: secuencia por solicitud y registro de destinatarios.
 ALTER TABLE leave_requests ADD COLUMN IF NOT EXISTS cal_seq INT UNSIGNED NOT NULL DEFAULT 0 AFTER gcal_event_id;
 CREATE TABLE IF NOT EXISTS calendar_invites (

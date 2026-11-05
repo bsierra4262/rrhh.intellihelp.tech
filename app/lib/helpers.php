@@ -204,6 +204,19 @@ function flongdate(string $d): string
 }
 
 /**
+ * Teléfono legible: los celulares de Argentina se muestran como +54 9 11 1234-5678.
+ */
+function fphone(?string $phone): string
+{
+    $p = preg_replace('/[^\d+]/', '', (string) $phone);
+    if (preg_match('/^\+549(11|\d{3})(\d{3,4})(\d{4})$/', $p, $m)) {
+        return "+54 9 {$m[1]} {$m[2]}-{$m[3]}";
+    }
+
+    return $p;
+}
+
+/**
  * Rango de fechas abreviado.
  */
 function frange(string $a, string $b): string

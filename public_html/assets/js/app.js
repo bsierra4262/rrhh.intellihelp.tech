@@ -234,7 +234,10 @@
         msgs.innerHTML = '';
         (d.errors || []).forEach((m) => msgs.insertAdjacentHTML('beforeend', '<div class="alert alert-error"><span>' + esc(m) + '</span></div>'));
         (d.warnings || []).forEach((m) => msgs.insertAdjacentHTML('beforeend', '<div class="alert alert-warning"><span>' + esc(m) + '</span></div>'));
+        if (d.exception) msgs.insertAdjacentHTML('beforeend', '<div class="alert alert-warning"><span>' + esc(d.exception) + '</span></div>');
         (d.notes || []).forEach((m) => msgs.insertAdjacentHTML('beforeend', '<div class="alert alert-info"><span>' + esc(m) + '</span></div>'));
+        exception = hourly ? null : d.exception || null;
+        excDays = d.label || '';
         if (!hourly && d.to && d.to !== to.value) $('#sumDates').textContent = fmt(from.value) + ' → ' + fmt(d.to);
         if (d.holidays?.length) msgs.insertAdjacentHTML('beforeend', '<div class="alert alert-info"><span>Feriados en el rango: ' + esc(d.holidays.join(', ')) + '</span></div>');
         $('#submitBtn').disabled = (d.errors || []).length > 0;
@@ -244,7 +247,40 @@
     }, 220);
   }
 
+  // Vacaciones fuera del período habitual: doble confirmación antes de enviar.
+  let exception = null;
+  let excDays = '';
+  const modal = $('#excModal');
+  const ack = $('#exceptionAck');
+  const step = (n) => {
+    $$('.modal-step', modal).forEach((s) => (s.hidden = s.dataset.step !== String(n)));
+    $('.modal-step:not([hidden]) .btn-primary', modal)?.focus();
+  };
+  const closeModal = () => { modal.hidden = true; document.body.classList.remove('modal-open'); };
+  form.addEventListener('submit', (e) => {
+    const onBehalf = !!userSel?.value;
+    if (!exception || onBehalf || ack.value === '1') return;
+    e.preventDefault();
+    e.stopPropagation();
+    $('[data-exc-days]', modal).textContent = excDays;
+    modal.hidden = false;
+    document.body.classList.add('modal-open');
+    step(1);
+  });
+  modal?.addEventListener('click', (e) => {
+    const act = e.target.closest('[data-exc]')?.dataset.exc;
+    if (e.target === modal || act === 'close') closeModal();
+    if (act === 'next') step(2);
+    if (act === 'confirm') {
+      ack.value = '1';
+      closeModal();
+      form.requestSubmit ? form.requestSubmit() : form.submit();
+    }
+  });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && modal && !modal.hidden) closeModal(); });
+
   form.addEventListener('change', (e) => {
+    if (e.target === from || e.target === to || e.target.name === 'type_id') ack.value = '';
     if (e.target.name === 'type_id' || e.target === userSel) renderType();
     if (e.target === from || e.target === to || e.target === tStart || e.target === tEnd) preview();
   });
