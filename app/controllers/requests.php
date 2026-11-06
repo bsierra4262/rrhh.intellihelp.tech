@@ -85,7 +85,7 @@ function request_submit(): void
         $days = 0;
     } else {
         $requested = $to;
-        [$errors, $warnings, $days, $to] = validate_request($owner, $type, $from, $to, null, is_hr());
+        [$errors, $warnings, $days, $to, $from] = validate_request($owner, $type, $from, $to, null, is_hr());
     }
     // Vacaciones fuera del período habitual (semana incompleta): se cargan como excepción, con la
     // confirmación de que el colaborador lo habló antes con quien corresponde.
@@ -564,7 +564,7 @@ function api_days(): void
         exit;
     }
     $adjust = weekend_adjustment($type, $from, $to);
-    [$errors, $warnings, $days, $to] = validate_request($owner, $type, $from, $to, null, is_hr());
+    [$errors, $warnings, $days, $to, $from] = validate_request($owner, $type, $from, $to, null, is_hr());
     ['notes' => $notes, 'exception' => $exception] = week_messages($adjust, (int) $days);
     $hol = array_map(fn ($h) => fdate($h['date'], false) . ' ' . $h['name'], rows('SELECT * FROM holidays WHERE date BETWEEN ? AND ? ORDER BY date', [$from, $to]));
     echo json_encode([
@@ -572,6 +572,7 @@ function api_days(): void
         'label' => fdays_kind($days, $type['counting']),
         'return' => $to >= $from ? flongdate(next_working_day($to)) : null,
         'holidays' => $type['counting'] === 'habiles' ? $hol : [],
+        'from' => $from,
         'to' => $to,
         'notes' => $notes,
         'exception' => $errors ? null : $exception,

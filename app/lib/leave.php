@@ -74,42 +74,74 @@ function count_days(string $from, string $to, string $counting): int
  *
  * Las vacaciones se toman por semanas de lunes a domingo. Una semana está completa cuando cada
  * día de lunes a viernes fue elegido o es feriado: en ese caso la licencia se extiende hasta el
- * domingo, y los feriados posteriores al último día elegido se computan como vacaciones. Los
- * feriados anteriores al primer día elegido no se computan. Si queda algún día hábil sin elegir,
- * el pedido está fuera del período habitual: se puede cargar como excepción y quien autoriza
- * decide si computa solo esos días o la semana completa.
+ * domingo, y los feriados posteriores al último día elegido se computan como vacaciones.
  *
- * @return array{to: string, added: int, complete: bool, choice: bool, week_end: ?string, leading: string[], trailing: string[]}
- *         Fecha de fin ajustada, días agregados, si las semanas quedan completas, si corresponde la
- *         decisión de quien autoriza, domingo de cierre de la última semana y feriados anteriores y
- *         posteriores a los días elegidos.
+ * Las vacaciones comienzan el lunes o, si es feriado, el siguiente día hábil (LCT art. 151). Los
+ * feriados del inicio de la semana no se computan: el comienzo pasa al primer día hábil y desde
+ * ahí se cuentan semanas de 7 días corridos, por lo que el tramo termina el lunes siguiente (art.
+ * 154: ningún tramo puede ser menor a 7 días).
+ *
+ * Si queda algún día hábil sin elegir, el pedido está fuera del período habitual: se puede cargar
+ * como excepción y quien autoriza decide si computa solo esos días o la semana completa.
+ *
+ * @return array{from: string, to: string, added: int, complete: bool, choice: bool, week_end: ?string, leading: string[], trailing: string[]}
+ *         Fechas de inicio y fin ajustadas, días agregados al final, si las semanas quedan completas,
+ *         si corresponde la decisión de quien autoriza, cierre de la última semana y feriados
+ *         anteriores y posteriores a los días elegidos.
  */
 function weekend_adjustment(array $type, string $from, string $to): array
 {
-    $result = ['to' => $to, 'added' => 0, 'complete' => true, 'choice' => false, 'week_end' => null, 'leading' => [], 'trailing' => []];
+    $result = ['from' => $from, 'to' => $to, 'added' => 0, 'complete' => true, 'choice' => false, 'week_end' => null, 'leading' => [], 'trailing' => []];
     if (empty($type['weekend_rule']) || ($type['counting'] ?? '') !== 'corridos' || !empty($type['by_hours']) || $to < $from) {
         return $result;
     }
     $start = new DateTimeImmutable($from);
     $end = new DateTimeImmutable($to);
     $monday = $start->modify('-' . ((int) $start->format('N') - 1) . ' days');
-    $sunday = $end->modify('+' . (7 - (int) $end->format('N')) . ' days');
-    $hol = holidays_between($monday->format('Y-m-d'), $sunday->format('Y-m-d'));
-    $missing = false;
-    for ($d = $monday; $d <= $sunday; $d = $d->modify('+1 day')) {
-        $day = $d->format('Y-m-d');
-        if ((int) $d->format('N') > 5 || ($day >= $from && $day <= $to)) {
-            continue;
-        }
-        if (isset($hol[$day])) {
-            $result[$day < $from ? 'leading' : 'trailing'][] = $day;
-        } else {
-            $missing = true;
+    $hol = holidays_between($monday->format('Y-m-d'), $end->modify('+14 days')->format('Y-m-d'));
+    $weekday = fn (DateTimeImmutable $d) => (int) $d->format('N') < 6;
+
+    // Días hábiles de la semana anteriores al inicio que no se eligieron.
+    $missingBefore = false;
+    for ($d = $monday; $d < $start; $d = $d->modify('+1 day')) {
+        if ($weekday($d) && !isset($hol[$d->format('Y-m-d')])) {
+            $missingBefore = true;
         }
     }
-    // Las solicitudes se cargan por año: la semana no se extiende más allá del 31 de diciembre.
-    $result['week_end'] = min($sunday->format('Y-m-d'), substr($from, 0, 4) . '-12-31');
-    if ($missing) {
+    // Si el pedido empieza en un feriado, las vacaciones comienzan el siguiente día hábil.
+    if (!$missingBefore) {
+        while ($start < $end && $weekday($start) && isset($hol[$start->format('Y-m-d')])) {
+            $start = $start->modify('+1 day');
+        }
+    }
+    $from = $result['from'] = $start->format('Y-m-d');
+    for ($d = $monday; $d < $start; $d = $d->modify('+1 day')) {
+        if ($weekday($d) && isset($hol[$d->format('Y-m-d')])) {
+            $result['leading'][] = $d->format('Y-m-d');
+        }
+    }
+
+    // Con feriados al inicio, las semanas se cuentan desde el primer día hábil.
+    $anchor = $result['leading'] && !$missingBefore ? $start : $monday;
+    $spill = (int) $monday->diff($anchor)->days;
+    $endDay = (int) $end->format('N');
+    // Un fin elegido dentro de los días que pasan a la semana siguiente cierra la semana anterior.
+    $sunday = $endDay <= $spill ? $end->modify("-$endDay days") : $end->modify('+' . (7 - $endDay) . ' days');
+
+    $missingAfter = false;
+    for ($d = $end->modify('+1 day'); $d <= $sunday; $d = $d->modify('+1 day')) {
+        if (!$weekday($d)) {
+            continue;
+        }
+        if (isset($hol[$d->format('Y-m-d')])) {
+            $result['trailing'][] = $d->format('Y-m-d');
+        } else {
+            $missingAfter = true;
+        }
+    }
+    $weeks = max(1, (int) ceil(($anchor->diff($sunday)->days + 1) / 7));
+    $result['week_end'] = $anchor->modify('+' . (7 * $weeks - 1) . ' days')->format('Y-m-d');
+    if ($missingBefore || $missingAfter) {
         $result['complete'] = false;
         $result['choice'] = $result['week_end'] > $to;
         $result['trailing'] = [];
@@ -139,14 +171,19 @@ function week_messages(array $adj, int $days): array
     };
     $notes = [];
     if ($adj['leading']) {
-        $notes[] = count($adj['leading']) > 1
+        $note = count($adj['leading']) > 1
             ? 'El ' . $list($adj['leading']) . ' son feriados: no se computan como vacaciones.'
             : 'El ' . $day($adj['leading'][0]) . ' es feriado: no se computa como vacaciones.';
+        if ($adj['complete']) {
+            $note .= ' Las vacaciones empiezan el ' . $day($adj['from']) . ' y se cuentan por días corridos: '
+                . fdays($days) . ', hasta el ' . flongdate($adj['to']) . '.';
+        }
+        $notes[] = $note;
     }
     if ($adj['trailing']) {
         $notes[] = (count($adj['trailing']) > 1 ? 'Como el ' . $list($adj['trailing']) . ' son feriados' : 'Como el ' . $day($adj['trailing'][0]) . ' es feriado')
             . ', se computa la semana completa: ' . fdays($days) . ', hasta el ' . flongdate($adj['to']) . '.';
-    } elseif ($adj['added']) {
+    } elseif ($adj['added'] && !$adj['leading']) {
         $notes[] = 'Al tomar la semana completa se suma el fin de semana: ' . fdays($days) . ', hasta el ' . flongdate($adj['to']) . '.';
     }
     $exception = $adj['complete'] ? null
@@ -307,27 +344,27 @@ function hr_users(): array
  * Valida una solicitud de licencia.
  *
  * Con $byHr las excepciones de días disponibles y topes se informan como advertencias en lugar de errores.
- * Aplica la regla del fin de semana del tipo, por lo que la fecha de fin puede extenderse.
+ * Aplica la regla de semanas completas del tipo, por lo que el inicio puede pasar al primer día
+ * hábil y el fin puede extenderse. Una solicitud puede cruzar de un año al siguiente (por ejemplo,
+ * de diciembre a enero): los días se imputan al año en que empieza.
  *
- * @return array{0: string[], 1: string[], 2: int, 3: string} Errores, advertencias, cantidad de días y fecha de fin.
+ * @return array{0: string[], 1: string[], 2: int, 3: string, 4: string} Errores, advertencias,
+ *         cantidad de días, fecha de fin y fecha de inicio.
  */
 function validate_request(array $user, array $type, string $from, string $to, ?int $excludeId = null, bool $byHr = false): array
 {
     $errors = [];
     $warnings = [];
     if (!valid_date($from) || !valid_date($to)) {
-        return [['Las fechas no son válidas.'], [], 0, $to];
+        return [['Las fechas no son válidas.'], [], 0, $to, $from];
     }
     if ($to < $from) {
-        return [['La fecha de fin no puede ser anterior a la de inicio.'], [], 0, $to];
+        return [['La fecha de fin no puede ser anterior a la de inicio.'], [], 0, $to, $from];
     }
     if ($from < date('Y-m-d')) {
-        return [['No se pueden cargar licencias con fechas pasadas: elegí hoy o una fecha futura.'], [], 0, $to];
+        return [['No se pueden cargar licencias con fechas pasadas: elegí hoy o una fecha futura.'], [], 0, $to, $from];
     }
-    if (substr($from, 0, 4) !== substr($to, 0, 4)) {
-        $errors[] = 'La solicitud no puede abarcar dos años distintos. Cargá una solicitud por año.';
-    }
-    $to = weekend_adjustment($type, $from, $to)['to'];
+    ['from' => $from, 'to' => $to] = weekend_adjustment($type, $from, $to);
     $days = count_days($from, $to, $type['counting']);
     if ($days <= 0) {
         $errors[] = 'El rango elegido no tiene días hábiles.';
@@ -372,7 +409,7 @@ function validate_request(array $user, array $type, string $from, string $to, ?i
         $errors[] = 'Una licencia por enfermedad no puede informarse con tanta anticipación.';
     }
 
-    return [$errors, $warnings, $days, $to];
+    return [$errors, $warnings, $days, $to, $from];
 }
 
 /**

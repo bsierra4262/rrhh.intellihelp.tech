@@ -238,7 +238,7 @@
         (d.notes || []).forEach((m) => msgs.insertAdjacentHTML('beforeend', '<div class="alert alert-info"><span>' + esc(m) + '</span></div>'));
         exception = hourly ? null : d.exception || null;
         excDays = d.label || '';
-        if (!hourly && d.to && d.to !== to.value) $('#sumDates').textContent = fmt(from.value) + ' → ' + fmt(d.to);
+        if (!hourly && d.to && (d.to !== to.value || (d.from && d.from !== from.value))) $('#sumDates').textContent = fmt(d.from || from.value) + ' → ' + fmt(d.to);
         if (d.holidays?.length) msgs.insertAdjacentHTML('beforeend', '<div class="alert alert-info"><span>Feriados en el rango: ' + esc(d.holidays.join(', ')) + '</span></div>');
         $('#submitBtn').disabled = (d.errors || []).length > 0;
       } catch {
