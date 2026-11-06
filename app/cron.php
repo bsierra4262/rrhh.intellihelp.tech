@@ -4,7 +4,7 @@
  * Portal de Recursos Humanos — Intellihelp
  *
  * Tarea programada: recordatorios de solicitudes pendientes, resincronización con
- * Google Calendar y limpieza de datos temporales.
+ * Google Calendar, actualización diaria de feriados y limpieza de datos temporales.
  *
  * Ejecución recomendada: cada hora.
  *   /usr/bin/php /home/<usuario>/domains/rrhh.intellihelp.tech/app/cron.php
@@ -46,6 +46,11 @@ if ($docReminders || $docOverdue) {
 // Reintenta la creación de eventos de Google Calendar pendientes.
 if ($n = gcal_backfill()) {
     echo "$n evento(s) sincronizados con Google Calendar\n";
+}
+
+// Feriados nacionales: una vez por día se actualizan desde el calendario oficial.
+if ($msg = holidays_sync_job()) {
+    echo $msg . PHP_EOL;
 }
 
 // Reporte mensual de vacaciones por correo (si está activado y corresponde).

@@ -52,3 +52,7 @@ CREATE TABLE IF NOT EXISTS calendar_invites (
   CONSTRAINT fk_inv_req FOREIGN KEY (request_id) REFERENCES leave_requests(id) ON DELETE CASCADE,
   CONSTRAINT fk_inv_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+-- Feriados importados del calendario oficial: tipo y origen (automático o cargado a mano).
+ALTER TABLE holidays ADD COLUMN IF NOT EXISTS kind VARCHAR(20) NULL AFTER name;
+ALTER TABLE holidays ADD COLUMN IF NOT EXISTS source ENUM('manual','auto') NOT NULL DEFAULT 'manual' AFTER kind;
+INSERT IGNORE INTO settings (k, v) VALUES ('holidays_synced_at', ''), ('holidays_ignored', '');

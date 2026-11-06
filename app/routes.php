@@ -77,6 +77,7 @@ $routes = [
     ['POST', '/admin/tipos', 'admin_types_save'],
     ['GET',  '/admin/feriados', 'admin_holidays'],
     ['POST', '/admin/feriados', 'admin_holidays_save'],
+    ['POST', '/admin/feriados/actualizar', 'admin_holidays_sync'],
     ['GET',  '/admin/configuracion', 'admin_settings'],
     ['POST', '/admin/configuracion', 'admin_settings_save'],
     ['POST', '/admin/configuracion/prueba', 'admin_settings_test'],

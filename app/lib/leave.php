@@ -214,7 +214,13 @@ function vacation_contacts(): array
  */
 function week_choice(array $r): bool
 {
-    return $r['status'] === 'pending' && weekend_adjustment($r, $r['start_date'], $r['end_date'])['choice'];
+    if ($r['status'] !== 'pending') {
+        return false;
+    }
+    $adj = weekend_adjustment($r, $r['start_date'], $r['end_date']);
+
+    // También si la semana quedó completa después de cargada (por ejemplo, por un feriado nuevo).
+    return $adj['choice'] || $adj['to'] > $r['end_date'];
 }
 
 /**

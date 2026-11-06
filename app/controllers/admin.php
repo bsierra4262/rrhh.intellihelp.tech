@@ -236,25 +236,57 @@ function admin_holidays(): void
         'title' => 'Feriados',
         'year' => $year,
         'list' => rows('SELECT * FROM holidays WHERE YEAR(date) = ? ORDER BY date', [$year]),
+        'ignored' => array_values(array_filter(holidays_ignored(), fn ($d) => (int) substr($d, 0, 4) === $year)),
+        'syncedAt' => setting('holidays_synced_at'),
     ]);
 }
 
 /**
  * Alta o baja de un feriado.
+ *
+ * Un feriado importado que se quita no vuelve a agregarse en las actualizaciones automáticas
+ * (por ejemplo, un día puente que la empresa decide trabajar); cargarlo a mano lo restituye.
  */
 function admin_holidays_save(): void
 {
     require_role('hr', 'admin');
     if ($del = (int) post('delete')) {
+        $h = row('SELECT * FROM holidays WHERE id = ?', [$del]);
         q('DELETE FROM holidays WHERE id = ?', [$del]);
-        flash('success', 'Feriado eliminado.');
+        if ($h && $h['source'] === 'auto') {
+            holidays_ignore($h['date'], true);
+        }
+        flash('success', 'Feriado eliminado.' . ($h && $h['source'] === 'auto' ? ' No se volverá a agregar en las actualizaciones automáticas.' : ''));
+    } elseif (valid_date(post('restore'))) {
+        holidays_ignore(post('restore'), false);
+        holidays_sync([(int) substr(post('restore'), 0, 4)]);
+        flash('success', 'Feriado restituido desde el calendario oficial.');
+        redirect('/admin/feriados?anio=' . substr(post('restore'), 0, 4));
     } elseif (valid_date(post('date')) && post('name') !== '') {
         q('INSERT INTO holidays (date, name) VALUES (?, ?) ON DUPLICATE KEY UPDATE name = VALUES(name)', [post('date'), mb_substr(post('name'), 0, 120)]);
+        holidays_ignore(post('date'), false);
         flash('success', 'Feriado guardado.');
     } else {
         flash('error', 'Completá fecha y nombre.');
     }
     redirect('/admin/feriados?anio=' . substr(post('date') ?: date('Y'), 0, 4));
+}
+
+/**
+ * Actualiza los feriados desde el calendario oficial en el momento.
+ */
+function admin_holidays_sync(): void
+{
+    require_role('hr', 'admin');
+    $res = holidays_sync();
+    if (!$res['years']) {
+        flash('error', 'No se pudo consultar el calendario oficial. Se vuelve a intentar automáticamente.');
+    } elseif ($res['added'] || $res['removed']) {
+        flash('success', 'Feriados actualizados: ' . count($res['added']) . ' agregado(s) y ' . count($res['removed']) . ' quitado(s).');
+    } else {
+        flash('success', 'Los feriados ya estaban al día con el calendario oficial.');
+    }
+    redirect('/admin/feriados?anio=' . (int) post('year', date('Y')));
 }
 
 /**
