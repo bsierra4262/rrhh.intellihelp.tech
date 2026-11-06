@@ -31,8 +31,8 @@ if (is_approver()) {
 </head>
 <?php
 $uiHolidays = [];
-foreach (rows('SELECT date, name FROM holidays WHERE date BETWEEN ? AND ?', [date('Y-01-01', strtotime('-1 year')), date('Y-12-31', strtotime('+1 year'))]) as $h) {
-    $uiHolidays[$h['date']] = $h['name'];
+foreach (rows('SELECT date, name, region FROM holidays WHERE date BETWEEN ? AND ?', [date('Y-01-01', strtotime('-1 year')), date('Y-12-31', strtotime('+1 year'))]) as $h) {
+    $uiHolidays[$h['date']] = holiday_label($h);
 }
 ?>
 <body data-holidays='<?= e(json_encode($uiHolidays, JSON_UNESCAPED_UNICODE)) ?>'>

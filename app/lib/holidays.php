@@ -26,6 +26,16 @@ const HOLIDAY_KINDS = [
 ];
 
 /**
+ * Nombre del feriado para mostrar, con la jurisdicción si no es nacional.
+ *
+ * Ejemplo: «Visita del papa León XIV (solo CABA y Córdoba)».
+ */
+function holiday_label(array $h): string
+{
+    return $h['name'] . (!empty($h['region']) ? ' (solo ' . $h['region'] . ')' : '');
+}
+
+/**
  * Feriados nacionales publicados para un año.
  *
  * @return array<string, array{name: string, kind: ?string}>|null Feriados por fecha, o null si la
@@ -113,8 +123,9 @@ function holidays_sync(?array $years = null): array
             if (!$have) {
                 insert('holidays', ['date' => $date, 'name' => $h['name'], 'kind' => $h['kind'], 'source' => 'auto']);
                 $result['added'][] = [$date, $h['name']];
-            } elseif ($have['source'] !== 'auto' || $have['name'] !== $h['name'] || $have['kind'] !== $h['kind']) {
-                q("UPDATE holidays SET name = ?, kind = ?, source = 'auto' WHERE id = ?", [$h['name'], $h['kind'], $have['id']]);
+            } elseif ($have['source'] !== 'auto' || $have['name'] !== $h['name'] || $have['kind'] !== $h['kind'] || $have['region'] !== null) {
+                // Si un feriado regional pasa a ser nacional, deja de ser «solo» de una jurisdicción.
+                q("UPDATE holidays SET name = ?, kind = ?, region = NULL, source = 'auto' WHERE id = ?", [$h['name'], $h['kind'], $have['id']]);
                 $result['updated']++;
             }
         }

@@ -263,7 +263,8 @@ function admin_holidays_save(): void
         flash('success', 'Feriado restituido desde el calendario oficial.');
         redirect('/admin/feriados?anio=' . substr(post('restore'), 0, 4));
     } elseif (valid_date(post('date')) && post('name') !== '') {
-        q('INSERT INTO holidays (date, name) VALUES (?, ?) ON DUPLICATE KEY UPDATE name = VALUES(name)', [post('date'), mb_substr(post('name'), 0, 120)]);
+        $region = mb_substr(trim((string) post('region')), 0, 80) ?: null;
+        q('INSERT INTO holidays (date, name, region) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE name = VALUES(name), region = VALUES(region)', [post('date'), mb_substr(post('name'), 0, 120), $region]);
         holidays_ignore(post('date'), false);
         flash('success', 'Feriado guardado.');
     } else {

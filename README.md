@@ -172,7 +172,7 @@ Cada persona agrega sus calendarios de licencias en un clic: uno con las **autor
 - Cuentas sin confirmar: **reenvío del correo de confirmación** (también desde «¿La olvidaste?»), habilitación con contraseña temporal y eliminación de registros duplicados o con el correo mal escrito.
 - **Tipos de licencia** configurables: autorización, documentación obligatoria y su plazo de entrega, topes, forma de conteo, regla del fin de semana, descuento de vacaciones y color.
 - **Reportes** (solo administradores): exportación a Excel de las licencias que impactan en vacaciones y envío mensual automático a una o más casillas.
-- **Feriados nacionales actualizados solos**: cada día se consulta el calendario oficial del año en curso y del siguiente. Se agregan los días puente y los feriados por decreto, los trasladables se reubican cuando se fija su fecha y RRHH recibe un correo con cada cambio y las solicitudes que conviene revisar. Se pueden sumar feriados provinciales a mano y quitar un día puente que la empresa trabaja, sin que vuelva a agregarse.
+- **Feriados nacionales actualizados solos**: cada día se consulta el calendario oficial del año en curso y del siguiente. Se agregan los días puente y los feriados por decreto, los trasladables se reubican cuando se fija su fecha y RRHH recibe un correo con cada cambio y las solicitudes que conviene revisar. Se pueden sumar feriados provinciales a mano, indicando dónde rigen (por ejemplo, «solo Provincia de Buenos Aires»), para que se distingan de los nacionales en el calendario y en las solicitudes, y quitar un día puente que la empresa trabaja, sin que vuelva a agregarse.
 - Configuración de **canales de notificación** con pruebas integradas (email, Google Chat, Google Calendar).
 
 ### Roles

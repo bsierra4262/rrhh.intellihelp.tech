@@ -566,7 +566,7 @@ function api_days(): void
     $adjust = weekend_adjustment($type, $from, $to);
     [$errors, $warnings, $days, $to, $from] = validate_request($owner, $type, $from, $to, null, is_hr());
     ['notes' => $notes, 'exception' => $exception] = week_messages($adjust, (int) $days);
-    $hol = array_map(fn ($h) => fdate($h['date'], false) . ' ' . $h['name'], rows('SELECT * FROM holidays WHERE date BETWEEN ? AND ? ORDER BY date', [$from, $to]));
+    $hol = array_map(fn ($h) => fdate($h['date'], false) . ' ' . holiday_label($h), rows('SELECT * FROM holidays WHERE date BETWEEN ? AND ? ORDER BY date', [$from, $to]));
     echo json_encode([
         'days' => $days,
         'label' => fdays_kind($days, $type['counting']),

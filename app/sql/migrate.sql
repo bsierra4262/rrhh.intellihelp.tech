@@ -55,4 +55,6 @@ CREATE TABLE IF NOT EXISTS calendar_invites (
 -- Feriados importados del calendario oficial: tipo y origen (automático o cargado a mano).
 ALTER TABLE holidays ADD COLUMN IF NOT EXISTS kind VARCHAR(20) NULL AFTER name;
 ALTER TABLE holidays ADD COLUMN IF NOT EXISTS source ENUM('manual','auto') NOT NULL DEFAULT 'manual' AFTER kind;
+-- Feriados que rigen solo en una jurisdicción (por ejemplo, «Provincia de Buenos Aires»).
+ALTER TABLE holidays ADD COLUMN IF NOT EXISTS region VARCHAR(80) NULL AFTER kind;
 INSERT IGNORE INTO settings (k, v) VALUES ('holidays_synced_at', ''), ('holidays_ignored', '');

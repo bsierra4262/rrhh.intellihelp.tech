@@ -14,8 +14,9 @@
             <span class="date-chip"><b><?= date('j', strtotime($h['date'])) ?></b><small><?= substr(MESES[(int) date('n', strtotime($h['date']))], 0, 3) ?></small></span>
             <span class="grow">
               <b><?= e($h['name']) ?></b>
-              <small class="muted"><?= e(ucfirst(DIAS[(int) date('w', strtotime($h['date']))])) ?><?= $h['kind'] ? ' · ' . e(HOLIDAY_KINDS[$h['kind']] ?? $h['kind']) : '' ?></small>
+              <small class="muted"><?= e(ucfirst(DIAS[(int) date('w', strtotime($h['date']))])) ?><?= $h['kind'] ? ' · ' . e(HOLIDAY_KINDS[$h['kind']] ?? $h['kind']) : '' ?><?= $h['region'] ? ' · Feriado regional, no nacional' : '' ?></small>
             </span>
+            <?php if ($h['region']): ?><span class="badge badge-pending">Solo <?= e($h['region']) ?></span><?php endif ?>
             <span class="badge <?= $h['source'] === 'auto' ? 'badge-registered' : 'badge-pending' ?>"><?= $h['source'] === 'auto' ? 'Oficial' : 'Cargado a mano' ?></span>
             <form method="post" action="<?= url('/admin/feriados') ?>"><?= csrf_field() ?><input type="hidden" name="date" value="<?= e($h['date']) ?>"><button class="icon-btn" name="delete" value="<?= (int) $h['id'] ?>" aria-label="Eliminar" data-confirm="<?= $h['source'] === 'auto' ? '¿Quitar este feriado? No se volverá a agregar en las actualizaciones automáticas.' : '¿Eliminar este feriado?' ?>"><?= icon('trash', 16) ?></button></form>
           </li>
@@ -49,6 +50,7 @@
         <?= csrf_field() ?>
         <label class="field"><span>Fecha</span><input type="date" name="date" required></label>
         <label class="field"><span>Nombre</span><input name="name" required maxlength="120" placeholder="Ej.: Día no laborable"></label>
+        <label class="field"><span>Dónde rige <small class="muted">(vacío si es para toda la empresa)</small></span><input name="region" maxlength="80" placeholder="Ej.: Provincia de Buenos Aires"></label>
         <button class="btn btn-primary"><?= icon('plus', 16) ?> Agregar</button>
       </form>
     </section>

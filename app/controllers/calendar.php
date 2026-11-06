@@ -76,7 +76,7 @@ function calendar_page(): void
     }
     $hol = [];
     foreach (rows('SELECT * FROM holidays WHERE date BETWEEN ? AND ?', [$gridStart->format('Y-m-d'), $gridEnd->format('Y-m-d')]) as $h) {
-        $hol[$h['date']] = $h['name'];
+        $hol[$h['date']] = holiday_label($h);
     }
     view('calendar', [
         'title' => 'Calendario',
