@@ -77,7 +77,8 @@ Cada solicitud muestra su **seguimiento por etapas** (solicitada, autorización,
 
 **Vacaciones por semanas completas.** El período habitual es de 7 días corridos, de lunes a domingo. Una semana está completa cuando cada día de lunes a viernes fue pedido o es feriado, y en ese caso la licencia termina siempre el domingo:
 - Los feriados posteriores a los días pedidos cuentan como vacaciones. Por ejemplo, de lunes a jueves con el viernes feriado se computan 7 días.
-- Un feriado al inicio no cuenta: las vacaciones empiezan el siguiente día hábil y se cuentan 7 días corridos desde ahí (LCT arts. 151 y 154). Por ejemplo, con el lunes feriado van de martes a lunes.
+- Un feriado anterior al primer día pedido no cuenta, y se cuentan 7 días corridos desde ese primer día (LCT arts. 151 y 154). Por ejemplo, con el lunes feriado, si se piden desde el martes van de martes a lunes.
+- Si el feriado se elige como primer día, se computa como vacaciones: con el lunes feriado incluido, van de lunes a domingo.
 - Una solicitud puede cruzar de diciembre a enero; los días se imputan al año en que empieza.
 
 Los pedidos fuera del período habitual, como días sueltos, una semana y unos días o un inicio a mitad de semana, se pueden cargar como excepción con una doble confirmación. La primera pregunta «¿Estás seguro/a?». La segunda pide comunicarse antes con quienes autorizan las excepciones y muestra su teléfono, WhatsApp y correo. La solicitud queda marcada y quien autoriza decide si computa solo esos días o la semana completa.

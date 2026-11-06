@@ -76,16 +76,16 @@ function count_days(string $from, string $to, string $counting): int
  * día de lunes a viernes fue elegido o es feriado: en ese caso la licencia se extiende hasta el
  * domingo, y los feriados posteriores al último día elegido se computan como vacaciones.
  *
- * Las vacaciones comienzan el lunes o, si es feriado, el siguiente día hábil (LCT art. 151). Los
- * feriados del inicio de la semana no se computan: el comienzo pasa al primer día hábil y desde
- * ahí se cuentan semanas de 7 días corridos, por lo que el tramo termina el lunes siguiente (art.
- * 154: ningún tramo puede ser menor a 7 días).
+ * Los feriados de la semana anteriores al primer día elegido no se computan: el tramo se cuenta
+ * en semanas de 7 días corridos desde ese primer día, por lo que con el lunes feriado va de martes
+ * a lunes (LCT arts. 151 y 154: ningún tramo puede ser menor a 7 días). Si se elige el feriado
+ * como primer día, se computa como vacaciones y la semana va de lunes a domingo.
  *
  * Si queda algún día hábil sin elegir, el pedido está fuera del período habitual: se puede cargar
  * como excepción y quien autoriza decide si computa solo esos días o la semana completa.
  *
  * @return array{from: string, to: string, added: int, complete: bool, choice: bool, week_end: ?string, leading: string[], trailing: string[]}
- *         Fechas de inicio y fin ajustadas, días agregados al final, si las semanas quedan completas,
+ *         Fecha de inicio, fecha de fin ajustada, días agregados al final, si las semanas quedan completas,
  *         si corresponde la decisión de quien autoriza, cierre de la última semana y feriados
  *         anteriores y posteriores a los días elegidos.
  */
@@ -108,13 +108,8 @@ function weekend_adjustment(array $type, string $from, string $to): array
             $missingBefore = true;
         }
     }
-    // Si el pedido empieza en un feriado, las vacaciones comienzan el siguiente día hábil.
-    if (!$missingBefore) {
-        while ($start < $end && $weekday($start) && isset($hol[$start->format('Y-m-d')])) {
-            $start = $start->modify('+1 day');
-        }
-    }
-    $from = $result['from'] = $start->format('Y-m-d');
+    // Un feriado elegido como primer día se computa como vacaciones: solo los feriados anteriores
+    // al inicio quedan fuera.
     for ($d = $monday; $d < $start; $d = $d->modify('+1 day')) {
         if ($weekday($d) && isset($hol[$d->format('Y-m-d')])) {
             $result['leading'][] = $d->format('Y-m-d');
@@ -350,9 +345,9 @@ function hr_users(): array
  * Valida una solicitud de licencia.
  *
  * Con $byHr las excepciones de días disponibles y topes se informan como advertencias en lugar de errores.
- * Aplica la regla de semanas completas del tipo, por lo que el inicio puede pasar al primer día
- * hábil y el fin puede extenderse. Una solicitud puede cruzar de un año al siguiente (por ejemplo,
- * de diciembre a enero): los días se imputan al año en que empieza.
+ * Aplica la regla de semanas completas del tipo, por lo que la fecha de fin puede extenderse.
+ * Una solicitud puede cruzar de un año al siguiente (por ejemplo, de diciembre a enero): los días
+ * se imputan al año en que empieza.
  *
  * @return array{0: string[], 1: string[], 2: int, 3: string, 4: string} Errores, advertencias,
  *         cantidad de días, fecha de fin y fecha de inicio.
