@@ -367,10 +367,9 @@ Carpeta raíz/
 
 ## Autor
 
-**Brian Gabriel Sierra**
-Jefe de Sistemas e Infraestructura IT — Intellihelp
+**Brian Sierra** — Administrador de sistemas (SysAdmin) en Intellihelp · [LinkedIn](https://www.linkedin.com/in/brian-gabriel-sierra/) · [GitHub](https://github.com/bsierra4262)
 
-[![LinkedIn](https://img.shields.io/badge/LinkedIn-brian--gabriel--sierra-0A66C2?logo=linkedin&logoColor=white)](https://www.linkedin.com/in/brian-gabriel-sierra)
+Diseño, desarrollo e implementación completos: circuito de solicitudes y aprobaciones, saldos de días, avisos por Google Chat, email y Google Calendar, historial con documentación respaldatoria y despliegue.
 
 ---
 
