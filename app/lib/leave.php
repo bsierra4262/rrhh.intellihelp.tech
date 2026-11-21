@@ -340,7 +340,22 @@ function overlaps_summer(string $from, string $to, int $season): bool
 }
 
 /**
- * Temporadas de verano en las que la persona tuvo (o tiene autorizadas o pedidas) vacaciones.
+ * Indica si unas vacaciones se toman en la temporada de verano indicada: al menos la mitad de
+ * sus días tiene que caer entre el 21 de diciembre y el 21 de marzo.
+ */
+function in_summer(string $from, string $to, int $season): bool
+{
+    if (!overlaps_summer($from, $to, $season)) {
+        return false;
+    }
+    $inside = count_days(max($from, "$season-12-21"), min($to, ($season + 1) . '-03-21'), 'corridos');
+
+    return $inside * 2 >= count_days($from, $to, 'corridos');
+}
+
+/**
+ * Temporadas de verano en las que la persona tuvo (o tiene autorizadas o pedidas) vacaciones,
+ * con al menos la mitad de los días en verano.
  *
  * Suma la última temporada que RRHH registró a mano, para los veranos anteriores al portal.
  *
@@ -355,7 +370,7 @@ function summer_seasons_taken(array $user): array
     foreach (rows("SELECT r.start_date, r.end_date FROM leave_requests r JOIN leave_types t ON t.id = r.type_id
         WHERE r.user_id = ? AND t.uses_vacation_balance = 1 AND r.status IN ('approved','pending')", [$user['id']]) as $r) {
         for ($s = (int) substr($r['start_date'], 0, 4) - 1; $s <= (int) substr($r['end_date'], 0, 4); $s++) {
-            if (overlaps_summer($r['start_date'], $r['end_date'], $s)) {
+            if (in_summer($r['start_date'], $r['end_date'], $s)) {
                 $seasons[$s] = true;
             }
         }
@@ -704,7 +719,7 @@ function vacation_legal_checks(array $user, string $from, string $to, bool $byHr
         $warnings[] = 'Las vacaciones se otorgan entre el 1 de octubre y el 30 de abril; fuera de ese período se pueden tomar de común acuerdo, y al autorizarlas queda registrado ese acuerdo (art. 154 de la LCT).';
     }
     $season = current_summer_season();
-    if (summer_due($user, $season) && !overlaps_summer($from, $to, $season) && $from <= ($season + 1) . '-04-30') {
+    if (summer_due($user, $season) && !in_summer($from, $to, $season) && $from <= ($season + 1) . '-04-30') {
         $warnings[] = 'Esta temporada corresponden vacaciones en verano (entre el 21 de diciembre y el 21 de marzo de ' . ($season + 1)
             . '): la ley pide que caigan en verano al menos una vez cada tres años (art. 154 de la LCT).';
     }

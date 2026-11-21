@@ -80,21 +80,28 @@ Cada solicitud muestra su **seguimiento por etapas** (solicitada, autorización,
 - Las vacaciones empiezan el lunes o, si es feriado, el siguiente día hábil (LCT art. 151). Los feriados del inicio no cuentan, aunque se elijan como primer día, y se cuentan 7 días corridos desde el primer día hábil (art. 154): con el lunes feriado van de martes a lunes.
 - Una solicitud puede cruzar de diciembre a enero; los días se imputan al año en que empieza.
 
-**Vacaciones según la LCT.**
-- **Aviso (art. 154):** la fecha de inicio se notifica con 30 días de anticipación, o 60 para quien está en el convenio de Comercio (CCT 130/75), que se indica en la ficha de cada persona según su puesto. El calendario arranca en esa fecha. RRHH puede cargarlas con menos anticipación, con advertencia, y si se autorizan con menos margen queda registrado en el historial.
-- **Período (art. 154):** se otorgan entre el 1 de octubre y el 30 de abril. Fuera de ese período se avisa que es de común acuerdo, y la autorización lo registra.
-- **Verano cada 3 años (art. 154):** el portal detecta a quién le corresponden vacaciones en verano (del 21/12 al 21/3) porque no las tuvo en los dos veranos anteriores. Se lo avisa a la persona al pedirlas y en su inicio, y RRHH ve la lista en su panel. Los veranos anteriores al portal se cargan en la ficha.
-- **Menos de medio año (art. 153):** quien ingresó en el año y no llega a la mitad de los días hábiles tiene un día cada 20 días hábiles trabajados.
-- **Acumulación (art. 164):** RRHH registra en la ficha el acuerdo para pasar hasta un tercio de las vacaciones al año siguiente, y esos días se suman a los disponibles del año próximo.
-- **Enfermedad durante las vacaciones:** se puede informar aunque la persona esté de vacaciones. Las vacaciones terminan el día anterior y los días restantes quedan para reprogramar, sin completar la semana, hasta el 30 de abril siguiente. Se avisa a la persona, a quien autoriza y a RRHH.
-- **Pago (arts. 156 y 162):** las vacaciones no se pagan en dinero. Al cargar la fecha de egreso, la ficha calcula los días a liquidar: el proporcional del año y, si el egreso es antes del 31 de mayo, los no gozados del año anterior.
-
 Los pedidos fuera del período habitual, como días sueltos, una semana y unos días o un inicio a mitad de semana, se pueden cargar como excepción con una doble confirmación. La primera pregunta «¿Estás seguro/a?». La segunda pide comunicarse antes con quienes autorizan las excepciones y muestra su teléfono, WhatsApp y correo. La solicitud queda marcada y quien autoriza decide si computa solo esos días o la semana completa.
 
 <table>
   <tr>
     <td width="50%"><img src="docs/screenshots/excepcion-paso1.png" alt="Confirmación de vacaciones fuera del período habitual"></td>
     <td width="50%"><img src="docs/screenshots/excepcion-paso2.png" alt="Contactos para acordar la excepción"></td>
+  </tr>
+</table>
+
+**Vacaciones según la LCT.**
+- **Aviso (art. 154):** la fecha de inicio se notifica con 30 días de anticipación, o 60 para quien está en el convenio de Comercio (CCT 130/75), que se indica en la ficha de cada persona según su puesto. El calendario arranca en esa fecha. RRHH puede cargarlas con menos anticipación, con advertencia, y si se autorizan con menos margen queda registrado en el historial.
+- **Período (art. 154):** se otorgan entre el 1 de octubre y el 30 de abril. Fuera de ese período se avisa que es de común acuerdo, y la autorización lo registra.
+- **Verano cada 3 años (art. 154):** el portal detecta a quién le corresponden vacaciones en verano (del 21/12 al 21/3) porque no las tuvo en los dos veranos anteriores. Unas vacaciones cuentan como de verano si al menos la mitad de sus días cae en esa temporada, estén autorizadas o pendientes. Se lo avisa a la persona al pedirlas y en su inicio, y RRHH ve la lista en su panel. Los veranos anteriores al portal se cargan en la ficha.
+- **Menos de medio año (art. 153):** quien ingresó en el año y no llega a la mitad de los días hábiles tiene un día cada 20 días hábiles trabajados.
+- **Acumulación (art. 164):** RRHH registra en la ficha el acuerdo para pasar hasta un tercio de las vacaciones al año siguiente, y esos días se suman a los disponibles del año próximo.
+- **Enfermedad durante las vacaciones:** se puede informar aunque la persona esté de vacaciones. Las vacaciones terminan el día anterior y los días restantes quedan para reprogramar, sin completar la semana, hasta el 30 de abril siguiente. Se avisa a la persona, a quien autoriza y a RRHH.
+- **Pago (arts. 156 y 162):** las vacaciones no se pagan en dinero. Al cargar la fecha de egreso, la ficha calcula los días a liquidar: el proporcional del año y, si el egreso es antes del 31 de mayo, los no gozados del año anterior.
+
+<table>
+  <tr>
+    <td width="50%"><b>Ficha: vacaciones según la ley</b><br><img src="docs/screenshots/ficha-vacaciones-ley.png" alt="Acumulación por acuerdo y liquidación por egreso en la ficha"></td>
+    <td width="50%"><b>Vacaciones en verano (RRHH)</b><br><img src="docs/screenshots/verano-rrhh.png" alt="Personas a las que les corresponden vacaciones en verano"></td>
   </tr>
 </table>
 
@@ -175,7 +182,7 @@ Cada persona agrega sus calendarios de licencias en un clic: uno con las **autor
 - Carga de licencias en nombre de un colaborador (con aprobación directa opcional).
 
 ### Administración
-- Alta de **personas** con rol, responsable directo, área, empresa, fecha de ingreso y días de vacaciones manuales opcionales.
+- Alta de **personas** con rol, responsable directo, área, empresa, fecha de ingreso y egreso, convenio colectivo, último verano con vacaciones y días de vacaciones manuales opcionales. La ficha registra los acuerdos de acumulación y calcula las vacaciones a liquidar al egreso.
 - **Autoregistro** de colaboradores: los correos del dominio corporativo se activan solos; los de **personal tercerizado** quedan pendientes de aprobación por RRHH.
 - Cuentas sin confirmar: **reenvío del correo de confirmación** (también desde «¿La olvidaste?»), habilitación con contraseña temporal y eliminación de registros duplicados o con el correo mal escrito.
 - **Tipos de licencia** configurables: autorización, documentación obligatoria y su plazo de entrega, topes, forma de conteo, regla del fin de semana, descuento de vacaciones y color.
