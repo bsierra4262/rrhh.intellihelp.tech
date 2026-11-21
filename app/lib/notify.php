@@ -372,6 +372,47 @@ function on_request_cancelled(int $id, string $prevStatus): void
 }
 
 /**
+ * Vacaciones interrumpidas por una enfermedad: se actualizan los calendarios y se avisa a la
+ * persona, a quien autoriza y a RRHH que los días restantes quedan para reprogramar.
+ */
+function on_vacation_interrupted(int $vacationId, int $sickId, int $returned): void
+{
+    calendar_bump($vacationId);
+    gcal_sync($vacationId);
+    $r = load_request($vacationId);
+    $cancelled = $r['status'] === 'cancelled';
+    $what = $cancelled
+        ? 'quedaron canceladas'
+        : 'ahora terminan el ' . fdate($r['end_date']);
+    $owner = user_by_id((int) $r['user_id']);
+    if ($owner) {
+        notify_user(
+            $owner,
+            $r,
+            'Tus vacaciones quedaron interrumpidas por enfermedad',
+            'Como informaste una enfermedad durante tus vacaciones, ' . e($what) . '. Los <b>' . e(fdays($returned))
+                . '</b> que faltaban vuelven a estar disponibles: podés pedirlos desde el portal cuando te recuperes, sin necesidad de completar la semana.',
+            ['heading' => 'Vacaciones interrumpidas', 'invite' => true, 'button' => ['Ver enfermedad', url('/solicitudes/' . $sickId)]]
+        );
+    }
+    foreach (notify_unique([user_by_id((int) $r['approver_id']), user_by_id((int) $r['manager_id']), ...hr_users()], (int) $r['user_id']) as $t) {
+        notify_user(
+            $t,
+            $r,
+            "Vacaciones de {$r['user_name']} interrumpidas por enfermedad",
+            e($r['user_name']) . ' informó una enfermedad durante sus vacaciones, que ' . e($what) . '. Quedan <b>' . e(fdays($returned)) . '</b> para reprogramar.',
+            ['heading' => 'Vacaciones interrumpidas', 'invite' => true]
+        );
+    }
+    send_gchat(chat_message(
+        "🤒 Vacaciones de {$r['user_name']} interrumpidas por enfermedad",
+        fdays($returned) . ' para reprogramar',
+        '👉 ' . url('/solicitudes/' . $vacationId)
+    ));
+    invites_refresh($r);
+}
+
+/**
  * Documentación agregada a una solicitud existente.
  */
 function on_document_uploaded(int $id, int $count): void

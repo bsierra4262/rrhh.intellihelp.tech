@@ -27,7 +27,7 @@ function admin_users(): void
     $users = rows($sql . ' ORDER BY u.pending_approval DESC, u.active DESC, u.name', $p);
     $year = (int) date('Y');
     foreach ($users as &$u) {
-        $u['vac_total'] = vacation_entitlement($u, $year);
+        $u['vac_total'] = vacation_total($u, $year);
         $u['vac_used'] = vacation_used((int) $u['id'], $year, "'approved'");
     }
     unset($u);
@@ -44,9 +44,15 @@ function admin_user_form(int $id = 0): void
     if ($id && !$u) {
         abort(404);
     }
+    $year = (int) date('Y');
     view('admin/user_form', [
         'title' => $u ? 'Editar persona' : 'Nueva persona',
         'u' => $u,
+        'year' => $year,
+        'carryovers' => $u ? rows('SELECT c.*, a.name AS agreed_name FROM vacation_carryovers c LEFT JOIN users a ON a.id = c.agreed_by WHERE c.user_id = ? ORDER BY c.from_year DESC', [$id]) : [],
+        'carryLimit' => $u ? vacation_carry_limit($u, $year) : 0,
+        'settlement' => $u ? vacation_exit_settlement($u) : null,
+        'summerDue' => $u ? summer_due($u) : false,
         'managers' => rows("SELECT id, name FROM users WHERE active = 1 AND role IN ('manager','hr','admin')" . ($id ? ' AND id <> ' . $id : '') . ' ORDER BY name'),
         'companies' => array_column(rows('SELECT DISTINCT company FROM users WHERE company IS NOT NULL AND company <> "" ORDER BY company'), 'company'),
         'departments' => array_column(rows('SELECT DISTINCT department FROM users WHERE department IS NOT NULL AND department <> "" ORDER BY department'), 'department'),
@@ -74,10 +80,17 @@ function admin_user_save(int $id = 0): void
         'position' => mb_substr(post('position'), 0, 120) ?: null,
         'phone' => preg_replace('/[^\d+]/', '', post('phone')) ?: null,
         'hire_date' => valid_date(post('hire_date')) ? post('hire_date') : null,
+        'exit_date' => valid_date(post('exit_date')) ? post('exit_date') : null,
+        'cct' => isset(CCT_LABELS[post('cct')]) && post('cct') !== '' ? post('cct') : null,
+        'last_summer_season' => (int) post('last_summer_season') ?: null,
         'vacation_days_override' => post('vacation_days_override') === '' ? null : max(0, (int) post('vacation_days_override')),
         'vacation_override_year' => post('vacation_days_override') === '' ? null : (int) date('Y'),
         'active' => isset($_POST['active']) ? 1 : 0,
     ];
+    if ($data['exit_date'] && $data['hire_date'] && $data['exit_date'] < $data['hire_date']) {
+        flash('error', 'La fecha de egreso no puede ser anterior a la de ingreso.');
+        redirect($back);
+    }
     if ($data['name'] === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
         flash('error', 'Completá nombre y un email válido.');
         redirect($back);
@@ -125,6 +138,38 @@ function admin_user_save(int $id = 0): void
         flash('success', 'Persona creada.');
     }
     forget_input();
+    redirect("/admin/usuarios/$id");
+}
+
+/**
+ * Registra o quita el acuerdo para acumular vacaciones al año siguiente (art. 164 de la LCT).
+ *
+ * La ley permite acumular, por acuerdo de las partes, hasta un tercio de las vacaciones del año al
+ * período inmediatamente siguiente.
+ */
+function admin_user_carryover(int $id): void
+{
+    $me = require_login();
+    require_role('hr', 'admin');
+    $u = row('SELECT * FROM users WHERE id = ?', [$id]) ?: abort(404);
+    if ($del = (int) post('delete')) {
+        q('DELETE FROM vacation_carryovers WHERE id = ? AND user_id = ?', [$del, $id]);
+        flash('success', 'Acuerdo de acumulación eliminado.');
+        redirect("/admin/usuarios/$id");
+    }
+    $year = (int) date('Y');
+    $days = (int) post('days');
+    $limit = vacation_carry_limit($u, $year);
+    if ($days < 1 || $days > $limit) {
+        flash('error', $limit
+            ? "Se pueden acumular de 1 a $limit días: hasta un tercio de las vacaciones de $year, sin superar los que quedan sin usar (art. 164)."
+            : "No quedan días de $year para acumular.");
+        redirect("/admin/usuarios/$id");
+    }
+    q('INSERT INTO vacation_carryovers (user_id, from_year, days, note, agreed_by) VALUES (?, ?, ?, ?, ?)
+        ON DUPLICATE KEY UPDATE days = VALUES(days), note = VALUES(note), agreed_by = VALUES(agreed_by), created_at = NOW()',
+        [$id, $year, $days, mb_substr(post('note'), 0, 255) ?: null, $me['id']]);
+    flash('success', 'Acuerdo registrado: ' . fdays($days) . ' de ' . $year . ' se suman a las vacaciones de ' . ($year + 1) . '.');
     redirect("/admin/usuarios/$id");
 }
 

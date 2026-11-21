@@ -73,6 +73,20 @@ unset($_SESSION['new_password']);
     <label class="field"><span>Puesto</span><input name="position" value="<?= e($v('position')) ?>" maxlength="120"></label>
     <label class="field"><span>Celular (WhatsApp)</span><input name="phone" value="<?= e($v('phone')) ?>" placeholder="+54 9 11 1234 5678"></label>
     <label class="field"><span>Fecha de ingreso</span><input type="date" name="hire_date" value="<?= e($v('hire_date')) ?>"><small class="muted">Define los días de vacaciones por antigüedad (LCT).</small></label>
+    <label class="field"><span>Fecha de egreso</span><input type="date" name="exit_date" value="<?= e($v('exit_date')) ?>"><small class="muted">Solo al terminar la relación laboral: calcula las vacaciones a liquidar.</small></label>
+    <label class="field"><span>Convenio colectivo</span>
+      <select name="cct">
+        <?php foreach (CCT_LABELS as $k => $l): ?><option value="<?= e($k) ?>" <?= (string) $v('cct') === (string) $k ? 'selected' : '' ?>><?= e($l) ?></option><?php endforeach ?>
+      </select>
+      <small class="muted">Según el puesto. En Comercio las vacaciones se avisan con 60 días de anticipación; si no, con 30.</small>
+    </label>
+    <label class="field"><span>Último verano con vacaciones</span>
+      <select name="last_summer_season">
+        <option value="">Sin dato / según el portal</option>
+        <?php for ($s = (int) date('Y'); $s >= (int) date('Y') - 4; $s--): ?><option value="<?= $s ?>" <?= (string) $v('last_summer_season') === (string) $s ? 'selected' : '' ?>><?= $s ?>/<?= substr((string) ($s + 1), 2) ?></option><?php endfor ?>
+      </select>
+      <small class="muted">Para los veranos anteriores al portal. Cada 3 años las vacaciones tienen que caer en verano.</small>
+    </label>
 <?php $manualYear = (int) ($u['vacation_override_year'] ?? 0); $manualActive = $u && $u['vacation_days_override'] !== null && (!$manualYear || $manualYear === (int) date('Y')); ?>
     <label class="field"><span>Días de vacaciones <?= date('Y') ?> (manual)</span><input type="number" name="vacation_days_override" min="0" max="60" value="<?= e($manualActive ? $v('vacation_days_override') : '') ?>" placeholder="Automático según antigüedad">
       <small class="muted">Solo para <?= date('Y') ?>. El año siguiente vuelve a calcularse por antigüedad.</small></label>
@@ -85,6 +99,48 @@ unset($_SESSION['new_password']);
 </form>
 
 <?php if ($u): ?>
+<section class="card">
+  <div class="card-head"><h2><?= icon('sun') ?> Vacaciones según la ley</h2></div>
+  <?php if ($summerDue): ?>
+    <div class="alert alert-warning inline"><?= icon('alert') ?><span>Esta temporada le corresponden vacaciones en verano (del 21/12 al 21/3): no las tuvo en los dos veranos anteriores y la ley pide que caigan en verano al menos una vez cada 3 años (art. 154).</span></div>
+  <?php endif ?>
+  <p class="muted">Avisos con <?= vacation_notice_days($u) ?> días de anticipación<?= ($u['cct'] ?? '') === '130/75' ? ' (convenio de Comercio)' : '' ?>. Las vacaciones no se pagan en dinero, salvo al terminar la relación laboral (art. 162).</p>
+
+  <h3 style="margin-top:18px">Acumular al año siguiente (art. 164)</h3>
+  <p class="muted">Por acuerdo entre las partes se puede pasar hasta un tercio de las vacaciones de <?= $year ?> a <?= $year + 1 ?>. Hoy se pueden acumular hasta <b><?= e(fdays($carryLimit)) ?></b>.</p>
+  <?php if ($carryovers): ?>
+    <ul class="holiday-list">
+      <?php foreach ($carryovers as $c): ?>
+        <li>
+          <span class="grow"><b><?= e(fdays($c['days'])) ?> de <?= (int) $c['from_year'] ?> a <?= (int) $c['from_year'] + 1 ?></b>
+            <small class="muted">Acordado el <?= e(fdate($c['created_at'])) ?><?= $c['agreed_name'] ? ' · registró ' . e($c['agreed_name']) : '' ?><?= $c['note'] ? ' · ' . e($c['note']) : '' ?></small></span>
+          <form method="post" action="<?= url('/admin/usuarios/' . $u['id'] . '/acumulacion') ?>"><?= csrf_field() ?><button class="icon-btn" name="delete" value="<?= (int) $c['id'] ?>" aria-label="Eliminar" data-confirm="¿Eliminar este acuerdo de acumulación?"><?= icon('trash', 16) ?></button></form>
+        </li>
+      <?php endforeach ?>
+    </ul>
+  <?php endif ?>
+  <?php if ($carryLimit > 0): ?>
+    <form method="post" action="<?= url('/admin/usuarios/' . $u['id'] . '/acumulacion') ?>" class="form-grid">
+      <?= csrf_field() ?>
+      <label class="field"><span>Días a acumular</span><input type="number" name="days" min="1" max="<?= $carryLimit ?>" required></label>
+      <label class="field"><span>Detalle del acuerdo</span><input name="note" maxlength="255" placeholder="Ej.: acordado por escrito el 15/12"></label>
+      <div><button class="btn btn-ghost btn-sm"><?= icon('check', 16) ?> Registrar acuerdo</button></div>
+    </form>
+  <?php endif ?>
+
+  <?php if ($settlement): ?>
+    <h3 style="margin-top:18px">Vacaciones a liquidar por el egreso (art. 156)</h3>
+    <p>Corresponde pagar <b><?= e(fdays($settlement['total'])) ?></b> de vacaciones no gozadas.</p>
+    <ul class="muted">
+      <li>Proporcional de <?= $settlement['year'] ?>: <?= e(number_format($settlement['proportional'], 2, ',', '')) ?> días (<?= $settlement['entitled'] ?> días del año según el tiempo trabajado hasta el <?= e(fdate($u['exit_date'])) ?>).</li>
+      <?php if ($settlement['carried']): ?><li>Acumulados de <?= $settlement['year'] - 1 ?>: <?= e(fdays($settlement['carried'])) ?>.</li><?php endif ?>
+      <li>Ya gozados en <?= $settlement['year'] ?>: <?= e(fdays($settlement['used'])) ?>.</li>
+      <?php if ($settlement['previous']): ?><li>No gozados de <?= $settlement['year'] - 1 ?>: <?= e(fdays($settlement['previous'])) ?>.</li><?php endif ?>
+    </ul>
+    <p class="muted">Es el único caso en que las vacaciones se pagan en dinero. Confirmá el importe con quien liquida los sueldos.</p>
+  <?php endif ?>
+</section>
+
 <section class="card">
   <div class="card-head"><h2><?= icon('key') ?> Acceso</h2></div>
   <p class="muted">Último ingreso: <?= e(fdatetime($u['last_login'])) ?></p>

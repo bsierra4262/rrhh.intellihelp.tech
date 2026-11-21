@@ -58,3 +58,24 @@ ALTER TABLE holidays ADD COLUMN IF NOT EXISTS source ENUM('manual','auto') NOT N
 -- Feriados que rigen solo en una jurisdicción (por ejemplo, «Provincia de Buenos Aires»).
 ALTER TABLE holidays ADD COLUMN IF NOT EXISTS region VARCHAR(80) NULL AFTER kind;
 INSERT IGNORE INTO settings (k, v) VALUES ('holidays_synced_at', ''), ('holidays_ignored', '');
+
+-- Vacaciones según la LCT (arts. 151 a 164).
+ALTER TABLE users ADD COLUMN IF NOT EXISTS cct VARCHAR(20) NULL AFTER position;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS exit_date DATE NULL AFTER hire_date;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS last_summer_season SMALLINT NULL AFTER exit_date;
+ALTER TABLE leave_requests ADD COLUMN IF NOT EXISTS reschedule TINYINT(1) NOT NULL DEFAULT 0 AFTER outside_period;
+ALTER TABLE leave_requests ADD COLUMN IF NOT EXISTS interrupted_days SMALLINT NULL AFTER reschedule;
+ALTER TABLE leave_requests ADD COLUMN IF NOT EXISTS interrupted_by INT UNSIGNED NULL AFTER interrupted_days;
+-- Año de vacaciones al que se imputa una reprogramación (puede ser el anterior, hasta el 30/4).
+ALTER TABLE leave_requests ADD COLUMN IF NOT EXISTS vacation_year SMALLINT NULL AFTER interrupted_by;
+CREATE TABLE IF NOT EXISTS vacation_carryovers (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id INT UNSIGNED NOT NULL,
+  from_year SMALLINT NOT NULL,
+  days SMALLINT NOT NULL,
+  note VARCHAR(255) NULL,
+  agreed_by INT UNSIGNED NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_carry (user_id, from_year),
+  CONSTRAINT fk_carry_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

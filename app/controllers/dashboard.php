@@ -64,6 +64,10 @@ function dashboard(): void
         'mine' => rows(REQ_SELECT . ' WHERE r.user_id = ? ORDER BY r.created_at DESC LIMIT 5', [$u['id']]),
         'upcoming' => rows(REQ_SELECT . " WHERE r.user_id = ? AND r.status IN ('approved','registered') AND r.end_date >= ? ORDER BY r.start_date LIMIT 3", [$u['id'], $today]),
     ];
+    $season = current_summer_season();
+    $data['season'] = $season;
+    $data['summer_due'] = summer_due($u, $season);
+    $data['reschedulable'] = vacation_reschedulable((int) $u['id'], $year);
 
     if (is_approver()) {
         [$w, $p] = pending_scope($u);
@@ -75,6 +79,7 @@ function dashboard(): void
     }
     if (is_hr()) {
         $data['docs_to_check'] = rows(REQ_SELECT . " WHERE r.doc_status = 'uploaded' AND r.status <> 'cancelled' ORDER BY r.updated_at DESC LIMIT 6");
+        $data['summer_people'] = array_values(array_filter(rows("SELECT * FROM users WHERE active = 1 AND pending_activation = 0 AND pending_approval = 0 ORDER BY name"), fn ($p) => summer_due($p, $season)));
         $data['docs_missing'] = rows(REQ_SELECT . " WHERE t.requires_document = 1 AND r.doc_status = 'none' AND r.status IN ('registered','approved') ORDER BY r.start_date DESC LIMIT 6");
         $data['stats'] = [
             'employees' => (int) val('SELECT COUNT(*) FROM users WHERE active = 1'),

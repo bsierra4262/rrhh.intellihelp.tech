@@ -14,6 +14,8 @@
         <i style="width:<?= $pctUsed ?>%;background:<?= e($b['color']) ?>"></i><i class="pend" style="width:<?= $pctPend ?>%;--c:<?= e($b['color']) ?>"></i>
       </div>
       <?php if ($b['pending'] > 0): ?><small class="muted"><?= e(fdays($b['pending'])) ?> en revisión</small><?php endif ?>
+      <?php if (!empty($b['carried'])): ?><small class="muted">Incluye <?= e(fdays($b['carried'])) ?> acumulados del año anterior</small><?php endif ?>
+      <?php if ($b['code'] === 'vacaciones'): ?><small class="muted">No se pagan en dinero, salvo al terminar la relación laboral.</small><?php endif ?>
     </div>
   <?php endforeach ?>
 </div>

@@ -21,6 +21,25 @@ $quick = [
   </div>
 </section>
 
+<?php if ($summer_due): ?>
+  <div class="alert alert-warning inline"><?= icon('sun') ?><span>Esta temporada te corresponden vacaciones en verano, entre el 21 de diciembre y el 21 de marzo de <?= $season + 1 ?>: la ley pide que caigan en verano al menos una vez cada 3 años.</span></div>
+<?php endif ?>
+<?php if ($reschedulable > 0): ?>
+  <div class="alert alert-info inline"><?= icon('info') ?><span>Tenés <?= e(fdays($reschedulable)) ?> de vacaciones interrumpidas por enfermedad para reprogramar. Podés pedirlos sin completar la semana.</span></div>
+<?php endif ?>
+
+<?php if (is_hr() && !empty($summer_people)): ?>
+<section class="card">
+  <div class="card-head"><h2><?= icon('sun') ?> Vacaciones en verano <?= $season ?>/<?= substr((string) ($season + 1), 2) ?> <em class="count"><?= count($summer_people) ?></em></h2></div>
+  <p class="muted">No tuvieron vacaciones en los dos veranos anteriores: esta temporada les tienen que caer en verano (art. 154). Si las tuvieron antes del portal, cargalo en su ficha.</p>
+  <ul class="holiday-list">
+    <?php foreach ($summer_people as $p): ?>
+      <li><?= avatar($p['name'], 'sm') ?><span class="grow"><b><?= e($p['name']) ?></b><small class="muted"><?= e($p['position'] ?: ($p['department'] ?: '')) ?></small></span><a class="link" href="<?= url('/admin/usuarios/' . $p['id']) ?>">Ficha <?= icon('arrow-right', 14) ?></a></li>
+    <?php endforeach ?>
+  </ul>
+</section>
+<?php endif ?>
+
 <?php if (is_approver() && !empty($pending)): ?>
 <section class="card card-accent">
   <div class="card-head">

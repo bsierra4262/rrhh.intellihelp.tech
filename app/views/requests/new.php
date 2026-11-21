@@ -8,6 +8,8 @@ $typeData = array_map(fn($t) => [
     'approval' => (bool) $t['requires_approval'], 'docRequired' => (bool) $t['requires_document'], 'docLabel' => $t['document_label'] ?: ($t['requires_document'] ? 'Documentación' : null),
     'docDays' => $t['doc_due_days'] ? (int) $t['doc_due_days'] : 2, 'docFrom' => $t['doc_due_from'],
     'counting' => $t['counting'], 'vacOptional' => (bool) $t['vacation_optional'], 'byHours' => (bool) $t['by_hours'], 'maxReq' => $t['max_days_per_request'] ? (int) $t['max_days_per_request'] : null,
+    // Vacaciones: la fecha de inicio se notifica con la anticipación legal (art. 154). RRHH puede cargarlas con menos.
+    'minDate' => $t['uses_vacation_balance'] && !is_hr() ? date('Y-m-d', strtotime('+' . vacation_notice_days(current_user()) . ' days')) : null,
 ], $types);
 $holidayDates = array_column(rows('SELECT date FROM holidays WHERE date BETWEEN ? AND ?', [date('Y-01-01'), date('Y-12-31', strtotime('+1 year'))]), 'date');
 $timeSlots = [];

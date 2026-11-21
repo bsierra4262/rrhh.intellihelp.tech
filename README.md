@@ -77,9 +77,17 @@ Cada solicitud muestra su **seguimiento por etapas** (solicitada, autorización,
 
 **Vacaciones por semanas completas.** El período habitual es de 7 días corridos, de lunes a domingo. Una semana está completa cuando cada día de lunes a viernes fue pedido o es feriado, y en ese caso la licencia termina siempre el domingo:
 - Los feriados posteriores a los días pedidos cuentan como vacaciones. Por ejemplo, de lunes a jueves con el viernes feriado se computan 7 días.
-- Un feriado anterior al primer día pedido no cuenta, y se cuentan 7 días corridos desde ese primer día (LCT arts. 151 y 154). Por ejemplo, con el lunes feriado, si se piden desde el martes van de martes a lunes.
-- Si el feriado se elige como primer día, se computa como vacaciones: con el lunes feriado incluido, van de lunes a domingo.
+- Las vacaciones empiezan el lunes o, si es feriado, el siguiente día hábil (LCT art. 151). Los feriados del inicio no cuentan, aunque se elijan como primer día, y se cuentan 7 días corridos desde el primer día hábil (art. 154): con el lunes feriado van de martes a lunes.
 - Una solicitud puede cruzar de diciembre a enero; los días se imputan al año en que empieza.
+
+**Vacaciones según la LCT.**
+- **Aviso (art. 154):** la fecha de inicio se notifica con 30 días de anticipación, o 60 para quien está en el convenio de Comercio (CCT 130/75), que se indica en la ficha de cada persona según su puesto. El calendario arranca en esa fecha. RRHH puede cargarlas con menos anticipación, con advertencia, y si se autorizan con menos margen queda registrado en el historial.
+- **Período (art. 154):** se otorgan entre el 1 de octubre y el 30 de abril. Fuera de ese período se avisa que es de común acuerdo, y la autorización lo registra.
+- **Verano cada 3 años (art. 154):** el portal detecta a quién le corresponden vacaciones en verano (del 21/12 al 21/3) porque no las tuvo en los dos veranos anteriores. Se lo avisa a la persona al pedirlas y en su inicio, y RRHH ve la lista en su panel. Los veranos anteriores al portal se cargan en la ficha.
+- **Menos de medio año (art. 153):** quien ingresó en el año y no llega a la mitad de los días hábiles tiene un día cada 20 días hábiles trabajados.
+- **Acumulación (art. 164):** RRHH registra en la ficha el acuerdo para pasar hasta un tercio de las vacaciones al año siguiente, y esos días se suman a los disponibles del año próximo.
+- **Enfermedad durante las vacaciones:** se puede informar aunque la persona esté de vacaciones. Las vacaciones terminan el día anterior y los días restantes quedan para reprogramar, sin completar la semana, hasta el 30 de abril siguiente. Se avisa a la persona, a quien autoriza y a RRHH.
+- **Pago (arts. 156 y 162):** las vacaciones no se pagan en dinero. Al cargar la fecha de egreso, la ficha calcula los días a liquidar: el proporcional del año y, si el egreso es antes del 31 de mayo, los no gozados del año anterior.
 
 Los pedidos fuera del período habitual, como días sueltos, una semana y unos días o un inicio a mitad de semana, se pueden cargar como excepción con una doble confirmación. La primera pregunta «¿Estás seguro/a?». La segunda pide comunicarse antes con quienes autorizan las excepciones y muestra su teléfono, WhatsApp y correo. La solicitud queda marcada y quien autoriza decide si computa solo esos días o la semana completa.
 
@@ -143,7 +151,7 @@ Cada persona agrega sus calendarios de licencias en un clic: uno con las **autor
 - Solicitud de **vacaciones, días de estudio/examen, día personal, trámites, mudanza, matrimonio, nacimiento, fallecimiento, maternidad, donación de sangre** y **enfermedad**.
 - **Trámites por horario**: día en un calendario y horario de salida y regreso; no impactan en las vacaciones.
 - Cálculo automático de días **corridos o hábiles**, descontando fines de semana y **feriados nacionales**.
-- **Días disponibles** por tipo de licencia; vacaciones calculadas según antigüedad conforme a la **LCT (art. 150)**: 14, 21, 28 o 35 días.
+- **Días disponibles** por tipo de licencia; vacaciones calculadas según antigüedad conforme a la **LCT (art. 150)**: 14, 21, 28 o 35 días, con el proporcional del art. 153 y los días acumulados por acuerdo (art. 164).
 - **Vacaciones por semanas completas**: la semana termina siempre el domingo y los feriados posteriores completan la semana. Los pedidos fuera del período habitual requieren doble confirmación y quedan marcados para quien autoriza.
 - **Ingreso con Google** para las cuentas del dominio corporativo, además del ingreso con correo y contraseña.
 - Solo las vacaciones descuentan días de vacaciones; en el **día personal**, quien autoriza decide si se descuenta.

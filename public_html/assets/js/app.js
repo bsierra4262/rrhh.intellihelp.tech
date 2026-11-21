@@ -175,6 +175,8 @@
       }
       renderMiniCal();
     }
+    from.min = t?.minDate || form.dataset.today;
+    if (from.value && from.value < from.min) from.value = '';
     $('#typeDesc').textContent = t?.description || '';
     $('#sumType').textContent = t?.name || '—';
     renderFlow(t);

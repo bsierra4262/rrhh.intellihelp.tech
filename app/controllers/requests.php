@@ -90,6 +90,12 @@ function request_submit(): void
     // Vacaciones fuera del período habitual (semana incompleta): se cargan como excepción, con la
     // confirmación de que el colaborador lo habló antes con quien corresponde.
     $outside = !$type['by_hours'] && !weekend_adjustment($type, $from, $requested ?? $to)['complete'];
+    // Los días de vacaciones interrumpidas por enfermedad se reprograman sin la semana completa.
+    $rescheduleYear = $outside && !$errors ? vacation_reschedule_year($owner, $type, $from, (float) $days) : null;
+    $reschedule = $rescheduleYear !== null;
+    if ($reschedule) {
+        $outside = false;
+    }
     if (!$errors && $outside && !$onBehalf && post('exception_ack') !== '1') {
         $errors[] = 'Este pedido está fuera del período habitual de vacaciones: confirmá que lo hablaste con '
             . implode(' o ', array_column(vacation_contacts(), 'name')) . ' antes de enviarlo.';
@@ -116,6 +122,8 @@ function request_submit(): void
         'days' => $days,
         'hours' => $hours,
         'outside_period' => $outside ? 1 : 0,
+        'reschedule' => $reschedule ? 1 : 0,
+        'vacation_year' => $rescheduleYear,
         'reason' => mb_substr(post('reason'), 0, 2000) ?: null,
         'status' => $status,
         'approver_id' => $type['requires_approval'] ? resolve_approver($owner) : null,
@@ -135,10 +143,19 @@ function request_submit(): void
             ? 'Fuera del período habitual de vacaciones: cargada por RRHH.'
             : 'Fuera del período habitual de vacaciones: declaró haberlo hablado antes con ' . implode(' o ', array_column(vacation_contacts(), 'name')) . '.');
     }
+    if ($reschedule) {
+        log_event($id, 'rescheduled', fdays($days) . ' de vacaciones de ' . $rescheduleYear . ' interrumpidas por enfermedad: se reprograman sin completar la semana.');
+    }
     if ($autoApprove) {
         log_event($id, 'approved', 'Aprobada al cargarla RRHH.');
     }
+    // Una enfermedad durante las vacaciones las interrumpe: los días restantes se reprograman.
+    $interrupted = $type['code'] === 'enfermedad' ? vacation_interrupt($id) : [];
     db()->commit();
+    foreach ($interrupted as $iv) {
+        defer(fn () => on_vacation_interrupted($iv['id'], $id, $iv['returned']));
+        flash('warning', 'Tus vacaciones (#' . $iv['id'] . ') quedaron interrumpidas: ' . fdays($iv['returned']) . ' vuelven a estar disponibles para que los reprogrames.');
+    }
     forget_input();
 
     foreach ($warnings as $w) {
@@ -286,6 +303,11 @@ function request_decide(int $id): void
     }
     q('UPDATE notifications SET read_at = NOW() WHERE request_id = ? AND user_id = ? AND read_at IS NULL', [$id, $me['id']]);
     log_event($id, $decision, $comment ?: null);
+    $shortNotice = $decision === 'approved' && $r['uses_vacation_balance'] ? vacation_short_notice($r) : null;
+    if ($shortNotice) {
+        log_event($id, 'short_notice', $shortNotice);
+        flash('warning', $shortNotice);
+    }
     if ($decision === 'approved' && accepts_documents($r)) {
         $fresh = load_request($id);
         apply_doc_due($id, $fresh, post('doc_due_mode'), post('doc_due_date')) ?? apply_doc_due($id, $fresh, 'auto', '');
@@ -566,6 +588,10 @@ function api_days(): void
     $adjust = weekend_adjustment($type, $from, $to);
     [$errors, $warnings, $days, $to, $from] = validate_request($owner, $type, $from, $to, null, is_hr());
     ['notes' => $notes, 'exception' => $exception] = week_messages($adjust, (int) $days);
+    if ($exception && !$errors && vacation_reschedule_ok($owner, $type, $from, (float) $days)) {
+        $exception = null;
+        $notes[] = 'Son días de vacaciones interrumpidas por enfermedad: se reprograman sin completar la semana.';
+    }
     $hol = array_map(fn ($h) => fdate($h['date'], false) . ' ' . holiday_label($h), rows('SELECT * FROM holidays WHERE date BETWEEN ? AND ? ORDER BY date', [$from, $to]));
     echo json_encode([
         'days' => $days,
