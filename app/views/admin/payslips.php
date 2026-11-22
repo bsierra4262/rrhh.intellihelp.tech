@@ -62,7 +62,7 @@ $periodLabel = function (string $p): string {
       <?php foreach ($list as $p): ?>
         <tr>
           <td><div class="cell-person"><?= avatar($p['user_name'], 'sm') ?><span><b><?= e($p['user_name']) ?></b><small>CUIL <?= e($p['cuil'] ?: '—') ?></small></span></div></td>
-          <td><a href="<?= url('/recibos/' . $p['id'] . '/archivo') ?>" target="_blank" rel="noopener"><?= e($p['label']) ?></a><br><small class="muted"><?= e($p['file_name']) ?></small><br><?php partial('employer_sig', ['p' => $p]) ?></td>
+          <td><a href="<?= url('/recibos/' . $p['id'] . '/archivo' . ($p['signed_drive_id'] ? '?firmado=1' : '')) ?>" target="_blank" rel="noopener"><?= e($p['label']) ?></a><br><small class="muted"><?= e($p['file_name']) ?></small><br><?php partial('employer_sig', ['p' => $p]) ?></td>
           <td><?= $p['pay_date'] ? e(fdate($p['pay_date'])) : '—' ?></td>
           <td class="num"><?= e($money($p['net'])) ?></td>
           <td>

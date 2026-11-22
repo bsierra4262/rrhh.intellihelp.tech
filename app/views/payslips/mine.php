@@ -27,7 +27,7 @@
           <span class="badge badge-cancelled">Pendiente de firma</span>
         <?php endif ?>
         <span class="grow"></span>
-        <a class="btn btn-ghost btn-sm" href="<?= url('/recibos/' . $p['id'] . '/archivo') ?>" target="_blank" rel="noopener"><?= icon('file', 16) ?> Ver</a>
+        <a class="btn btn-ghost btn-sm" href="<?= url('/recibos/' . $p['id'] . '/archivo' . ($p['signed_drive_id'] ? '?firmado=1' : '')) ?>" target="_blank" rel="noopener"><?= icon('file', 16) ?> <?= $p['signed_drive_id'] ? 'Ver firmado' : 'Ver' ?></a>
         <a class="btn btn-ghost btn-sm" href="<?= url('/recibos/' . $p['id'] . '/archivo?descargar=1' . ($p['signed_drive_id'] ? '&firmado=1' : '')) ?>"><?= icon('download', 16) ?> Descargar</a>
         <?php if (!$p['signed_at']): ?>
           <form method="post" action="<?= url('/recibos/' . $p['id'] . '/firmar') ?>"><?= csrf_field() ?>

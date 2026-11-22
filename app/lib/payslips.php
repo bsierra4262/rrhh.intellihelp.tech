@@ -491,6 +491,15 @@ function payslip_stamp(string $original, array $lines): string
 {
     $tmp = tempnam(sys_get_temp_dir(), 'rec');
     file_put_contents($tmp, $original);
+    // Formato anterior del estudio (original y duplicado en la misma hoja, con «SON PESOS»): la
+    // firma va en el duplicado del trabajador, en la franja libre sobre «FIRMA DEL EMPLEADO».
+    // Formato actual: dentro del recuadro «FIRMA DEL EMPLEADO», bajo la leyenda «Recibí…».
+    try {
+        $old = (bool) preg_match('/SON\s*PESOS/', (new \Smalot\PdfParser\Parser())->parseFile($tmp)->getPages()[0]->getText());
+    } catch (Throwable) {
+        $old = false;
+    }
+    [$rx, $rw, $ry, $lh, $fs] = $old ? [0.765, 0.225, 0.858, 2.75, 5.8] : [0.735, 0.25, 0.893, 2.9, 6.2];
     $pdf = new \setasign\Fpdi\Fpdi();
     // El sello va cerca del borde inferior: sin salto de página automático.
     $pdf->SetAutoPageBreak(false);
@@ -501,13 +510,13 @@ function payslip_stamp(string $original, array $lines): string
         $pdf->AddPage($s['orientation'], [$s['width'], $s['height']]);
         $pdf->useTemplate($tpl);
         if ($i === 1) {
-            $x = $s['width'] * 0.735;
-            $y = $s['height'] * 0.893;
+            $x = $s['width'] * $rx;
+            $y = $s['height'] * $ry;
             $pdf->SetTextColor(61, 31, 92);
             foreach ($lines as $k => $line) {
-                $pdf->SetFont('Helvetica', $k === 2 ? 'B' : '', 6.2);
-                $pdf->SetXY($x, $y + $k * 2.9);
-                $pdf->Cell($s['width'] * 0.25, 2.9, mb_convert_encoding($line, 'Windows-1252', 'UTF-8'), 0, 0, 'C');
+                $pdf->SetFont('Helvetica', $k === 2 ? 'B' : '', $fs);
+                $pdf->SetXY($x, $y + $k * $lh);
+                $pdf->Cell($s['width'] * $rw, $lh, mb_convert_encoding($line, 'Windows-1252', 'UTF-8'), 0, 0, 'C');
             }
         }
     }
