@@ -766,7 +766,7 @@ body.modal-open { overflow: hidden; }
 .ui-swatch-btn:hover, .ui-swatch-btn:focus-visible { box-shadow: 0 0 0 2px #663399; outline: none; }
 
 /* Áreas y puestos */
-.inline-form { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+.inline-form { display: flex; flex-direction: row; align-items: flex-end; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
 .inline-form .field { margin: 0; }
 .inline-form .grow { flex: 1 1 240px; }
 .pos-list { list-style: none; margin: 16px 0 0; padding: 0; border-top: 1px solid var(--line); }
@@ -775,3 +775,24 @@ body.modal-open { overflow: hidden; }
 .pos-row input[name=name] { flex: 1; min-width: 0; border: 1px solid transparent; background: transparent; padding: 8px 10px; border-radius: 8px; font: inherit; color: var(--ink); }
 .pos-row input[name=name]:hover { border-color: var(--line); }
 .pos-row input[name=name]:focus { border-color: #9f88b1; background: #fff; outline: none; }
+
+/* Archivos */
+.ui-file { position: relative; }
+.ui-file .ui-trigger { border-style: dashed; min-height: 52px; }
+.ui-file.drag .ui-trigger, .ui-file .ui-trigger:hover { border-color: #663399; background: var(--primary-50); }
+.ui-file.has-files .ui-trigger { border-style: solid; }
+
+/* Recibos de sueldo */
+.payslip-list { display: grid; gap: 14px; }
+.payslip-head { display: flex; align-items: center; gap: 14px; }
+.payslip-head .grow { display: flex; flex-direction: column; }
+.payslip-net { text-align: right; display: flex; flex-direction: column; }
+.payslip-net small { color: var(--muted); font-size: 12px; }
+.payslip-net b { font-size: 20px; font-variant-numeric: tabular-nums; color: var(--primary-900); }
+.payslip-foot { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line-2); }
+.payslip-foot form { margin: 0; }
+.disagree { flex-basis: 100%; }
+.disagree[open] { margin-top: 4px; }
+.disagree > summary { list-style: none; display: inline-flex; }
+.disagree > summary::-webkit-details-marker { display: none; }
+.disagree form { margin-top: 12px; }

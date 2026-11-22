@@ -96,6 +96,8 @@ $catOther = $cat !== '' && !in_array($cat, $catList, true);
       </select>
       <input name="position_otro" id="fPosOther" value="<?= e($posOther ? $pos : '') ?>" maxlength="120" placeholder="Escribí el puesto" <?= $posOther ? '' : 'hidden' ?>>
     </label>
+    <label class="field"><span>CUIL</span><input name="cuil" value="<?= e((string) $v('cuil')) ?>" data-cuil placeholder="20-12345678-9" inputmode="numeric" maxlength="13"><small class="muted">Identifica sus recibos de sueldo. Se completa solo con el primer recibo.</small></label>
+    <label class="field"><span>N.º de legajo</span><input name="legajo_nro" value="<?= e((string) $v('legajo_nro')) ?>" maxlength="20" placeholder="El del recibo de sueldo"></label>
     <label class="field"><span>Celular (WhatsApp)</span><input name="phone" value="<?= e(fphone($v('phone'))) ?>" placeholder="+54 9 11 1234-5678" inputmode="tel"></label>
     <label class="field"><span>Fecha de ingreso</span><input type="date" name="hire_date" value="<?= e($v('hire_date')) ?>"><small class="muted">Define los días de vacaciones por antigüedad (LCT).</small></label>
     <label class="field"><span>Fecha de egreso</span><input type="date" name="exit_date" value="<?= e($v('exit_date')) ?>"><small class="muted">Solo al terminar la relación laboral: calcula las vacaciones a liquidar.</small></label>

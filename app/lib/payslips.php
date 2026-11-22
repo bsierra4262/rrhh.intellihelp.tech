@@ -1,0 +1,419 @@
+<?php
+
+/**
+ * Portal de Recursos Humanos — Intellihelp
+ *
+ * Recibos de sueldo: carga, identificación, guardado en el legajo y firma de conformidad.
+ *
+ * Toma los recibos tal como los emite el estudio contable (un PDF por persona, como
+ * «20.Junio 2026 Brian Sierra.pdf», o uno con todos los del mes). De cada página lee legajo,
+ * apellido y nombre, CUIL, período, fecha de pago y neto; identifica a la persona por su CUIL (o
+ * por su nombre la primera vez, y entonces le guarda el CUIL en la ficha) y guarda el recibo en
+ * su legajo electrónico: LEGAJOS ELECTRONICOS / grupo / NOMBRE / Recibos de Sueldo / AAAA.
+ *
+ * La persona firma su conformidad (o disconformidad, con un comentario) desde «Mis recibos»
+ * (LCT arts. 138 a 146): el portal estampa la firma electrónica en el recuadro «FIRMA DEL
+ * EMPLEADO» con fecha, hora y el código del archivo original, y guarda la copia firmada junto al
+ * original.
+ *
+ * @author    Brian Gabriel Sierra <bsierra@intellihelp.tech>
+ * @copyright 2026 Intellihelp
+ */
+
+declare(strict_types=1);
+
+const PAYSLIP_KINDS = [
+    'mensual' => 'Sueldo mensual',
+    'sac1' => '1er aguinaldo',
+    'sac2' => '2do aguinaldo',
+    'final' => 'Liquidación final',
+    'vacaciones' => 'Vacaciones',
+    'otro' => 'Otro',
+];
+
+/**
+ * Indica si «Mis recibos» está habilitado para la persona: por ahora, solo administradores,
+ * salvo que se habilite para todo el personal en Configuración.
+ */
+function payslips_enabled_for(?array $user): bool
+{
+    return $user && ($user['role'] === 'admin' || setting('payslips_employees') === '1');
+}
+
+/**
+ * CUIL con formato 20-12345678-9, o null si no es válido (dígito verificador incluido).
+ */
+function normalize_cuil(?string $cuil): ?string
+{
+    $d = preg_replace('/\D/', '', (string) $cuil);
+    if (strlen($d) !== 11) {
+        return null;
+    }
+    $w = [5, 4, 3, 2, 7, 6, 5, 4, 3, 2];
+    $sum = 0;
+    for ($i = 0; $i < 10; $i++) {
+        $sum += (int) $d[$i] * $w[$i];
+    }
+    $check = 11 - ($sum % 11);
+    $check = $check === 11 ? 0 : ($check === 10 ? 9 : $check);
+    if ($check !== (int) $d[10]) {
+        return null;
+    }
+
+    return substr($d, 0, 2) . '-' . substr($d, 2, 8) . '-' . substr($d, 10);
+}
+
+/**
+ * Importe en formato argentino («1.001.088,00») como número.
+ */
+function parse_amount(string $s): float
+{
+    return (float) str_replace(['.', ','], ['', '.'], $s);
+}
+
+/**
+ * Datos de un recibo a partir del texto de su página.
+ *
+ * Reconoce los dos formatos que emitió el estudio contable: el actual (un recibo por página, con
+ * «TOTAL NETO») y el anterior (original y duplicado en la misma página, con «SON PESOS»). Busca
+ * cada dato por su forma y no por su posición.
+ *
+ * @return array{cuil: ?string, legajo: ?string, name: ?string, pay_date: ?string, period_text: ?string, period: ?string, kind: string, label: ?string, net: ?float}
+ */
+function payslip_parse(string $text): array
+{
+    $t = preg_replace('/\s+/u', ' ', $text);
+    $out = ['cuil' => null, 'legajo' => null, 'name' => null, 'pay_date' => null, 'period_text' => null, 'period' => null, 'kind' => 'otro', 'label' => null, 'net' => null];
+    $L = 'A-ZÁÉÍÓÚÜÑ\'';
+    // CUIL de la persona (el CUIT de la empresa empieza con 30, 33 o 34).
+    if (preg_match_all('/(?<!\d)(\d{2})-(\d{8})-(\d)(?!\d)/', $t, $m, PREG_SET_ORDER)) {
+        foreach ($m as $c) {
+            if (!in_array($c[1], ['30', '33', '34'], true) && ($cuil = normalize_cuil($c[0]))) {
+                $out['cuil'] = $cuil;
+                break;
+            }
+        }
+    }
+    // Formato actual: «29 SIERRA, BRIAN GABRIEL 20-44334910-4».
+    if (preg_match("/(?<![\d.,])(\d{1,5})\s+([$L ]+,\s*[$L ]+?)\s+\d{2}-\d{8}-\d/u", $t, $m)) {
+        $out['legajo'] = $m[1];
+        $out['name'] = trim($m[2]);
+    } elseif (preg_match("/([$L][$L ]*,\s*[$L ]+?)\s*\d{1,2}\/\d{1,2}\/\d{4}\s*FECHA\s*DE\s*INGRESO/u", $t, $m)) {
+        // Formato anterior: «SIERRA, BRIAN GABRIEL 9/1/2024 FECHA DE INGRESO … PERÍODO DE PAGO: 5 632.000,00».
+        $out['name'] = trim($m[1]);
+        if (preg_match('/PER[IÍ]ODO\s*DE\s*PAGO:\s+(\d{1,5})\s+\d/u', $t, $mm)) {
+            $out['legajo'] = $mm[1];
+        }
+    }
+    // Período: «MES DE JUNIO 2026», «1º AGUINALDO 2026», liquidación final o vacaciones.
+    if (preg_match('/MES\s*DE\s*([A-ZÁÉÍÓÚ]+?)\s*(\d{4})/u', $t, $m) && ($mi = array_search(mb_strtolower($m[1]), MESES, true))) {
+        $out['period_text'] = $m[0];
+        $out['kind'] = 'mensual';
+        $out['period'] = sprintf('%s-%02d', $m[2], $mi);
+        $out['label'] = ucfirst(MESES[$mi]) . ' ' . $m[2];
+    } elseif (preg_match('/([12])\s*\S{0,2}\s*AGUINALDO\s*(\d{4})/u', $t, $m)) {
+        $out['period_text'] = $m[0];
+        $out['kind'] = $m[1] === '1' ? 'sac1' : 'sac2';
+        $out['period'] = $m[2] . ($m[1] === '1' ? '-06' : '-12');
+        $out['label'] = ($m[1] === '1' ? '1er' : '2do') . ' Aguinaldo ' . $m[2];
+    } elseif (preg_match('/(LIQUIDACI[OÓ]N FINAL|VACACIONES)[^0-9]{0,20}(\d{4})/u', $t, $m)) {
+        $out['period_text'] = $m[0];
+        $out['kind'] = str_starts_with($m[1], 'LIQ') ? 'final' : 'vacaciones';
+        $out['label'] = ($out['kind'] === 'final' ? 'Liquidación final ' : 'Vacaciones ') . $m[2];
+    }
+    // Fecha de pago: la que acompaña a «FECHA DE PAGO» (actual) o «LUGAR Y FECHA DE PAGO» (anterior).
+    if (preg_match('#(\d{2})/(\d{2})/(\d{4})\s*(?:' . preg_quote((string) $out['period_text'], '#') . '|Sin\s*lugar\s*de\s*pago|LUGAR\s*Y\s*FECHA\s*DE\s*PAGO)#u', $t, $m)) {
+        $out['pay_date'] = "$m[3]-$m[2]-$m[1]";
+    }
+    if (!$out['period'] && $out['pay_date'] && $out['kind'] !== 'otro') {
+        $out['period'] = substr($out['pay_date'], 0, 7);
+    }
+    // Neto: «SON PESOS: 524.560,00» (anterior) o, en el actual, el importe de los totales que cumple
+    // remunerativo + no remunerativo − descuentos (el mayor, si hay más de uno).
+    if (preg_match('/SON PESOS:\s*(\d{1,3}(?:\.\d{3})*,\d{2})/u', $t, $m)) {
+        $out['net'] = parse_amount($m[1]);
+    } elseif (($a = strpos($t, 'IMPORTE EN LETRAS')) !== false && ($b = strpos($t, 'TOTAL NETO', $a)) !== false) {
+        preg_match_all('/\d{1,3}(?:\.\d{3})*,\d{2}/', substr($t, $a, $b - $a), $mm);
+        $v = array_map('parse_amount', $mm[0]);
+        if ($v) {
+            // El mayor de los totales es el remunerativo; se busca no remunerativo, descuentos y neto.
+            $r = array_search(max($v), $v, true);
+            $n = count($v);
+            for ($j = 0; $j < $n; $j++) {
+                for ($k = 0; $k < $n; $k++) {
+                    for ($l = 0; $l < $n; $l++) {
+                        if (count(array_unique([$r, $j, $k, $l])) === 4 && $v[$l] > 0 && abs($v[$r] + $v[$j] - $v[$k] - $v[$l]) < 0.02 && $v[$l] > (float) $out['net']) {
+                            $out['net'] = $v[$l];
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    return $out;
+}
+
+/**
+ * Persona a la que corresponde un recibo: por CUIL o, si todavía no lo tiene cargado, por nombre.
+ */
+function payslip_match_user(array $data): ?array
+{
+    if ($data['cuil'] && ($u = row('SELECT * FROM users WHERE cuil = ?', [$data['cuil']]))) {
+        return $u;
+    }
+    if (!$data['name']) {
+        return null;
+    }
+    // «SIERRA, BRIAN GABRIEL» contra «Brian Gabriel Sierra»: todas las palabras de uno en el otro.
+    // Algunos recibos traen el nombre sin espacios («SIERRA,BRIANGABRIEL»): se comparan las letras.
+    $compact = str_replace(' ', '', legajo_norm($data['name']));
+    $glued = fn (array $u) => ($w = array_filter(explode(' ', legajo_norm($u['name'])))) && strlen(implode('', $w)) === strlen($compact)
+        && !array_filter($w, fn ($x) => !str_contains($compact, $x));
+    $candidates = array_filter(rows('SELECT * FROM users WHERE cuil IS NULL'), fn ($u) => legajo_name_match(str_replace(',', ' ', $data['name']), $u['name']) || $glued($u));
+
+    return count($candidates) === 1 ? array_values($candidates)[0] : null;
+}
+
+/**
+ * Separa un PDF en recibos: cada página (o páginas seguidas del mismo CUIL) es un recibo.
+ *
+ * @return array<int, array{pages: int[], data: array}>
+ */
+function payslip_split(string $path): array
+{
+    $pages = (new \Smalot\PdfParser\Parser())->parseFile($path)->getPages();
+    $groups = [];
+    foreach ($pages as $i => $page) {
+        $data = payslip_parse($page->getText());
+        $last = $groups ? count($groups) - 1 : null;
+        // Original y duplicado del mismo recibo, o un recibo de más de una página: van juntos.
+        if ($last !== null && $data['cuil'] && $groups[$last]['data']['cuil'] === $data['cuil'] && $groups[$last]['data']['period_text'] === $data['period_text']) {
+            $groups[$last]['pages'][] = $i + 1;
+        } else {
+            $groups[] = ['pages' => [$i + 1], 'data' => $data];
+        }
+    }
+
+    return $groups;
+}
+
+/**
+ * PDF con algunas páginas de otro PDF.
+ */
+function pdf_pages(string $path, array $pages): string
+{
+    $pdf = new \setasign\Fpdi\Fpdi();
+    $pdf->setSourceFile($path);
+    foreach ($pages as $n) {
+        $tpl = $pdf->importPage($n);
+        $s = $pdf->getTemplateSize($tpl);
+        $pdf->AddPage($s['orientation'], [$s['width'], $s['height']]);
+        $pdf->useTemplate($tpl);
+    }
+
+    return $pdf->Output('S');
+}
+
+/**
+ * Carpeta de recibos del año dentro del legajo de la persona (la existente o «Recibos de Sueldo»).
+ */
+function payslip_folder(array $user, string $year, ?string &$error = null): ?string
+{
+    $leg = legajo_of($user);
+    if (!$leg) {
+        return null;
+    }
+    $recibos = null;
+    foreach (drive_list($leg['id'], "mimeType = '" . DRIVE_FOLDER_MIME . "'") as $f) {
+        if (str_starts_with(legajo_norm($f['name']), 'RECIBOS')) {
+            $recibos = $f['id'];
+            break;
+        }
+    }
+    $recibos ??= drive_folder('Recibos de Sueldo', $leg['id'], $error);
+
+    return $recibos ? drive_folder($year, $recibos, $error) : null;
+}
+
+/**
+ * Carpeta de LIQUIDACIONES del mes para los recibos que todavía no tienen persona asignada.
+ */
+function payslip_unassigned_folder(string $period, ?string &$error = null): ?string
+{
+    $month = liquidaciones_month_folder($period . '-01', $error);
+
+    return $month ? drive_folder('Recibos sin asignar', $month, $error) : null;
+}
+
+/**
+ * Registra un recibo y lo guarda en Drive (en el legajo de la persona o, sin persona, en LIQUIDACIONES).
+ *
+ * @return array{0: ?int, 1: string} ID del recibo y mensaje.
+ */
+function payslip_store(string $content, array $data, string $fileName, ?array $user, int $uploadedBy): array
+{
+    $hash = hash('sha256', $content);
+    if ($dup = row('SELECT id FROM payslips WHERE sha256 = ?', [$hash])) {
+        return [null, "«{$fileName}»: ya estaba cargado (recibo #{$dup['id']})."];
+    }
+    if (!$data['period']) {
+        return [null, "«{$fileName}»: no se reconoce el período del recibo."];
+    }
+    if ($user && ($prev = row("SELECT id, signed_at FROM payslips WHERE user_id = ? AND period = ? AND kind = ?", [$user['id'], $data['period'], $data['kind']]))) {
+        if ($prev['signed_at']) {
+            return [null, "«{$fileName}»: {$user['name']} ya firmó el recibo de {$data['label']}. Para reemplazarlo, eliminalo primero."];
+        }
+    }
+    $err = null;
+    $folder = $user ? payslip_folder($user, substr($data['period'], 0, 4), $err) : null;
+    $folder ??= payslip_unassigned_folder($data['period'], $err);
+    if (!$folder) {
+        return [null, "«{$fileName}»: no se pudo guardar en Drive. " . $err];
+    }
+    $file = drive_put($content, 'application/pdf', $fileName, $folder, $err);
+    if (!$file) {
+        return [null, "«{$fileName}»: no se pudo guardar en Drive. " . $err];
+    }
+    if (!empty($prev)) {
+        $old = row('SELECT drive_id FROM payslips WHERE id = ?', [$prev['id']]);
+        if ($old['drive_id'] !== $file['id']) {
+            drive_delete($old['drive_id']);
+        }
+        q('DELETE FROM payslips WHERE id = ?', [$prev['id']]);
+    }
+    $id = insert('payslips', [
+        'user_id' => $user['id'] ?? null,
+        'period' => $data['period'],
+        'kind' => $data['kind'],
+        'label' => mb_substr((string) $data['label'], 0, 80),
+        'cuil' => $data['cuil'],
+        'legajo' => $data['legajo'],
+        'employee_name' => $data['name'],
+        'pay_date' => $data['pay_date'],
+        'net' => $data['net'],
+        'file_name' => mb_substr($fileName, 0, 190),
+        'drive_id' => $file['id'],
+        'sha256' => $hash,
+        'uploaded_by' => $uploadedBy,
+    ]);
+    // La primera vez que se identifica a la persona por su nombre, se le guarda el CUIL y el legajo.
+    if ($user) {
+        $sync = [];
+        if (empty($user['cuil']) && $data['cuil']) {
+            $sync['cuil'] = $data['cuil'];
+        }
+        // El número de legajo es el del recibo más reciente (cambia si cambió el sistema de liquidación).
+        if ($data['legajo'] && $data['legajo'] !== ($user['legajo_nro'] ?? null)
+            && !val('SELECT 1 FROM payslips WHERE user_id = ? AND period > ?', [$user['id'], $data['period']])) {
+            $sync['legajo_nro'] = $data['legajo'];
+        }
+        if ($sync) {
+            update('users', (int) $user['id'], $sync);
+        }
+    }
+
+    return [$id, $user ? "«{$fileName}»: {$data['label']} de {$user['name']}." : "«{$fileName}»: {$data['label']} sin asignar ({$data['name']}, CUIL {$data['cuil']})."];
+}
+
+/**
+ * Procesa los archivos subidos: separa los recibos, identifica a cada persona y los guarda.
+ *
+ * @return array{ok: string[], errors: string[]}
+ */
+function payslips_import(array $files, int $uploadedBy): array
+{
+    $res = ['ok' => [], 'errors' => []];
+    $count = is_array($files['name'] ?? null) ? count($files['name']) : 0;
+    for ($i = 0; $i < $count; $i++) {
+        $name = basename((string) $files['name'][$i]);
+        $tmp = $files['tmp_name'][$i];
+        if ($files['error'][$i] !== UPLOAD_ERR_OK || !is_uploaded_file($tmp)) {
+            $res['errors'][] = "«{$name}»: no se pudo subir el archivo.";
+            continue;
+        }
+        if ((new finfo(FILEINFO_MIME_TYPE))->file($tmp) !== 'application/pdf') {
+            $res['errors'][] = "«{$name}»: no es un PDF.";
+            continue;
+        }
+        try {
+            $groups = payslip_split($tmp);
+        } catch (Throwable $e) {
+            $res['errors'][] = "«{$name}»: no se pudo leer el PDF.";
+            log_line('payslips.log', "Error al leer $name: " . $e->getMessage());
+            continue;
+        }
+        $single = count($groups) === 1;
+        foreach ($groups as $g) {
+            $user = payslip_match_user($g['data']);
+            // Un recibo por archivo conserva el nombre del estudio; si venían varios, se nombra cada uno.
+            $fileName = $single ? $name : trim(($g['data']['label'] ?: 'Recibo') . ' ' . ($user['name'] ?? $g['data']['name'] ?? '')) . '.pdf';
+            $content = $single ? (string) file_get_contents($tmp) : pdf_pages($tmp, $g['pages']);
+            [$id, $msg] = payslip_store($content, $g['data'], $fileName, $user, $uploadedBy);
+            $res[$id ? 'ok' : 'errors'][] = $msg;
+        }
+    }
+
+    return $res;
+}
+
+/**
+ * Firma de la persona: estampa la firma electrónica en el recuadro «FIRMA DEL EMPLEADO» de la
+ * primera página y guarda la copia firmada junto al original.
+ */
+function payslip_sign(array $p, array $user, bool $agree, string $comment, ?string &$error = null): bool
+{
+    $original = drive_download($p['drive_id'], $error);
+    if ($original === null || hash('sha256', $original) !== $p['sha256']) {
+        $error = $error ?: 'El archivo del recibo no coincide con el cargado.';
+
+        return false;
+    }
+    $tmp = tempnam(sys_get_temp_dir(), 'rec');
+    file_put_contents($tmp, $original);
+    $when = date('d/m/Y H:i');
+    $lines = [
+        'Firmado electrónicamente en el Portal de RRHH',
+        mb_strtoupper($user['name']) . ($user['cuil'] ? ' · CUIL ' . $user['cuil'] : ''),
+        $when . ' · ' . ($agree ? 'CONFORME' : 'EN DISCONFORMIDAD'),
+        'Código de verificación: ' . strtoupper(substr($p['sha256'], 0, 16)),
+    ];
+    $pdf = new \setasign\Fpdi\Fpdi();
+    // El sello va cerca del borde inferior: sin salto de página automático.
+    $pdf->SetAutoPageBreak(false);
+    $n = $pdf->setSourceFile($tmp);
+    for ($i = 1; $i <= $n; $i++) {
+        $tpl = $pdf->importPage($i);
+        $s = $pdf->getTemplateSize($tpl);
+        $pdf->AddPage($s['orientation'], [$s['width'], $s['height']]);
+        $pdf->useTemplate($tpl);
+        if ($i === 1) {
+            // Recuadro «FIRMA DEL EMPLEADO» (abajo a la derecha del recibo apaisado): entre la leyenda
+            // «Recibí el importe neto…» y la línea de firma.
+            $x = $s['width'] * 0.735;
+            $y = $s['height'] * 0.893;
+            $pdf->SetTextColor(61, 31, 92);
+            foreach ($lines as $k => $line) {
+                $pdf->SetFont('Helvetica', $k === 2 ? 'B' : '', 6.2);
+                $pdf->SetXY($x, $y + $k * 2.9);
+                $pdf->Cell($s['width'] * 0.25, 2.9, mb_convert_encoding($line, 'Windows-1252', 'UTF-8'), 0, 0, 'C');
+            }
+        }
+    }
+    @unlink($tmp);
+    $signed = $pdf->Output('S');
+    $folder = json_decode(drive_request('GET', 'https://www.googleapis.com/drive/v3/files/' . rawurlencode($p['drive_id']) . '?fields=parents&supportsAllDrives=true')[1], true)['parents'][0] ?? null;
+    $name = preg_replace('/\.pdf$/i', '', $p['file_name']) . ' (firmado).pdf';
+    $file = $folder ? drive_put($signed, 'application/pdf', $name, $folder, $error) : null;
+    if (!$file) {
+        $error = $error ?: 'No se pudo guardar la copia firmada en Drive.';
+
+        return false;
+    }
+    q('UPDATE payslips SET signed_at = NOW(), sign_status = ?, sign_comment = ?, sign_ip = ?, sign_agent = ?, signed_drive_id = ? WHERE id = ? AND signed_at IS NULL', [
+        $agree ? 'conforme' : 'disconforme', $comment ?: null, $_SERVER['REMOTE_ADDR'] ?? null,
+        mb_substr((string) ($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 255), $file['id'], $p['id'],
+    ]);
+
+    return true;
+}

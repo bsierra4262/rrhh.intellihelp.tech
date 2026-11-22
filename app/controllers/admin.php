@@ -87,6 +87,8 @@ function admin_user_save(int $id = 0): void
         'company' => mb_substr(post('company'), 0, 120) ?: null,
         'position' => catalog_value('position'),
         'phone' => normalize_phone(post('phone')),
+        'cuil' => normalize_cuil(post('cuil')),
+        'legajo_nro' => mb_substr(trim(post('legajo_nro')), 0, 20) ?: null,
         'hire_date' => valid_date(post('hire_date')) ? post('hire_date') : null,
         'exit_date' => valid_date(post('exit_date')) ? post('exit_date') : null,
         'cct' => catalog_value('cct', 20),
@@ -97,6 +99,14 @@ function admin_user_save(int $id = 0): void
         'vacation_override_year' => post('vacation_days_override') === '' ? null : (int) date('Y'),
         'active' => isset($_POST['active']) ? 1 : 0,
     ];
+    if (post('cuil') !== '' && $data['cuil'] === null) {
+        flash('error', 'El CUIL no es válido: revisá los 11 números (el último es el dígito verificador).');
+        redirect($back);
+    }
+    if ($data['cuil'] && val('SELECT id FROM users WHERE cuil = ? AND id <> ?', [$data['cuil'], $id])) {
+        flash('error', 'Ya hay otra persona con ese CUIL.');
+        redirect($back);
+    }
     if ($data['cct'] !== null && !preg_match('#^\d{1,4}/\d{2}( E)?$#', $data['cct'])) {
         flash('error', 'El número de convenio tiene que tener el formato oficial: número/año, por ejemplo 130/75.');
         redirect($back);
@@ -380,7 +390,7 @@ function admin_holidays_sync(): void
  */
 const SETTING_KEYS = ['company_name', 'hr_email', 'mail_driver', 'mail_from', 'mail_from_name', 'smtp_host', 'smtp_port', 'smtp_secure', 'smtp_user', 'smtp_pass',
     'wa_driver', 'wa_cloud_token', 'wa_cloud_phone_id', 'wa_cloud_template', 'wa_cloud_lang', 'reminder_hours',
-    'wa_gw_url', 'wa_gw_key', 'wa_gw_instance', 'gchat_webhook', 'default_approver_id', 'signup_enabled', 'signup_domain',
+    'wa_gw_url', 'wa_gw_key', 'wa_gw_instance', 'gchat_webhook', 'default_approver_id', 'signup_enabled', 'signup_domain', 'payslips_employees',
     'event_email', 'gcal_calendar_id', 'gcal_sa_json', 'support_email', 'ai_smtp_user', 'ai_smtp_pass', 'gcal_impersonate', 'drive_root_folder', 'drive_rrhh_folder', 'drive_legajos_folder', 'drive_liquidaciones_folder',
     'google_client_id', 'google_client_secret', 'vacation_contacts'];
 
@@ -430,6 +440,9 @@ function admin_settings_save(): void
         save_setting($k, $v);
     }
     save_setting('signup_enabled', isset($_POST['signup_enabled']) ? '1' : '0');
+    if (has_role('admin')) {
+        save_setting('payslips_employees', isset($_POST['payslips_employees']) ? '1' : '0');
+    }
     flash('success', 'Configuración guardada.');
     redirect('/admin/configuracion');
 }

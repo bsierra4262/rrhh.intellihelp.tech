@@ -19,3 +19,8 @@ client_secret*.json
 # Copias de la carpeta de RRHH de Drive (datos personales: nunca se versionan)
 *.zip
 RRHH-*/
+
+# Archivos privados: credenciales, copias de Drive y recibos de sueldo (nunca se versionan)
+/privado/
+*.pdf
+!docs/**/*.pdf

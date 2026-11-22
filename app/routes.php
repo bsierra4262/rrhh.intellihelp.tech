@@ -19,6 +19,7 @@ require APP_ROOT . '/controllers/requests.php';
 require APP_ROOT . '/controllers/calendar.php';
 require APP_ROOT . '/controllers/profile.php';
 require APP_ROOT . '/controllers/admin.php';
+require APP_ROOT . '/controllers/payslips.php';
 require APP_ROOT . '/controllers/reports.php';
 
 $routes = [
@@ -78,6 +79,13 @@ $routes = [
     ['GET',  '/admin/tipos', 'admin_types'],
     ['POST', '/admin/tipos', 'admin_types_save'],
     ['GET',  '/admin/areas', 'admin_areas'],
+    ['GET',  '/admin/recibos', 'admin_payslips'],
+    ['POST', '/admin/recibos', 'admin_payslips_upload'],
+    ['POST', '/admin/recibos/(\d+)/asignar', 'admin_payslip_assign'],
+    ['POST', '/admin/recibos/(\d+)/eliminar', 'admin_payslip_delete'],
+    ['GET',  '/recibos', 'my_payslips'],
+    ['GET',  '/recibos/(\d+)/archivo', 'payslip_file'],
+    ['POST', '/recibos/(\d+)/firmar', 'payslip_sign_action'],
     ['POST', '/admin/areas', 'admin_areas_save'],
     ['GET',  '/admin/feriados', 'admin_holidays'],
     ['POST', '/admin/feriados', 'admin_holidays_save'],

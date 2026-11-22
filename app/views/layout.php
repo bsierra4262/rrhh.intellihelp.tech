@@ -12,6 +12,9 @@ $nav = [
     ['/solicitudes', 'list', 'Mis solicitudes', 0],
     ['/calendario', 'calendar', 'Calendario', 0],
 ];
+if (payslips_enabled_for($me)) {
+    $nav[] = ['/recibos', 'file', 'Mis recibos', 0];
+}
 if (is_approver()) {
     $nav[] = ['/aprobaciones', 'check-circle', 'Por autorizar', $pendingN];
     $nav[] = ['/equipo', 'users', is_hr() ? 'Todas las licencias' : 'Mi equipo', 0];
@@ -57,6 +60,7 @@ foreach (rows('SELECT date, name, region FROM holidays WHERE date BETWEEN ? AND 
         <a href="<?= url('/admin/usuarios') ?>" class="<?= trim($active('/admin/usuarios')) ?>"><?= icon('user') ?><span>Personas</span><?php if ($pendAcc): ?><em class="count"><?= $pendAcc ?></em><?php endif ?></a>
         <?php if (has_role('admin')): ?>
           <a href="<?= url('/admin/reportes') ?>" class="<?= trim($active('/admin/reportes')) ?>"><?= icon('chart') ?><span>Reportes</span></a>
+          <a href="<?= url('/admin/recibos') ?>" class="<?= trim($active('/admin/recibos')) ?>"><?= icon('file') ?><span>Recibos de sueldo</span></a>
         <?php endif ?>
         <a href="<?= url('/admin/tipos') ?>" class="<?= trim($active('/admin/tipos')) ?>"><?= icon('tag') ?><span>Tipos de licencia</span></a>
         <a href="<?= url('/admin/areas') ?>" class="<?= trim($active('/admin/areas')) ?>"><?= icon('users') ?><span>Áreas y puestos</span></a>

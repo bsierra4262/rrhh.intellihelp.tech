@@ -139,6 +139,22 @@ El portal encuentra el **legajo electrónico** de cada persona en la carpeta de 
   </tr>
 </table>
 
+### Recibos de sueldo
+
+Los recibos se cargan tal como los emite el estudio contable: un PDF por persona (por ejemplo, «20.Junio 2026 Brian Sierra.pdf») o el archivo del mes con todos. El portal reconoce el formato actual y el anterior y lee de cada uno el CUIL, el nombre, el legajo, el período (mes, aguinaldo, liquidación final), la fecha de pago y el neto. Identifica a la persona por su CUIL (la primera vez, por su nombre, y le completa el CUIL y el legajo en la ficha) y guarda el recibo en su legajo electrónico (`Recibos de Sueldo / año`); los que no puede identificar quedan para asignar a mano.
+
+En **Mis recibos** cada persona ve, descarga y firma sus recibos de conformidad o en disconformidad, con el motivo (LCT arts. 138 a 146). El portal estampa la firma electrónica en el recuadro «FIRMA DEL EMPLEADO», con fecha, hora y código de verificación del archivo original, y guarda la copia firmada junto al original. **En prueba:** por ahora «Mis recibos» lo ven solo los administradores; se habilita para todo el personal desde Configuración.
+
+<table>
+  <tr>
+    <td width="50%"><b>Carga y control (administradores)</b><br><img src="docs/screenshots/recibos-admin.png" alt="Recibos de sueldo"></td>
+    <td width="50%"><b>Mis recibos</b><br><img src="docs/screenshots/mis-recibos.png" alt="Mis recibos"></td>
+  </tr>
+  <tr>
+    <td colspan="2"><b>Recibo firmado electrónicamente (recibo ficticio)</b><br><img src="docs/screenshots/recibo-firmado.png" alt="Recibo firmado"></td>
+  </tr>
+</table>
+
 ### Áreas y puestos
 
 <table>
@@ -220,6 +236,8 @@ Cada persona agrega sus calendarios de licencias en un clic: uno con las **autor
 - **Formatos unificados**: teléfonos en formato internacional (`+54 9 11 5769-0543`) y nombres con mayúsculas iniciales, sin importar cómo se escriban o peguen.
 - **Autoregistro** de colaboradores: los correos del dominio corporativo se activan solos; los de **personal tercerizado** quedan pendientes de aprobación por RRHH.
 - Cuentas sin confirmar: **reenvío del correo de confirmación** (también desde «¿La olvidaste?»), habilitación con contraseña temporal y eliminación de registros duplicados o con el correo mal escrito.
+- **Recibos de sueldo** (en prueba, solo administradores): carga de los PDF del estudio contable, identificación por CUIL, guardado en el legajo electrónico y firma de conformidad con sello en el recibo.
+- **CUIL y N.º de legajo** en la ficha, con el formato oficial y validación del dígito verificador.
 - **Áreas y puestos** configurables (CNO-17 del INDEC y CIUO-08 de la OIT), con opción de escribir otro en la ficha.
 - **Tipos de licencia** configurables: autorización, documentación obligatoria y su plazo de entrega, topes, forma de conteo, regla del fin de semana, descuento de vacaciones y color.
 - **Reportes** (solo administradores): exportación a Excel de las licencias que impactan en vacaciones y envío mensual automático a una o más casillas.
@@ -290,6 +308,7 @@ Aplicación **PHP 8.3 sin framework**, pensada para hosting compartido: sin proc
 │   │   ├── reports.php     # Reportes de vacaciones en Excel y envío mensual
 │   │   ├── legajos.php     # Legajos electrónicos, egresos y carpetas de RRHH en Drive
 │   │   ├── catalogs.php    # Áreas, puestos, convenios colectivos y categorías
+│   │   ├── payslips.php    # Recibos de sueldo: lectura, legajo y firma
 │   │   ├── mailer.php      # Envío SMTP y plantilla de email
 │   │   ├── gchat.php       # Notificaciones a Google Chat
 │   │   ├── http.php        # Cliente HTTP (cURL)

@@ -26,6 +26,9 @@
     <div class="card-head"><h2><?= icon('users') ?> Registro de colaboradores</h2></div>
     <div class="form-grid">
       <label class="switch span-2"><input type="checkbox" name="signup_enabled" <?= $s['signup_enabled'] === '1' ? 'checked' : '' ?>><span></span> Permitir que los colaboradores creen su cuenta desde la pantalla de ingreso</label>
+      <?php if (has_role('admin')): ?>
+      <label class="switch span-2"><input type="checkbox" name="payslips_employees" <?= ($s['payslips_employees'] ?? '0') === '1' ? 'checked' : '' ?>><span></span> Mostrar «Mis recibos» a todo el personal (hoy solo lo ven los administradores, en prueba)</label>
+      <?php endif ?>
       <label class="field span-2"><span>Dominios de confianza (se aprueban solos)</span><input name="signup_domain" value="<?= e($s['signup_domain'] ?: 'intellihelp.tech') ?>" placeholder="intellihelp.tech, intellihelp.com.ar"><small class="muted">Separados por coma. Cualquier otro correo (personal tercerizado) puede registrarse, pero queda pendiente hasta que RRHH apruebe el acceso. Todos los correos se validan con un enlace.</small></label>
     </div>
   </section>

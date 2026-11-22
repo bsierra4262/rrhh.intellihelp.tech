@@ -455,6 +455,48 @@
     input.addEventListener('paste', () => setTimeout(fix, 0));
   });
 
+  // CUIL siempre como 20-12345678-9, se escriba o se pegue como sea.
+  document.querySelectorAll('input[data-cuil]').forEach((input) => {
+    const fix = () => {
+      const d = input.value.replace(/\D/g, '').slice(0, 11);
+      input.value = d.length > 10 ? d.slice(0, 2) + '-' + d.slice(2, 10) + '-' + d.slice(10) : (d.length > 2 ? d.slice(0, 2) + '-' + d.slice(2) : d);
+    };
+    fix();
+    input.addEventListener('input', fix);
+  });
+
+  // Selector de archivos con diseño propio: botón y lista de archivos elegidos.
+  document.querySelectorAll('input[type=file]').forEach((input) => {
+    const wrap = document.createElement('div');
+    wrap.className = 'ui-file';
+    input.parentNode.insertBefore(wrap, input);
+    wrap.appendChild(input);
+    input.classList.add('ui-native');
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'ui-trigger';
+    const show = () => {
+      const files = [...input.files];
+      btn.innerHTML = '<span class="ui-value">' + (files.length
+        ? (files.length === 1 ? files[0].name : files.length + ' archivos: ' + files.slice(0, 3).map((f) => f.name).join(', ') + (files.length > 3 ? '…' : ''))
+        : (input.multiple ? 'Elegir archivos o arrastrarlos acá' : 'Elegir archivo')) + '</span><span class="ui-chev">' + chevron + '</span>';
+      wrap.classList.toggle('has-files', files.length > 0);
+    };
+    btn.addEventListener('click', () => input.click());
+    input.addEventListener('change', () => { show(); input.dispatchEvent(new Event('input', { bubbles: true })); });
+    ['dragover', 'dragenter'].forEach((ev) => wrap.addEventListener(ev, (e) => { e.preventDefault(); wrap.classList.add('drag'); }));
+    ['dragleave', 'drop'].forEach((ev) => wrap.addEventListener(ev, () => wrap.classList.remove('drag')));
+    wrap.addEventListener('drop', (e) => {
+      e.preventDefault();
+      if (e.dataTransfer?.files?.length) {
+        input.files = e.dataTransfer.files;
+        show();
+      }
+    });
+    wrap.appendChild(btn);
+    show();
+  });
+
   // Selector de color con diseño propio (muestras predefinidas) en lugar de la paleta del sistema.
   const SWATCHES = ['#663399', '#9f88b1', '#7d6b91', '#3d1f5c', '#2E86AB', '#00897B', '#e0a100', '#8C6A4F', '#D1495B', '#C2185B', '#B71C1C', '#455A64'];
   document.querySelectorAll('input[type=color]').forEach((input) => {

@@ -46,6 +46,7 @@ require APP_ROOT . '/lib/reports.php';
 require APP_ROOT . '/lib/holidays.php';
 require APP_ROOT . '/lib/catalogs.php';
 require APP_ROOT . '/lib/legajos.php';
+require APP_ROOT . '/lib/payslips.php';
 
 /**
  * Lee un valor de configuración con notación de puntos (ej. "db.host").

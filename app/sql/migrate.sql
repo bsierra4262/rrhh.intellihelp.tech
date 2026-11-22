@@ -101,3 +101,33 @@ CREATE TABLE IF NOT EXISTS positions (
   UNIQUE KEY uq_position (area_id, name),
   CONSTRAINT fk_position_area FOREIGN KEY (area_id) REFERENCES areas(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Recibos de sueldo.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS cuil VARCHAR(13) NULL AFTER email;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS legajo_nro VARCHAR(20) NULL AFTER cuil;
+CREATE TABLE IF NOT EXISTS payslips (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id INT UNSIGNED NULL,
+  period CHAR(7) NOT NULL,
+  kind VARCHAR(20) NOT NULL DEFAULT 'mensual',
+  label VARCHAR(80) NULL,
+  cuil VARCHAR(13) NULL,
+  legajo VARCHAR(20) NULL,
+  employee_name VARCHAR(120) NULL,
+  pay_date DATE NULL,
+  net DECIMAL(14,2) NULL,
+  file_name VARCHAR(190) NOT NULL,
+  drive_id VARCHAR(80) NOT NULL,
+  sha256 CHAR(64) NOT NULL UNIQUE,
+  uploaded_by INT UNSIGNED NULL,
+  uploaded_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  signed_at DATETIME NULL,
+  sign_status ENUM('conforme','disconforme') NULL,
+  sign_comment VARCHAR(500) NULL,
+  sign_ip VARCHAR(45) NULL,
+  sign_agent VARCHAR(255) NULL,
+  signed_drive_id VARCHAR(80) NULL,
+  KEY idx_user (user_id, period),
+  CONSTRAINT fk_payslip_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+INSERT IGNORE INTO settings (k, v) VALUES ('payslips_employees', '0');
