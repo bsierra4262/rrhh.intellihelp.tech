@@ -109,7 +109,8 @@ function verify_csrf(): void
     if (!hash_equals($_SESSION['csrf'] ?? '', (string) ($_POST['csrf'] ?? ''))) {
         http_response_code(419);
         flash('error', 'La sesión expiró. Volvé a intentarlo.');
-        redirect($_SERVER['HTTP_REFERER'] ?? '/');
+        // Sin referer (páginas públicas con Referrer-Policy no-referrer) se vuelve a la misma dirección.
+        redirect($_SERVER['HTTP_REFERER'] ?? (parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/'));
     }
 }
 

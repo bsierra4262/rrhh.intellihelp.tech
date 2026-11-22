@@ -147,7 +147,15 @@ En **Mis recibos** cada persona ve, descarga y firma sus recibos de conformidad 
 
 Si el recibo llega con la **firma digital de la empresa** (PAdES), el portal la verifica al cargarlo: que el archivo no se haya modificado después de firmado y que el certificado pertenezca a un certificador licenciado (AC Raíz de la República Argentina, en `app/certs`). Un recibo alterado no se carga. En ese caso la conformidad del trabajador queda en una **constancia aparte**, que identifica el recibo por su código SHA-256, para no alterar la firma de la empresa.
 
-**Verificación pública:** la firma de cada recibo indica su código de verificación y la dirección **rrhh.intellihelp.tech/verificar**. Ahí cualquiera que tenga el recibo (la persona, un inspector, un abogado), sin ingresar al portal, puede ingresar el código o subir el PDF: el portal confirma si es el recibo emitido o la copia firmada sin modificaciones, de qué período es y cuándo se firmó, con el nombre y el CUIL parcialmente ocultos. Un archivo alterado no coincide. Tiene un límite de consultas por dirección IP.
+**Verificación pública:** la firma de cada recibo indica su código de verificación y la dirección **rrhh.intellihelp.tech/verificar**. Es una página propia, separada del portal, como los validadores de DocuSign, Acrobat Sign o la constatación de comprobantes de ARCA: cualquiera que tenga el recibo (la persona, un inspector, un abogado) ingresa el código o sube el PDF, y el portal confirma si es el recibo emitido o la copia firmada sin modificaciones. Un archivo alterado no coincide. Solo muestra lo necesario para eso: tipo de documento, período, emisor, las **iniciales** del titular y si lo firmaron la empresa y el trabajador. No muestra nombre, CUIL, importes, firmante ni si se firmó de conformidad.
+
+Seguridad de la página:
+
+- El código tiene 64 bits (16 caracteres del SHA-256 del recibo): no se puede adivinar.
+- Límite de 20 consultas cada 15 minutos por dirección IP y de 300 por hora en total. No afecta el inicio de sesión.
+- El PDF que se sube (hasta 10 MB, solo PDF) se compara por su SHA-256 y se descarta: no se guarda.
+- Encabezados estrictos: política de seguridad de contenido (CSP), no se puede incrustar en otros sitios, sin referer, sin caché y sin indexar en buscadores.
+- Cada consulta queda registrada con su IP, el método y el resultado.
 
 <p align="center"><img src="docs/screenshots/verificar-recibo.png" alt="Verificación pública de un recibo" width="70%"></p>
 

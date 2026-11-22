@@ -1,38 +1,65 @@
 <?php $byFile = $byFile ?? false; ?>
-<h2>Verificar un recibo de sueldo</h2>
-<p class="muted">Ingresá el código de verificación que figura en la firma del recibo, o subí el PDF para confirmar que no fue modificado.</p>
+<section class="pub-card">
+  <div class="pub-head">
+    <span class="pub-ic"><?= icon('shield', 22) ?></span>
+    <div>
+      <h1>Verificación de documentos</h1>
+      <p class="muted">Comprobá que un recibo de sueldo emitido por Intellihelp SA es auténtico y no fue modificado.</p>
+    </div>
+  </div>
 
-<?php if ($result !== null): ?>
-  <?php if ($result['found']): $p = $result['p']; ?>
-    <div class="verify-result ok">
-      <div class="verify-head"><?= icon('check-circle', 22) ?><b><?= $result['match'] === 'code' ? 'El código corresponde a un recibo emitido' : ($result['match'] === 'signed' ? 'Documento auténtico: es la copia firmada, sin modificaciones' : 'Documento auténtico: es el recibo emitido, sin modificaciones') ?></b></div>
-      <dl>
-        <dt>Empresa</dt><dd>INTELLIHELP SA · CUIT 30-71140975-7</dd>
-        <dt>Recibo</dt><dd><?= e($p['label']) ?><?= $p['pay_date'] ? ' · pagado el ' . e(fdate($p['pay_date'])) : '' ?></dd>
-        <dt>Trabajador/a</dt><dd><?= e(mask_name((string) $p['user_name'])) ?> · CUIL <?= e(mask_cuil($p['cuil'])) ?></dd>
-        <dt>Firma de la empresa</dt><dd><?= $p['employer_sig'] === 'valida' ? 'Firma digital de ' . e($p['employer_signer']) : ($p['employer_sig'] === 'emitido' ? 'Firmado por la empresa · ' . e($p['employer_signer']) : 'Emitido por la empresa') ?></dd>
-        <dt>Firma del trabajador/a</dt><dd><?= $p['signed_at'] ? ($p['sign_status'] === 'conforme' ? 'Conforme' : 'En disconformidad') . ' · ' . e(fdatetime($p['signed_at'])) : 'Todavía no firmado' ?></dd>
-        <dt>Código</dt><dd><code><?= e(strtoupper(substr($p['sha256'], 0, 16))) ?></code></dd>
-      </dl>
-      <?php if ($result['match'] === 'code'): ?><p class="muted">Para confirmar que tu archivo no fue modificado, subí el PDF abajo.</p><?php endif ?>
-    </div>
-  <?php else: ?>
-    <div class="verify-result bad">
-      <div class="verify-head"><?= icon('x-circle', 22) ?><b><?= $byFile ? 'El archivo no coincide con ningún recibo emitido' : 'No hay ningún recibo con ese código' ?></b></div>
-      <p><?= $byFile ? 'Puede haber sido modificado, o no es un recibo emitido por el portal. Pedí una copia a Recursos Humanos.' : 'Revisá que el código esté bien escrito: tiene 16 caracteres, números y letras de la A a la F.' ?></p>
-    </div>
+  <?php if ($result !== null): ?>
+    <?php if ($result['found']): $p = $result['p']; ?>
+      <div class="verify-result ok" role="status">
+        <div class="verify-head"><?= icon('check-circle', 22) ?><b><?= match ($result['match']) {
+            'signed' => 'Documento auténtico · copia firmada sin modificaciones',
+            'original' => 'Documento auténtico · recibo emitido sin modificaciones',
+            default => 'Código válido · corresponde a un documento emitido',
+        } ?></b></div>
+        <dl>
+          <dt>Documento</dt><dd>Recibo de sueldo · <?= e($p['label']) ?></dd>
+          <dt>Emisor</dt><dd>INTELLIHELP SA · CUIT 30-71140975-7</dd>
+          <dt>Titular</dt><dd><?= e(holder_initials((string) $p['user_name'])) ?></dd>
+          <dt>Firma del empleador</dt><dd><?= $p['employer_sig'] === 'valida' ? 'Firma digital verificada' : 'Firmado por la empresa' ?></dd>
+          <dt>Firma del trabajador</dt><dd><?= $p['signed_at'] ? 'Firmado electrónicamente el ' . e(date('d/m/Y', strtotime($p['signed_at']))) : 'Pendiente de firma' ?></dd>
+        </dl>
+        <?php if ($result['match'] === 'code'): ?><p class="verify-note">El código confirma que el documento existe. Para comprobar que tu archivo no fue modificado, subilo abajo.</p><?php endif ?>
+      </div>
+    <?php else: ?>
+      <div class="verify-result bad" role="alert">
+        <div class="verify-head"><?= icon('x-circle', 22) ?><b><?= match ($result['reason']) {
+            'limit' => 'Se alcanzó el límite de consultas',
+            'format' => 'El código no tiene el formato correcto',
+            'file' => 'El archivo no es válido',
+            'code' => 'No hay ningún documento con ese código',
+            default => 'El archivo no coincide con ningún documento emitido',
+        } ?></b></div>
+        <p><?= match ($result['reason']) {
+            'limit' => 'Por seguridad hay un límite de verificaciones. Probá de nuevo en unos minutos.',
+            'format' => 'El código tiene 16 caracteres: números y letras de la A a la F.',
+            'file' => 'Subí el documento en PDF, de hasta ' . VERIFY_MAX_MB . ' MB.',
+            'code' => 'Revisá que esté bien escrito tal como figura en la firma del recibo.',
+            default => 'Puede haber sido modificado o no fue emitido por Intellihelp SA. Pedí una copia a Recursos Humanos.',
+        } ?></p>
+      </div>
+    <?php endif ?>
   <?php endif ?>
-<?php endif ?>
 
-<form method="post" action="<?= url('/verificar') ?>" class="form">
-  <?= csrf_field() ?>
-  <label class="field"><span>Código de verificación</span>
-    <input name="codigo" value="<?= e($code) ?>" maxlength="20" placeholder="Ej.: 306DA002D3F43D6C" autocomplete="off" spellcheck="false" style="text-transform:uppercase;letter-spacing:.06em"></label>
-  <button class="btn btn-primary btn-block"><?= icon('search', 16) ?> Verificar código</button>
-</form>
-<form method="post" action="<?= url('/verificar') ?>" enctype="multipart/form-data" class="form" style="margin-top:14px">
-  <?= csrf_field() ?>
-  <label class="field"><span>O subí el recibo en PDF</span><input type="file" name="file" accept="application/pdf" required></label>
-  <button class="btn btn-ghost btn-block"><?= icon('check', 16) ?> Verificar archivo</button>
-</form>
-<a class="link-sm center" href="<?= url('/login') ?>"><?= icon('arrow-left', 14) ?> Ir al portal</a>
+  <div class="pub-methods">
+    <form method="post" action="<?= url('/verificar') ?>" class="form">
+      <?= csrf_field() ?>
+      <label class="field"><span>Código de verificación</span>
+        <input name="codigo" class="code-input" value="<?= e($code) ?>" maxlength="24" placeholder="Ej.: 306DA002D3F43D6C" autocomplete="off" spellcheck="false" required>
+        <small class="muted">Figura en la firma del recibo, debajo de los datos del trabajador.</small></label>
+      <button class="btn btn-primary btn-block"><?= icon('search', 16) ?> Verificar código</button>
+    </form>
+    <div class="pub-or"><span>o</span></div>
+    <form method="post" action="<?= url('/verificar') ?>" enctype="multipart/form-data" class="form">
+      <?= csrf_field() ?>
+      <label class="field"><span>Documento en PDF</span><input type="file" name="file" accept="application/pdf" required>
+        <small class="muted">Se compara con el emitido y se descarta: no se guarda.</small></label>
+      <button class="btn btn-ghost btn-block"><?= icon('check', 16) ?> Verificar documento</button>
+    </form>
+  </div>
+</section>
+<p class="pub-legal">La verificación confirma la autenticidad del documento sin mostrar importes ni datos personales. Ante cualquier duda, comunicate con Recursos Humanos de Intellihelp SA.</p>
