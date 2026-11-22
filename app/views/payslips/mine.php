@@ -15,7 +15,7 @@
     <section class="card payslip">
       <div class="payslip-head">
         <span class="req-icon" style="--c:#663399"><?= icon('file', 18) ?></span>
-        <span class="grow"><b><?= e($p['label']) ?></b><small class="muted"><?= $p['pay_date'] ? 'Pagado el ' . e(fdate($p['pay_date'])) : '' ?></small></span>
+        <span class="grow"><b><?= e($p['label']) ?></b><small class="muted"><?= $p['pay_date'] ? 'Pagado el ' . e(fdate($p['pay_date'])) : '' ?></small><?php partial('employer_sig', ['p' => $p]) ?></span>
         <span class="payslip-net"><small>Neto</small><b><?= e($money($p['net'])) ?></b></span>
       </div>
       <div class="payslip-foot">

@@ -24,3 +24,6 @@ RRHH-*/
 /privado/
 *.pdf
 !docs/**/*.pdf
+
+# Vistas previas locales para revisar (se borran después)
+/VISTA-*.png

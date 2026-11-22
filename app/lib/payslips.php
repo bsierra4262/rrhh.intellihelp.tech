@@ -155,6 +155,70 @@ function payslip_parse(string $text): array
 }
 
 /**
+ * Firma digital incrustada en el PDF (PAdES): la de la empresa en el recibo que emite el estudio.
+ *
+ * Verifica que lo firmado no se haya modificado y que la firma cubra el archivo completo (nada
+ * agregado después), y lee quién firmó y qué certificador emitió el certificado. Si el certificado
+ * encadena con la AC Raíz de la República Argentina (carpeta app/certs), la firma es digital en
+ * los términos de la Ley 25.506.
+ *
+ * @return array{status: string, signer: ?string, signer_id: ?string, issuer: ?string, signed_at: ?string, trusted: bool, detail: string}
+ */
+function pdf_signature_info(string $content): array
+{
+    $none = ['status' => 'sin_firma', 'signer' => null, 'signer_id' => null, 'issuer' => null, 'signed_at' => null, 'trusted' => false, 'detail' => 'El PDF no tiene firma digital.'];
+    if (!preg_match_all('/\/ByteRange\s*\[\s*(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s*\]/', $content, $all, PREG_SET_ORDER)) {
+        return $none;
+    }
+    // La última firma es la que cubre más del documento.
+    [, $a, $b, $c, $d] = array_map('intval', end($all));
+    $hex = substr($content, $a + $b, $c - $a - $b);
+    $bin = hex2bin(preg_replace('/[^0-9a-fA-F]/', '', $hex)) ?: '';
+    // La firma ocupa un espacio reservado con ceros al final: se toma el largo exacto del DER.
+    $der = '';
+    if (strlen($bin) > 4 && ord($bin[0]) === 0x30) {
+        $l = ord($bin[1]);
+        $len = $l < 0x80 ? $l + 2 : 2 + ($l & 0x7f) + (int) hexdec(bin2hex(substr($bin, 2, $l & 0x7f)));
+        $der = substr($bin, 0, $len);
+    }
+    if ($der === '') {
+        return ['status' => 'invalida', 'detail' => 'La firma del PDF está dañada.'] + $none;
+    }
+    $dir = sys_get_temp_dir() . '/pades' . bin2hex(random_bytes(6));
+    mkdir($dir, 0700);
+    file_put_contents("$dir/data", substr($content, $a, $b) . substr($content, $c, $d));
+    file_put_contents("$dir/sig", $der);
+    $out = $none;
+    // 1) Integridad: lo firmado no cambió (sin exigir la cadena de confianza).
+    $intact = openssl_cms_verify("$dir/data", OPENSSL_CMS_DETACHED | OPENSSL_CMS_BINARY | OPENSSL_CMS_NOVERIFY, "$dir/signer.pem", [], null, null, null, "$dir/sig", OPENSSL_ENCODING_DER);
+    $cert = is_file("$dir/signer.pem") ? openssl_x509_parse((string) file_get_contents("$dir/signer.pem")) : false;
+    if ($cert) {
+        $out['signer'] = $cert['subject']['CN'] ?? null;
+        $out['signer_id'] = $cert['subject']['serialNumber'] ?? null;
+        $out['issuer'] = $cert['issuer']['CN'] ?? ($cert['issuer']['O'] ?? null);
+    }
+    // 2) Cadena de confianza: certificados de la AC Raíz y los certificadores licenciados.
+    $cas = glob(APP_ROOT . '/certs/*.pem') ?: [];
+    $trusted = $intact && $cas && openssl_cms_verify("$dir/data", OPENSSL_CMS_DETACHED | OPENSSL_CMS_BINARY, null, $cas, null, null, null, "$dir/sig", OPENSSL_ENCODING_DER) === true;
+    if (preg_match('/\/M\s*\(D:(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})/', substr($content, max(0, $a + $b - 4000), 4000), $m)) {
+        $out['signed_at'] = "$m[1]-$m[2]-$m[3] $m[4]:$m[5]:00";
+    }
+    array_map('unlink', glob("$dir/*"));
+    rmdir($dir);
+    $complete = $c + $d === strlen($content);
+    if ($intact !== true) {
+        log_line('payslips.log', 'Firma digital no verificada: ' . (openssl_error_string() ?: 'sin detalle'));
+        return ['status' => 'invalida', 'detail' => 'El PDF fue modificado después de firmarse: la firma no es válida.'] + $out;
+    }
+    $out['trusted'] = $trusted;
+    $out['status'] = $trusted ? 'valida' : 'no_verificada';
+    $out['detail'] = ($trusted ? 'Firma digital válida' : 'Firma íntegra, pero el certificador no está en la lista de certificadores licenciados cargada en el portal')
+        . ($complete ? '.' : '; el PDF tiene agregados posteriores a la firma.');
+
+    return $out;
+}
+
+/**
  * Persona a la que corresponde un recibo: por CUIL o, si todavía no lo tiene cargado, por nombre.
  */
 function payslip_match_user(array $data): ?array
@@ -265,6 +329,11 @@ function payslip_store(string $content, array $data, string $fileName, ?array $u
             return [null, "«{$fileName}»: {$user['name']} ya firmó el recibo de {$data['label']}. Para reemplazarlo, eliminalo primero."];
         }
     }
+    // Firma digital de la empresa: un recibo alterado después de firmado no se carga.
+    $sig = $data['_sig'] ?? pdf_signature_info($content);
+    if ($sig['status'] === 'invalida') {
+        return [null, "«{$fileName}»: {$sig['detail']}"];
+    }
     $err = null;
     $folder = $user ? payslip_folder($user, substr($data['period'], 0, 4), $err) : null;
     $folder ??= payslip_unassigned_folder($data['period'], $err);
@@ -296,6 +365,10 @@ function payslip_store(string $content, array $data, string $fileName, ?array $u
         'drive_id' => $file['id'],
         'sha256' => $hash,
         'uploaded_by' => $uploadedBy,
+        'employer_sig' => $sig['status'],
+        'employer_signer' => $sig['signer'] ? mb_substr($sig['signer'] . ($sig['signer_id'] ? ' (' . $sig['signer_id'] . ')' : ''), 0, 160) : null,
+        'employer_sig_issuer' => $sig['issuer'] ? mb_substr($sig['issuer'], 0, 160) : null,
+        'employer_signed_at' => $sig['signed_at'],
     ]);
     // La primera vez que se identifica a la persona por su nombre, se le guarda el CUIL y el legajo.
     if ($user) {
@@ -344,7 +417,24 @@ function payslips_import(array $files, int $uploadedBy): array
             continue;
         }
         $single = count($groups) === 1;
+        // Archivo del mes con varios recibos: la firma digital se verifica sobre el archivo completo
+        // (al separarlo se pierde) y el original firmado queda en LIQUIDACIONES como constancia.
+        $sigAll = null;
+        if (!$single) {
+            $sigAll = pdf_signature_info((string) file_get_contents($tmp));
+            if ($sigAll['status'] === 'invalida') {
+                $res['errors'][] = "«{$name}»: {$sigAll['detail']}";
+                continue;
+            }
+            $period = $groups[0]['data']['period'] ?? null;
+            if ($sigAll['status'] !== 'sin_firma' && $period && ($folder = liquidaciones_month_folder($period . '-01'))) {
+                drive_put((string) file_get_contents($tmp), 'application/pdf', $name, $folder);
+            }
+        }
         foreach ($groups as $g) {
+            if ($sigAll) {
+                $g['data']['_sig'] = $sigAll;
+            }
             $user = payslip_match_user($g['data']);
             // Un recibo por archivo conserva el nombre del estudio; si venían varios, se nombra cada uno.
             $fileName = $single ? $name : trim(($g['data']['label'] ?: 'Recibo') . ' ' . ($user['name'] ?? $g['data']['name'] ?? '')) . '.pdf';
@@ -369,15 +459,33 @@ function payslip_sign(array $p, array $user, bool $agree, string $comment, ?stri
 
         return false;
     }
-    $tmp = tempnam(sys_get_temp_dir(), 'rec');
-    file_put_contents($tmp, $original);
     $when = date('d/m/Y H:i');
-    $lines = [
+    // Recibo con firma digital de la empresa: no se modifica (se invalidaría la firma); la
+    // conformidad queda en una constancia aparte que identifica el archivo por su código SHA-256.
+    if (in_array($p['employer_sig'] ?? 'sin_firma', ['valida', 'no_verificada'], true)) {
+        return payslip_sign_record($p, $user, $agree, $comment, payslip_constancia($p, $user, $agree, $comment, $when), ' - constancia de conformidad.pdf', $error);
+    }
+    $stamped = payslip_stamp($original, [
         'Firmado electrónicamente en el Portal de RRHH',
         mb_strtoupper($user['name']) . ($user['cuil'] ? ' · CUIL ' . $user['cuil'] : ''),
         $when . ' · ' . ($agree ? 'CONFORME' : 'EN DISCONFORMIDAD'),
         'Código de verificación: ' . strtoupper(substr($p['sha256'], 0, 16)),
-    ];
+    ]);
+
+    return payslip_sign_record($p, $user, $agree, $comment, $stamped, ' (firmado).pdf', $error);
+}
+
+/**
+ * Estampa la firma electrónica del empleado en el recuadro «FIRMA DEL EMPLEADO» de la primera
+ * página (abajo a la derecha del recibo apaisado), entre la leyenda «Recibí el importe neto…» y
+ * la línea de firma.
+ *
+ * @param string[] $lines Líneas del sello.
+ */
+function payslip_stamp(string $original, array $lines): string
+{
+    $tmp = tempnam(sys_get_temp_dir(), 'rec');
+    file_put_contents($tmp, $original);
     $pdf = new \setasign\Fpdi\Fpdi();
     // El sello va cerca del borde inferior: sin salto de página automático.
     $pdf->SetAutoPageBreak(false);
@@ -388,8 +496,6 @@ function payslip_sign(array $p, array $user, bool $agree, string $comment, ?stri
         $pdf->AddPage($s['orientation'], [$s['width'], $s['height']]);
         $pdf->useTemplate($tpl);
         if ($i === 1) {
-            // Recuadro «FIRMA DEL EMPLEADO» (abajo a la derecha del recibo apaisado): entre la leyenda
-            // «Recibí el importe neto…» y la línea de firma.
             $x = $s['width'] * 0.735;
             $y = $s['height'] * 0.893;
             $pdf->SetTextColor(61, 31, 92);
@@ -401,9 +507,63 @@ function payslip_sign(array $p, array $user, bool $agree, string $comment, ?stri
         }
     }
     @unlink($tmp);
-    $signed = $pdf->Output('S');
+
+    return $pdf->Output('S');
+}
+
+/**
+ * Constancia de conformidad del recibo (para los que tienen firma digital de la empresa).
+ */
+function payslip_constancia(array $p, array $user, bool $agree, string $comment, string $when): string
+{
+    $enc = fn ($t) => mb_convert_encoding($t, 'Windows-1252', 'UTF-8');
+    $pdf = new \setasign\Fpdi\Fpdi('P', 'mm', 'A4');
+    $pdf->AddPage();
+    $pdf->SetTextColor(22, 25, 34);
+    $pdf->SetFont('Helvetica', 'B', 15);
+    $pdf->Cell(0, 10, $enc('Constancia de conformidad del recibo de sueldo'), 0, 1);
+    $pdf->SetFont('Helvetica', '', 10);
+    $pdf->SetTextColor(61, 31, 92);
+    $pdf->Cell(0, 6, $enc('INTELLIHELP SA · Portal de Recursos Humanos'), 0, 1);
+    $pdf->Ln(6);
+    $pdf->SetTextColor(22, 25, 34);
+    $rows = [
+        ['Trabajador/a', mb_strtoupper($user['name'])],
+        ['CUIL', (string) ($user['cuil'] ?: '—')],
+        ['Recibo', $p['label'] . ' — ' . $p['file_name']],
+        ['Neto', $p['net'] !== null ? '$ ' . number_format((float) $p['net'], 2, ',', '.') : '—'],
+        ['Firma digital de la empresa', ($p['employer_signer'] ?: '—') . ($p['employer_sig_issuer'] ? ' · ' . $p['employer_sig_issuer'] : '')],
+        ['Código SHA-256 del recibo', $p['sha256']],
+        ['Decisión', $agree ? 'CONFORME' : 'EN DISCONFORMIDAD'],
+        ['Fecha y hora', $when],
+        ['Dirección IP', (string) ($_SERVER['REMOTE_ADDR'] ?? '—')],
+    ];
+    if (!$agree) {
+        $rows[] = ['Motivo', $comment];
+    }
+    foreach ($rows as [$k, $v]) {
+        $pdf->SetFont('Helvetica', 'B', 9.5);
+        $pdf->Cell(58, 7, $enc($k), 0, 0);
+        $pdf->SetFont('Helvetica', '', 9.5);
+        $pdf->MultiCell(0, 7, $enc($v), 0, 'L');
+    }
+    $pdf->Ln(6);
+    $pdf->SetFont('Helvetica', '', 9);
+    $pdf->MultiCell(0, 5, $enc(($agree
+        ? 'Recibí el importe neto de esta liquidación en pago de mi remuneración correspondiente al período indicado, conforme a la ley vigente.'
+        : 'Firmo el recibo en disconformidad por el motivo indicado.')
+        . ' Firmado electrónicamente en el Portal de RRHH con mi usuario personal (Ley 25.506, art. 5; LCT arts. 138 a 146). El recibo queda identificado por su código SHA-256: cualquier cambio en el archivo cambia el código.'));
+
+    return $pdf->Output('S');
+}
+
+/**
+ * Guarda la copia firmada (o la constancia) junto al recibo y registra la firma.
+ */
+function payslip_sign_record(array $p, array $user, bool $agree, string $comment, string $signed, string $suffix, ?string &$error = null): bool
+{
     $folder = json_decode(drive_request('GET', 'https://www.googleapis.com/drive/v3/files/' . rawurlencode($p['drive_id']) . '?fields=parents&supportsAllDrives=true')[1], true)['parents'][0] ?? null;
-    $name = preg_replace('/\.pdf$/i', '', $p['file_name']) . ' (firmado).pdf';
+    $name = preg_replace('/\.pdf$/i', '', $p['file_name']) . $suffix;
     $file = $folder ? drive_put($signed, 'application/pdf', $name, $folder, $error) : null;
     if (!$file) {
         $error = $error ?: 'No se pudo guardar la copia firmada en Drive.';

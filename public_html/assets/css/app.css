@@ -796,3 +796,7 @@ body.modal-open { overflow: hidden; }
 .disagree > summary { list-style: none; display: inline-flex; }
 .disagree > summary::-webkit-details-marker { display: none; }
 .disagree form { margin-top: 12px; }
+.sig-tag { display: inline-flex; align-items: center; gap: 5px; margin-top: 4px; font-size: 12px; font-weight: 500; }
+.sig-tag.ok { color: #663399; }
+.sig-tag.warn { color: var(--warn); }
+.sig-tag.none { color: var(--muted); }

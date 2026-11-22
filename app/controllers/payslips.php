@@ -153,7 +153,7 @@ function payslip_file(int $id): void
     if ($content === null) {
         abort(404, 'No se pudo obtener el recibo desde Google Drive.');
     }
-    $name = $signed ? preg_replace('/\.pdf$/i', '', $p['file_name']) . ' (firmado).pdf' : $p['file_name'];
+    $name = $signed ? preg_replace('/\.pdf$/i', '', $p['file_name']) . (in_array($p['employer_sig'], ['valida', 'no_verificada'], true) ? ' - constancia de conformidad.pdf' : ' (firmado).pdf') : $p['file_name'];
     header('Content-Type: application/pdf');
     header('Content-Length: ' . strlen($content));
     header('Content-Disposition: ' . (isset($_GET['descargar']) ? 'attachment' : 'inline') . "; filename*=UTF-8''" . rawurlencode($name));
