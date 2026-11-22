@@ -3,7 +3,6 @@ $money = fn ($n) => $n === null ? '—' : '$ ' . number_format((float) $n, 2, ',
 $periodLabel = function (string $p): string {
     return ucfirst(MESES[(int) substr($p, 5, 2)]) . ' ' . substr($p, 0, 4);
 };
-$signed = count(array_filter($list, fn ($p) => $p['signed_at']));
 ?>
 <div class="page-head">
   <div><h1>Recibos de sueldo</h1><p class="muted">Se cargan tal como los emite el estudio contable y quedan en el legajo electrónico de cada persona.</p></div>
@@ -50,7 +49,7 @@ $signed = count(array_filter($list, fn ($p) => $p['signed_at']));
 <?php endif ?>
 
 <section class="card">
-  <div class="card-head"><h2><?= icon('list') ?> Recibos cargados</h2><span class="muted"><?= count($list) ?> recibo(s) · <?= $signed ?> firmado(s)</span></div>
+  <div class="card-head"><h2><?= icon('list') ?> Recibos cargados</h2><span class="muted"><?= $pg['total'] ?> recibo(s) · <?= $signed ?> firmado(s)</span></div>
   <form method="get" class="filters">
     <label class="field sm"><span>Período</span><select name="periodo"><option value="">Todos</option><?php foreach ($periods as $pp): ?><option value="<?= e($pp) ?>" <?= $period === $pp ? 'selected' : '' ?>><?= e($periodLabel($pp)) ?></option><?php endforeach ?></select></label>
     <label class="field sm"><span>Persona</span><select name="persona"><option value="0">Todas</option><?php foreach ($people as $u): ?><option value="<?= (int) $u['id'] ?>" <?= $person === (int) $u['id'] ? 'selected' : '' ?>><?= e($u['name']) ?></option><?php endforeach ?></select></label>
@@ -79,5 +78,6 @@ $signed = count(array_filter($list, fn ($p) => $p['signed_at']));
       <?php endforeach ?>
     </tbody>
   </table></div>
+  <?php partial('pager', ['pg' => $pg]) ?>
   <?php else: ?><div class="empty"><?= icon('file', 30) ?><p>Todavía no hay recibos cargados<?= $period || $person ? ' con estos filtros' : '' ?>.</p></div><?php endif ?>
 </section>

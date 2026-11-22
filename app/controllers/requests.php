@@ -27,7 +27,8 @@ function my_requests(): void
     }
     view('requests/mine', [
         'title' => 'Mis solicitudes',
-        'list' => rows($sql . ' ORDER BY r.start_date DESC', $p),
+        'list' => ($pg = paginate($sql . ' ORDER BY r.start_date DESC', $p))['rows'],
+        'pg' => $pg,
         'year' => $year,
         'status' => $status,
         'balances' => balances($u, $year),
@@ -41,7 +42,7 @@ function request_form(): void
 {
     $u = require_login();
     $types = leave_types();
-    $employees = is_hr() ? rows('SELECT id, name, department FROM users WHERE active = 1 ORDER BY name') : [];
+    $employees = is_hr() ? rows('SELECT id, name, department FROM users WHERE active = 1 AND pending_activation = 0 AND pending_approval = 0 ORDER BY name') : [];
     $pre = (string) ($_GET['tipo'] ?? '');
     view('requests/new', [
         'title' => 'Nueva solicitud',
@@ -482,7 +483,8 @@ function approvals(): void
     [$w, $p] = pending_scope($u);
     view('requests/approvals', [
         'title' => 'Por autorizar',
-        'pending' => rows(REQ_SELECT . " WHERE $w ORDER BY r.start_date", $p),
+        'pending' => ($pg = paginate(REQ_SELECT . " WHERE $w ORDER BY r.start_date", $p))['rows'],
+        'pg' => $pg,
         'decided' => rows(REQ_SELECT . ' WHERE r.decided_by = ? ORDER BY r.decided_at DESC LIMIT 15', [$u['id']]),
     ]);
 }
@@ -548,7 +550,8 @@ function team_requests(): void
 
     view('requests/team', [
         'title' => is_hr() ? 'Todas las licencias' : 'Mi equipo',
-        'list' => $list,
+        'list' => ($pg = paginate_array($list))['rows'],
+        'pg' => $pg,
         'f' => $f,
         'types' => leave_types(false),
     ]);

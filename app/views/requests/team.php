@@ -1,5 +1,5 @@
 <div class="page-head">
-  <div><h1><?= e($title) ?></h1><p class="muted"><?= count($list) ?> resultado<?= count($list) === 1 ? '' : 's' ?></p></div>
+  <div><h1><?= e($title) ?></h1><p class="muted"><?= $pg['total'] ?> resultado<?= $pg['total'] === 1 ? '' : 's' ?></p></div>
   <a class="btn btn-ghost" href="?<?= e(http_build_query($f + ['export' => 'csv'])) ?>"><?= icon('download', 16) ?> Exportar CSV</a>
 </div>
 
@@ -45,6 +45,7 @@
       </tbody>
     </table>
   </div>
+  <?php partial('pager', ['pg' => $pg]) ?>
   <?php else: ?>
     <div class="empty"><?= icon('search', 30) ?><p>No hay licencias con esos filtros.</p></div>
   <?php endif ?>

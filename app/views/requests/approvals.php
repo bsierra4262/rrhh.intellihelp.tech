@@ -1,5 +1,5 @@
 <div class="page-head">
-  <div><h1>Por autorizar</h1><p class="muted"><?= count($pending) ?> solicitud<?= count($pending) === 1 ? '' : 'es' ?> esperando tu decisión.</p></div>
+  <div><h1>Por autorizar</h1><p class="muted"><?= $pg['total'] ?> solicitud<?= $pg['total'] === 1 ? '' : 'es' ?> esperando tu decisión.</p></div>
 </div>
 
 <?php if ($pending): ?>
@@ -28,6 +28,7 @@
       </article>
     <?php endforeach ?>
   </div>
+  <?php partial('pager', ['pg' => $pg]) ?>
 <?php else: ?>
   <section class="card"><div class="empty"><?= icon('check-circle', 36) ?><p><b>¡Estás al día!</b><br>No hay solicitudes pendientes.</p></div></section>
 <?php endif ?>

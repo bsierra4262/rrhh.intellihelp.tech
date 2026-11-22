@@ -25,4 +25,5 @@
       </tbody>
     </table>
   </div>
+  <?php partial('pager', ['pg' => $pg]) ?>
 </section>

@@ -696,6 +696,26 @@ body.modal-open { overflow: hidden; }
 @media (max-width: 640px) { .gcal-test-steps { grid-template-columns: 1fr; } }
 
 /* ---------- Responsive ---------- */
+/* Pantallas grandes: el contenido aprovecha el ancho disponible (Full HD, 2K y 4K). */
+@media (min-width: 1440px) {
+  .content { max-width: 1480px; padding: 32px 36px; }
+}
+@media (min-width: 1680px) {
+  .content { max-width: 1640px; }
+  .grid-main { grid-template-columns: minmax(0, 1fr) 400px; }
+}
+@media (min-width: 1920px) {
+  :root { --sidebar: 280px; }
+  .content { max-width: 1800px; padding: 36px 48px; }
+}
+/* 2K, 4K y monitores grandes: se escala todo para que se lea igual de cómodo. */
+@media (min-width: 2400px) { body { zoom: 1.2; } .content { max-width: 2100px; } }
+@media (min-width: 3200px) { body { zoom: 1.5; } }
+/* Laptops y notebooks (1280 a 1366). */
+@media (max-width: 1366px) {
+  :root { --sidebar: 240px; }
+  .content { padding: 24px; }
+}
 @media (max-width: 1100px) {
   .grid-main, .new-req { grid-template-columns: minmax(0, 1fr); }
   .sticky { position: static; }
@@ -800,3 +820,41 @@ body.modal-open { overflow: hidden; }
 .sig-tag.ok { color: #663399; }
 .sig-tag.warn { color: var(--warn); }
 .sig-tag.none { color: var(--muted); }
+
+/* Paginación */
+.pager { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 14px 0 2px; }
+.pager-info { font-size: 13px; color: var(--muted); }
+.pager-info b { color: var(--ink-2); font-weight: 600; }
+.pager-links { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.pager-btn { min-width: 36px; height: 36px; padding: 0 10px; display: inline-grid; place-items: center; border-radius: 10px; border: 1px solid var(--line); background: #fff; color: var(--ink-2); font-weight: 600; font-size: 14px; text-decoration: none; transition: background .15s, border-color .15s; }
+a.pager-btn:hover { border-color: #9f88b1; background: var(--primary-50); color: #663399; }
+.pager-btn.current { background: #663399; border-color: #663399; color: #fff; }
+.pager-btn.disabled { opacity: .4; }
+.pager-gap { color: var(--muted); padding: 0 2px; }
+.table-wrap + .pager { padding-top: 22px; }
+.table-wrap:has(+ .pager) { margin-bottom: 0; }
+
+/* Celulares chicos (360 a 400). */
+@media (max-width: 400px) {
+  .content { padding: 14px 12px 32px; gap: 14px; }
+  .card { padding: 14px; }
+  .table-wrap { margin: 0 -14px -14px; }
+  .page-head { flex-direction: column; align-items: stretch; gap: 12px; }
+  .page-head .btn { width: 100%; justify-content: center; }
+  .pager { justify-content: center; }
+  .pager-info { width: 100%; text-align: center; }
+  .pager-btn { min-width: 32px; height: 32px; padding: 0 8px; }
+  .payslip-head { flex-wrap: wrap; }
+  .payslip-net { text-align: left; }
+}
+/* Textos largos (direcciones, códigos) que no deben ensanchar la pantalla. */
+small code, .muted code { overflow-wrap: anywhere; word-break: break-word; }
+@media (max-width: 640px) {
+  .holiday-list li { flex-wrap: wrap; row-gap: 8px; }
+  .holiday-list li .grow { flex: 1 1 calc(100% - 110px); min-width: 0; }
+  .holiday-list li .badge { white-space: normal; }
+}
+@media (max-width: 640px) {
+  .card-head { flex-wrap: wrap; row-gap: 4px; }
+  .card-head > .muted { width: 100%; }
+}

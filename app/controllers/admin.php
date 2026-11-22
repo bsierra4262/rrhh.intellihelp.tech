@@ -31,7 +31,8 @@ function admin_users(): void
         $u['vac_used'] = vacation_used((int) $u['id'], $year, "'approved'");
     }
     unset($u);
-    view('admin/users', ['title' => 'Personas', 'users' => $users, 'q' => $q]);
+    $pg = paginate_array($users);
+    view('admin/users', ['title' => 'Personas', 'users' => $pg['rows'], 'pg' => $pg, 'q' => $q]);
 }
 
 /**
@@ -61,7 +62,7 @@ function admin_user_form(int $id = 0): void
         'groups' => $groups,
         'legajo' => $legajo,
         'checklist' => $legajo ? legajo_checklist($legajo['id']) : [],
-        'managers' => rows("SELECT id, name FROM users WHERE active = 1 AND role IN ('manager','hr','admin')" . ($id ? ' AND id <> ' . $id : '') . ' ORDER BY name'),
+        'managers' => rows("SELECT id, name FROM users WHERE active = 1 AND pending_activation = 0 AND pending_approval = 0 AND role IN ('manager','hr','admin')" . ($id ? ' AND id <> ' . $id : '') . ' ORDER BY name'),
         'companies' => array_column(rows('SELECT DISTINCT company FROM users WHERE company IS NOT NULL AND company <> "" ORDER BY company'), 'company'),
         'departments' => array_column(rows('SELECT DISTINCT department FROM users WHERE department IS NOT NULL AND department <> "" ORDER BY department'), 'department'),
     ]);
@@ -407,7 +408,7 @@ function admin_settings(): void
     view('admin/settings', [
         'title' => 'Configuración',
         's' => $s,
-        'approvers' => rows("SELECT id, name, position FROM users WHERE active = 1 AND role IN ('manager','hr','admin') ORDER BY name"),
+        'approvers' => rows("SELECT id, name, position FROM users WHERE active = 1 AND pending_activation = 0 AND pending_approval = 0 AND role IN ('manager','hr','admin') ORDER BY name"),
     ]);
 }
 

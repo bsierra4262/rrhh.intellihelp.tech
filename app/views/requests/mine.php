@@ -21,6 +21,7 @@
   </form>
   <?php if ($list): ?>
     <div class="req-list"><?php foreach ($list as $r) partial('request_row', ['r' => $r]); ?></div>
+    <?php partial('pager', ['pg' => $pg]) ?>
   <?php else: ?>
     <div class="empty"><?= icon('inbox', 32) ?><p>No hay solicitudes para mostrar.</p></div>
   <?php endif ?>

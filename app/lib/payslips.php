@@ -234,7 +234,7 @@ function payslip_match_user(array $data): ?array
     $compact = str_replace(' ', '', legajo_norm($data['name']));
     $glued = fn (array $u) => ($w = array_filter(explode(' ', legajo_norm($u['name'])))) && strlen(implode('', $w)) === strlen($compact)
         && !array_filter($w, fn ($x) => !str_contains($compact, $x));
-    $candidates = array_filter(rows('SELECT * FROM users WHERE cuil IS NULL'), fn ($u) => legajo_name_match(str_replace(',', ' ', $data['name']), $u['name']) || $glued($u));
+    $candidates = array_filter(rows('SELECT * FROM users WHERE cuil IS NULL AND active = 1 AND pending_activation = 0 AND pending_approval = 0'), fn ($u) => legajo_name_match(str_replace(',', ' ', $data['name']), $u['name']) || $glued($u));
 
     return count($candidates) === 1 ? array_values($candidates)[0] : null;
 }

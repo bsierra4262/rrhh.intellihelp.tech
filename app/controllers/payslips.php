@@ -37,12 +37,15 @@ function admin_payslips(): void
     }
     view('admin/payslips', [
         'title' => 'Recibos de sueldo',
-        'list' => rows(PAYSLIP_SELECT . ' WHERE p.user_id IS NOT NULL' . ($where ? ' AND ' . implode(' AND ', $where) : '') . ' ORDER BY p.period DESC, u.name', $p),
+        'list' => ($pg = paginate(PAYSLIP_SELECT . ' WHERE p.user_id IS NOT NULL' . ($where ? ' AND ' . implode(' AND ', $where) : '') . ' ORDER BY p.period DESC, u.name', $p))['rows'],
+        'pg' => $pg,
+        'signed' => (int) val('SELECT COUNT(*) FROM payslips p WHERE p.user_id IS NOT NULL AND p.signed_at IS NOT NULL' . ($where ? ' AND ' . implode(' AND ', $where) : ''), $p),
         'unassigned' => rows(PAYSLIP_SELECT . ' WHERE p.user_id IS NULL ORDER BY p.period DESC'),
         'periods' => $periods,
         'period' => $period,
         'person' => $person,
-        'people' => rows('SELECT id, name, cuil FROM users ORDER BY name'),
+        // Solo personas registradas y activas en el portal.
+        'people' => rows('SELECT id, name, cuil FROM users WHERE active = 1 AND pending_activation = 0 AND pending_approval = 0 ORDER BY name'),
         'enabled' => setting('payslips_employees') === '1',
     ]);
 }
@@ -132,7 +135,8 @@ function my_payslips(): void
     }
     view('payslips/mine', [
         'title' => 'Mis recibos',
-        'list' => rows('SELECT * FROM payslips WHERE user_id = ? ORDER BY period DESC, kind', [$me['id']]),
+        'list' => ($pg = paginate('SELECT * FROM payslips WHERE user_id = ? ORDER BY period DESC, kind', [$me['id']]))['rows'],
+        'pg' => $pg,
         'testing' => setting('payslips_employees') !== '1',
     ]);
 }

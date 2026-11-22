@@ -46,3 +46,4 @@
     </section>
   <?php endforeach ?>
 </div>
+<?php partial('pager', ['pg' => $pg]) ?>

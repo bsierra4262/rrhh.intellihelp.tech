@@ -602,3 +602,58 @@ function log_line(string $file, string $msg): void
 {
     @file_put_contents(STORAGE . '/logs/' . $file, '[' . date('Y-m-d H:i:s') . '] ' . $msg . PHP_EOL, FILE_APPEND);
 }
+
+/**
+ * Cantidad de elementos por página en los listados.
+ */
+const PER_PAGE = 25;
+
+/**
+ * Página de resultados de una consulta (25 por página), según el parámetro «pagina».
+ *
+ * @return array{rows: array, page: int, pages: int, total: int, from: int, to: int}
+ */
+function paginate(string $sql, array $params = [], int $per = PER_PAGE): array
+{
+    $total = (int) val("SELECT COUNT(*) FROM ($sql) AS pag", $params);
+
+    return page_of($total, $per, fn (int $offset) => rows("$sql LIMIT $per OFFSET $offset", $params));
+}
+
+/**
+ * Página de un listado ya cargado en memoria.
+ *
+ * @return array{rows: array, page: int, pages: int, total: int, from: int, to: int}
+ */
+function paginate_array(array $items, int $per = PER_PAGE): array
+{
+    return page_of(count($items), $per, fn (int $offset) => array_slice(array_values($items), $offset, $per));
+}
+
+/**
+ * Datos de la página pedida, ajustada al rango válido.
+ */
+function page_of(int $total, int $per, callable $fetch): array
+{
+    $pages = max(1, (int) ceil($total / $per));
+    $page = min($pages, max(1, (int) ($_GET['pagina'] ?? 1)));
+    $offset = ($page - 1) * $per;
+    $rows = $total ? $fetch($offset) : [];
+
+    return ['rows' => $rows, 'page' => $page, 'pages' => $pages, 'total' => $total, 'from' => $total ? $offset + 1 : 0, 'to' => $offset + count($rows)];
+}
+
+/**
+ * Enlace a otra página del listado, conservando los filtros.
+ */
+function page_url(int $page): string
+{
+    $q = $_GET;
+    unset($q['pagina']);
+    if ($page > 1) {
+        $q['pagina'] = $page;
+    }
+    $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
+
+    return $path . ($q ? '?' . http_build_query($q) : '');
+}

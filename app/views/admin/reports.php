@@ -19,7 +19,7 @@ $query = array_filter(['desde' => $from, 'hasta' => $to, 'persona' => $user]);
     <button class="btn btn-ghost btn-sm"><?= icon('search', 16) ?> Filtrar</button>
     <?php if ($query): ?><a class="link-sm" href="<?= url('/admin/reportes') ?>">Quitar filtros</a><?php endif ?>
   </form>
-  <p class="muted report-scope"><?= e(report_filters_label($from, $to, $user)) ?> · <b><?= count($records) ?></b> registro<?= count($records) === 1 ? '' : 's' ?></p>
+  <p class="muted report-scope"><?= e(report_filters_label($from, $to, $user)) ?> · <b><?= $pg['total'] ?></b> registro<?= $pg['total'] === 1 ? '' : 's' ?></p>
 
   <?php if ($records): ?>
   <div class="table-wrap">
@@ -37,6 +37,7 @@ $query = array_filter(['desde' => $from, 'hasta' => $to, 'persona' => $user]);
       </tbody>
     </table>
   </div>
+  <?php partial('pager', ['pg' => $pg]) ?>
   <?php else: ?>
     <div class="empty"><?= icon('chart', 30) ?><p>No hay licencias que impacten en vacaciones con esos filtros.</p></div>
   <?php endif ?>

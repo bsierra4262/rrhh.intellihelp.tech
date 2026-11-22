@@ -19,7 +19,8 @@ function notifications_page(): void
     $u = require_login();
     view('notifications', [
         'title' => 'Notificaciones',
-        'list' => rows('SELECT * FROM notifications WHERE user_id = ? ORDER BY created_at DESC LIMIT 100', [$u['id']]),
+        'list' => ($pg = paginate('SELECT * FROM notifications WHERE user_id = ? ORDER BY created_at DESC', [$u['id']]))['rows'],
+        'pg' => $pg,
     ]);
 }
 

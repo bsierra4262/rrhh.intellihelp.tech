@@ -20,6 +20,7 @@
         </li>
       <?php endforeach ?>
     </ul>
+    <?php partial('pager', ['pg' => $pg]) ?>
   <?php else: ?>
     <div class="empty"><?= icon('bell', 32) ?><p>No tenés notificaciones.</p></div>
   <?php endif ?>

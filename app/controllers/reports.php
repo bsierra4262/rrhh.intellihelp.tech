@@ -35,11 +35,12 @@ function reports_page(): void
     [$from, $to, $user] = report_filters();
     view('admin/reports', [
         'title' => 'Reportes',
-        'records' => vacation_records($from, $to, $user),
+        'records' => ($pg = paginate_array(vacation_records($from, $to, $user)))['rows'],
+        'pg' => $pg,
         'from' => $from,
         'to' => $to,
         'user' => $user,
-        'people' => rows('SELECT id, name FROM users WHERE pending_activation = 0 ORDER BY name'),
+        'people' => rows('SELECT id, name FROM users WHERE active = 1 AND pending_activation = 0 AND pending_approval = 0 ORDER BY name'),
         'enabled' => setting('report_enabled') === '1',
         'recipients' => setting('report_recipients'),
         'day' => (int) setting('report_day', '1'),
