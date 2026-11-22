@@ -499,7 +499,13 @@ function payslip_stamp(string $original, array $lines): string
     } catch (Throwable) {
         $old = false;
     }
-    [$rx, $rw, $ry, $lh, $fs] = $old ? [0.765, 0.225, 0.858, 2.75, 5.8] : [0.735, 0.25, 0.893, 2.9, 6.2];
+    // [x, ancho, y] relativos a la hoja, alto de línea (mm) y cuerpo de letra: siempre sobre la línea
+    // de «FIRMA DEL EMPLEADO», como la firma del empleador en su copia.
+    [$rx, $rw, $ry, $lh, $fs] = $old ? [0.855, 0.118, 0.937, 2.0, 4.8] : [0.735, 0.25, 0.893, 2.9, 6.2];
+    if ($old) {
+        // En el formato anterior el espacio sobre la línea es angosto: textos más cortos.
+        $lines = str_replace(['Firmado electrónicamente en el Portal de RRHH', 'Código de verificación:'], ['Firmado electrónicamente · Portal RRHH', 'Verificación:'], $lines);
+    }
     $pdf = new \setasign\Fpdi\Fpdi();
     // El sello va cerca del borde inferior: sin salto de página automático.
     $pdf->SetAutoPageBreak(false);
@@ -514,9 +520,15 @@ function payslip_stamp(string $original, array $lines): string
             $y = $s['height'] * $ry;
             $pdf->SetTextColor(61, 31, 92);
             foreach ($lines as $k => $line) {
+                $text = mb_convert_encoding($line, 'Windows-1252', 'UTF-8');
                 $pdf->SetFont('Helvetica', $k === 2 ? 'B' : '', $fs);
+                // Un nombre largo achica su línea para no salirse del espacio de la firma.
+                $w = $pdf->GetStringWidth($text);
+                if ($w > $s['width'] * $rw) {
+                    $pdf->SetFontSize($fs * $s['width'] * $rw / $w);
+                }
                 $pdf->SetXY($x, $y + $k * $lh);
-                $pdf->Cell($s['width'] * $rw, $lh, mb_convert_encoding($line, 'Windows-1252', 'UTF-8'), 0, 0, 'C');
+                $pdf->Cell($s['width'] * $rw, $lh, $text, 0, 0, 'C');
             }
         }
     }
