@@ -138,3 +138,5 @@ INSERT IGNORE INTO settings (k, v) VALUES ('payslips_signer', 'Carlos Baldelli')
 ALTER TABLE payslips ADD COLUMN IF NOT EXISTS employer_signer VARCHAR(160) NULL AFTER employer_sig;
 ALTER TABLE payslips ADD COLUMN IF NOT EXISTS employer_sig_issuer VARCHAR(160) NULL AFTER employer_signer;
 ALTER TABLE payslips ADD COLUMN IF NOT EXISTS employer_signed_at DATETIME NULL AFTER employer_sig_issuer;
+-- Código de la copia firmada, para verificar el PDF firmado en /verificar.
+ALTER TABLE payslips ADD COLUMN IF NOT EXISTS signed_sha256 CHAR(64) NULL AFTER signed_drive_id;

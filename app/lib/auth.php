@@ -122,7 +122,8 @@ function require_role(string ...$roles): void
 function too_many_attempts(string $email): bool
 {
     q('DELETE FROM login_attempts WHERE created_at < NOW() - INTERVAL 1 DAY');
-    $n = (int) val('SELECT COUNT(*) FROM login_attempts WHERE (ip = ? OR email = ?) AND created_at > NOW() - INTERVAL 15 MINUTE', [client_ip(), $email]);
+    // Las verificaciones públicas de recibos tienen su propio límite y no cuentan para el ingreso.
+    $n = (int) val("SELECT COUNT(*) FROM login_attempts WHERE (ip = ? OR email = ?) AND email <> 'verificar' AND created_at > NOW() - INTERVAL 15 MINUTE", [client_ip(), $email]);
 
     return $n >= 8;
 }

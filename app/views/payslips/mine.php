@@ -21,6 +21,7 @@
       <div class="payslip-foot">
         <?php if ($p['sign_status'] === 'conforme'): ?>
           <span class="badge badge-approved">Firmado conforme · <?= e(fdatetime($p['signed_at'])) ?></span>
+          <a class="verify-link" href="<?= url('/verificar?codigo=' . strtoupper(substr($p['sha256'], 0, 16))) ?>" target="_blank" rel="noopener" title="Verificar la validez del recibo">Código <?= e(strtoupper(substr($p['sha256'], 0, 16))) ?> · Verificar</a>
         <?php elseif ($p['sign_status'] === 'disconforme'): ?>
           <span class="badge badge-pending">Firmado en disconformidad · <?= e(fdatetime($p['signed_at'])) ?></span>
         <?php else: ?>

@@ -147,6 +147,10 @@ En **Mis recibos** cada persona ve, descarga y firma sus recibos de conformidad 
 
 Si el recibo llega con la **firma digital de la empresa** (PAdES), el portal la verifica al cargarlo: que el archivo no se haya modificado después de firmado y que el certificado pertenezca a un certificador licenciado (AC Raíz de la República Argentina, en `app/certs`). Un recibo alterado no se carga. En ese caso la conformidad del trabajador queda en una **constancia aparte**, que identifica el recibo por su código SHA-256, para no alterar la firma de la empresa.
 
+**Verificación pública:** la firma de cada recibo indica su código de verificación y la dirección **rrhh.intellihelp.tech/verificar**. Ahí cualquiera que tenga el recibo (la persona, un inspector, un abogado), sin ingresar al portal, puede ingresar el código o subir el PDF: el portal confirma si es el recibo emitido o la copia firmada sin modificaciones, de qué período es y cuándo se firmó, con el nombre y el CUIL parcialmente ocultos. Un archivo alterado no coincide. Tiene un límite de consultas por dirección IP.
+
+<p align="center"><img src="docs/screenshots/verificar-recibo.png" alt="Verificación pública de un recibo" width="70%"></p>
+
 **Marco legal:** LCT art. 138 (recibo firmado por el trabajador), art. 139 según la Ley 27.802 (entrega mediante un sistema que permita su firma digital o electrónica), art. 143 según la Ley 27.802 (conservación de 2 años, y de 10 para obligaciones previsionales; los recibos digitalizados tienen la misma validez que en papel), Res. MTEySS 346/2019 (recibos digitales sin autorización previa, firma en disconformidad, descarga y copia por el trabajador) y Ley 25.506 de firma digital.
 
 <table>

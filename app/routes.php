@@ -20,9 +20,12 @@ require APP_ROOT . '/controllers/calendar.php';
 require APP_ROOT . '/controllers/profile.php';
 require APP_ROOT . '/controllers/admin.php';
 require APP_ROOT . '/controllers/payslips.php';
+require APP_ROOT . '/controllers/verify.php';
 require APP_ROOT . '/controllers/reports.php';
 
 $routes = [
+    ['GET',  '/verificar', 'verify_form'],
+    ['POST', '/verificar', 'verify_submit'],
     ['GET',  '/login', 'login_form'],
     ['POST', '/login', 'login_submit'],
     ['POST', '/logout', 'logout_submit'],

@@ -22,6 +22,11 @@
 
 declare(strict_types=1);
 
+/**
+ * Dónde verificar un recibo firmado (figura en la firma estampada y en la constancia).
+ */
+const PAYSLIP_VERIFY_TEXT = 'Verificá en rrhh.intellihelp.tech/verificar';
+
 const PAYSLIP_KINDS = [
     'mensual' => 'Sueldo mensual',
     'sac1' => '1er aguinaldo',
@@ -475,6 +480,7 @@ function payslip_sign(array $p, array $user, bool $agree, string $comment, ?stri
         mb_strtoupper($user['name']) . ($user['cuil'] ? ' · CUIL ' . $user['cuil'] : ''),
         $when . ' · ' . ($agree ? 'CONFORME' : 'EN DISCONFORMIDAD'),
         'Código de verificación: ' . strtoupper(substr($p['sha256'], 0, 16)),
+        PAYSLIP_VERIFY_TEXT,
     ]);
 
     return payslip_sign_record($p, $user, $agree, $comment, $stamped, ' (firmado).pdf', $error);
@@ -501,10 +507,10 @@ function payslip_stamp(string $original, array $lines): string
     }
     // [x, ancho, y] relativos a la hoja, alto de línea (mm) y cuerpo de letra: siempre sobre la línea
     // de «FIRMA DEL EMPLEADO», como la firma del empleador en su copia.
-    [$rx, $rw, $ry, $lh, $fs] = $old ? [0.855, 0.118, 0.937, 2.0, 4.8] : [0.735, 0.25, 0.911, 2.9, 6.2];
+    [$rx, $rw, $ry, $lh, $fs] = $old ? [0.855, 0.118, 0.935, 1.62, 4.5] : [0.735, 0.25, 0.897, 2.9, 6.2];
     if ($old) {
         // En el formato anterior el espacio sobre la línea es angosto: textos más cortos.
-        $lines = str_replace(['Firmado electrónicamente en el Portal de RRHH', 'Código de verificación:'], ['Firmado electrónicamente · Portal RRHH', 'Verificación:'], $lines);
+        $lines = str_replace(['Firmado electrónicamente en el Portal de RRHH', 'Código de verificación:'], ['Firmado electrónicamente · Portal RRHH', 'Código:'], $lines);
     }
     $pdf = new \setasign\Fpdi\Fpdi();
     // El sello va cerca del borde inferior: sin salto de página automático.
@@ -578,7 +584,7 @@ function payslip_constancia(array $p, array $user, bool $agree, string $comment,
     $pdf->MultiCell(0, 5, $enc(($agree
         ? 'Recibí el importe neto de esta liquidación en pago de mi remuneración correspondiente al período indicado, conforme a la ley vigente.'
         : 'Firmo el recibo en disconformidad por el motivo indicado.')
-        . ' Firmado electrónicamente en el Portal de RRHH con mi usuario personal (Ley 25.506, art. 5; LCT arts. 138 a 146). El recibo queda identificado por su código SHA-256: cualquier cambio en el archivo cambia el código.'));
+        . ' Firmado electrónicamente en el Portal de RRHH con mi usuario personal (Ley 25.506, art. 5; LCT arts. 138 a 146). El recibo queda identificado por su código SHA-256: cualquier cambio en el archivo cambia el código. Su validez se puede verificar en https://rrhh.intellihelp.tech/verificar.'));
 
     return $pdf->Output('S');
 }
@@ -596,6 +602,7 @@ function payslip_sign_record(array $p, array $user, bool $agree, string $comment
 
         return false;
     }
+    q('UPDATE payslips SET signed_sha256 = ? WHERE id = ?', [hash('sha256', $signed), $p['id']]);
     q('UPDATE payslips SET signed_at = NOW(), sign_status = ?, sign_comment = ?, sign_ip = ?, sign_agent = ?, signed_drive_id = ? WHERE id = ? AND signed_at IS NULL', [
         $agree ? 'conforme' : 'disconforme', $comment ?: null, $_SERVER['REMOTE_ADDR'] ?? null,
         mb_substr((string) ($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 255), $file['id'], $p['id'],
