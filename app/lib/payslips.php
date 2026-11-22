@@ -334,6 +334,11 @@ function payslip_store(string $content, array $data, string $fileName, ?array $u
     if ($sig['status'] === 'invalida') {
         return [null, "«{$fileName}»: {$sig['detail']}"];
     }
+    // Recibos que el estudio contable emite con la firma de la empresa (sin certificado incrustado):
+    // se dan por firmados por quien se indica en Configuración.
+    if ($sig['status'] === 'sin_firma' && setting('payslips_signer') !== '') {
+        $sig = ['status' => 'emitido', 'signer' => setting('payslips_signer'), 'signer_id' => null, 'issuer' => 'Estudio contable', 'signed_at' => null] + $sig;
+    }
     $err = null;
     $folder = $user ? payslip_folder($user, substr($data['period'], 0, 4), $err) : null;
     $folder ??= payslip_unassigned_folder($data['period'], $err);

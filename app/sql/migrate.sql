@@ -133,6 +133,8 @@ CREATE TABLE IF NOT EXISTS payslips (
 INSERT IGNORE INTO settings (k, v) VALUES ('payslips_employees', '0');
 -- Firma digital de la empresa en el recibo (verificada al cargarlo).
 ALTER TABLE payslips ADD COLUMN IF NOT EXISTS employer_sig ENUM('valida','no_verificada','sin_firma') NOT NULL DEFAULT 'sin_firma' AFTER uploaded_at;
+ALTER TABLE payslips MODIFY employer_sig ENUM('valida','emitido','no_verificada','sin_firma') NOT NULL DEFAULT 'sin_firma';
+INSERT IGNORE INTO settings (k, v) VALUES ('payslips_signer', 'Carlos Baldelli');
 ALTER TABLE payslips ADD COLUMN IF NOT EXISTS employer_signer VARCHAR(160) NULL AFTER employer_sig;
 ALTER TABLE payslips ADD COLUMN IF NOT EXISTS employer_sig_issuer VARCHAR(160) NULL AFTER employer_signer;
 ALTER TABLE payslips ADD COLUMN IF NOT EXISTS employer_signed_at DATETIME NULL AFTER employer_sig_issuer;
