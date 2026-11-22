@@ -15,3 +15,7 @@ rrhh-intellihelp-*.json
 
 # Credenciales de Google (cliente OAuth del ingreso con Google)
 client_secret*.json
+
+# Copias de la carpeta de RRHH de Drive (datos personales: nunca se versionan)
+*.zip
+RRHH-*/
