@@ -170,7 +170,7 @@ Si el recibo llega con la **firma digital de la empresa** (PAdES), el portal la 
 
 ### Confirmaciones y validaciones propias
 
-Ninguna ventana del navegador: las confirmaciones, los mensajes de los campos obligatorios, las listas, los calendarios y el selector de color tienen el diseño del portal.
+Ninguna ventana del navegador: las confirmaciones, los mensajes de los campos obligatorios, las listas, los calendarios y el selector de color tienen el diseño del portal. Los campos y botones de una misma fila tienen la misma altura y quedan alineados; las listas se despliegan con el ancho de su contenido.
 
 <table>
   <tr>

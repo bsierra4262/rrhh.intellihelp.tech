@@ -866,3 +866,32 @@ small code, .muted code { overflow-wrap: anywhere; word-break: break-word; }
 .tab:hover { color: #663399; }
 .tab.active { color: #663399; border-bottom-color: #663399; }
 .tab.active em { background: #663399; color: #fff; }
+
+/* ---------- Alineación y tamaños uniformes de campos y botones ---------- */
+/* Campos de una línea: misma altura que las listas con diseño (46 px; 38 px en filtros). */
+.field > input:not([type=checkbox]):not([type=radio]):not([type=color]):not(.ui-native), .field > select { min-height: 46px; }
+.field.sm > input:not([type=checkbox]):not([type=radio]):not([type=color]):not(.ui-native), .field.sm > select { min-height: 38px; }
+.filters .ui-date, .field.sm .ui-date, .filters .ui-trigger { min-height: 38px; }
+.filters .ui-date .ui-date-text { padding-top: 7px; padding-bottom: 7px; }
+/* Botones al lado de campos: misma altura y alineados con el campo, no con su ayuda. */
+.inline-form .btn, .form-row .btn { min-height: 46px; }
+.inline-form:has(.field.sm) .btn, .filters .btn { min-height: 38px; }
+.inline-form, .filters, .form-row { align-items: flex-end; }
+.inline-form .field, .filters .field, .form-row .field { position: relative; }
+/* El mensaje de error queda debajo del campo sin desplazar el botón. */
+.inline-form .field-error, .filters .field-error, .form-row .field-error { position: absolute; top: calc(100% + 3px); left: 0; white-space: nowrap; }
+.inline-form:has(.is-invalid), .filters:has(.is-invalid), .form-row:has(.is-invalid) { margin-bottom: 18px; }
+/* Filtros: anchos cómodos para leer las opciones. */
+.filters .field.sm { min-width: 180px; }
+.filters .field.sm.grow { min-width: 240px; }
+/* Listas desplegables: el ancho que necesita el contenido, en una línea. */
+.ui-pop.ui-list { min-width: max(100%, 260px); width: max-content; max-width: min(440px, calc(100vw - 32px)); }
+.ui-opt span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ui-field.right .ui-pop { left: auto; right: 0; }
+/* Campo de archivos: ícono de subir, misma altura que el resto. */
+.ui-file .ui-trigger { min-height: 46px; }
+.ui-file .ui-up { display: inline-grid; color: var(--primary); }
+/* Campos chicos (filtros): todos de 38 px, incluidas las fechas y la búsqueda. */
+.field.sm > input:not([type=checkbox]):not([type=radio]):not([type=color]):not(.ui-native) { height: 38px; }
+.field.sm .ui-date-box, .filters .ui-date-box { min-height: 38px; height: 38px; }
+.field.sm .ui-cal-btn, .filters .ui-cal-btn { width: 28px; height: 28px; }

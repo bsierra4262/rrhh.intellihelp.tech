@@ -40,8 +40,13 @@
 
   /** Ubica el panel arriba del campo si no entra debajo. */
   function place(wrap, pop) {
-    wrap.classList.remove('up');
-    const r = pop.getBoundingClientRect();
+    wrap.classList.remove('up', 'right');
+    let r = pop.getBoundingClientRect();
+    // Si la lista se sale por la derecha, se alinea con el borde derecho del campo.
+    if (r.right > window.innerWidth - 8) {
+      wrap.classList.add('right');
+      r = pop.getBoundingClientRect();
+    }
     if (r.bottom > window.innerHeight - 8 && wrap.getBoundingClientRect().top > r.height + 16) {
       wrap.classList.add('up');
     }
@@ -465,6 +470,7 @@
     input.addEventListener('input', fix);
   });
 
+  const upload = '<span class="ui-up"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V4M7 9l5-5 5 5M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg></span>';
   // Selector de archivos con diseño propio: botón y lista de archivos elegidos.
   document.querySelectorAll('input[type=file]').forEach((input) => {
     const wrap = document.createElement('div');
@@ -479,7 +485,8 @@
       const files = [...input.files];
       btn.innerHTML = '<span class="ui-value">' + (files.length
         ? (files.length === 1 ? files[0].name : files.length + ' archivos: ' + files.slice(0, 3).map((f) => f.name).join(', ') + (files.length > 3 ? '…' : ''))
-        : (input.multiple ? 'Elegir archivos o arrastrarlos acá' : 'Elegir archivo')) + '</span><span class="ui-chev">' + chevron + '</span>';
+        : (input.multiple ? 'Elegir archivos o arrastrarlos acá' : 'Elegir archivo')) + '</span>';
+      btn.insertAdjacentHTML('afterbegin', upload);
       wrap.classList.toggle('has-files', files.length > 0);
     };
     btn.addEventListener('click', () => input.click());
