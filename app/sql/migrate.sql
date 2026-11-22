@@ -86,3 +86,18 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS legajo_group VARCHAR(80) NULL AFTER c
 ALTER TABLE users ADD COLUMN IF NOT EXISTS legajo_folder_id VARCHAR(80) NULL AFTER legajo_group;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS exit_processed_at DATETIME NULL AFTER exit_date;
 INSERT IGNORE INTO settings (k, v) VALUES ('drive_rrhh_folder', ''), ('drive_legajos_folder', ''), ('drive_liquidaciones_folder', '');
+
+-- Áreas y puestos editables desde Administración.
+CREATE TABLE IF NOT EXISTS areas (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(120) NOT NULL UNIQUE,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE IF NOT EXISTS positions (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  area_id INT UNSIGNED NOT NULL,
+  name VARCHAR(120) NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_position (area_id, name),
+  CONSTRAINT fk_position_area FOREIGN KEY (area_id) REFERENCES areas(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

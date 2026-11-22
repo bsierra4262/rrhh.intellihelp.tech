@@ -21,11 +21,50 @@
     if (dismiss) dismiss.closest('.alert').remove();
   });
 
-  // Confirmaciones
+  // Confirmaciones con el diseño del portal (nunca el cuadro nativo del navegador).
+  let confirmed = null;
+  const askConfirm = (text, onOk) => {
+    let m = document.getElementById('confirmModal');
+    if (!m) {
+      m = document.createElement('div');
+      m.id = 'confirmModal';
+      m.className = 'modal';
+      m.hidden = true;
+      m.setAttribute('role', 'dialog');
+      m.setAttribute('aria-modal', 'true');
+      m.innerHTML = '<div class="modal-box"><span class="modal-ic"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg></span>'
+        + '<h3>¿Confirmás?</h3><p class="confirm-text"></p><div class="modal-actions">'
+        + '<button type="button" class="btn btn-ghost" data-c="no">Cancelar</button><button type="button" class="btn btn-primary" data-c="ok">Aceptar</button></div></div>';
+      document.body.appendChild(m);
+    }
+    m.querySelector('.confirm-text').textContent = text;
+    const close = () => { m.hidden = true; document.body.classList.remove('modal-open'); document.removeEventListener('keydown', esc); };
+    const esc = (ev) => { if (ev.key === 'Escape') close(); };
+    m.onclick = (ev) => {
+      const b = ev.target.closest('[data-c]');
+      if (ev.target === m || (b && b.dataset.c === 'no')) close();
+      else if (b && b.dataset.c === 'ok') { close(); onOk(); }
+    };
+    document.addEventListener('keydown', esc);
+    m.hidden = false;
+    document.body.classList.add('modal-open');
+    m.querySelector('[data-c="ok"]').focus();
+  };
   document.addEventListener('click', (e) => {
     const el = e.target.closest('[data-confirm]');
-    if (el && !confirm(el.dataset.confirm)) e.preventDefault();
-  });
+    if (!el) return;
+    if (confirmed === el) { confirmed = null; return; }
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    askConfirm(el.dataset.confirm, () => {
+      if (el.form && el.type !== 'button') {
+        el.form.requestSubmit(el);
+      } else {
+        confirmed = el;
+        el.click();
+      }
+    });
+  }, true);
 
   // Copiar al portapapeles
   document.addEventListener('click', async (e) => {

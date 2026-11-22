@@ -755,3 +755,23 @@ body.modal-open { overflow: hidden; }
 .checklist li.miss svg { color: #9f88b1; }
 .field > input[hidden] { display: none; }
 .field > select + input, .field > .ui-select + input { margin-top: 8px; }
+
+/* Errores de validación con diseño propio */
+.field.is-invalid input, .field.is-invalid textarea, .field.is-invalid .ui-trigger { border-color: #c0392b; }
+.field-error { display: block; margin-top: 6px; color: #9b2c20; font-size: 13px; }
+.ui-swatch { display: inline-block; width: 22px; height: 22px; border-radius: 6px; margin-right: 10px; vertical-align: middle; border: 1px solid rgba(0, 0, 0, .08); }
+.ui-color .ui-trigger { justify-content: flex-start; }
+.ui-swatches { display: grid; grid-template-columns: repeat(6, 32px); gap: 8px; padding: 12px; }
+.ui-swatch-btn { width: 32px; height: 32px; border-radius: 8px; border: 2px solid #fff; box-shadow: 0 0 0 1px var(--line); cursor: pointer; }
+.ui-swatch-btn:hover, .ui-swatch-btn:focus-visible { box-shadow: 0 0 0 2px #663399; outline: none; }
+
+/* Áreas y puestos */
+.inline-form { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+.inline-form .field { margin: 0; }
+.inline-form .grow { flex: 1 1 240px; }
+.pos-list { list-style: none; margin: 16px 0 0; padding: 0; border-top: 1px solid var(--line); }
+.pos-list li { border-bottom: 1px solid var(--line-2); }
+.pos-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; }
+.pos-row input[name=name] { flex: 1; min-width: 0; border: 1px solid transparent; background: transparent; padding: 8px 10px; border-radius: 8px; font: inherit; color: var(--ink); }
+.pos-row input[name=name]:hover { border-color: var(--line); }
+.pos-row input[name=name]:focus { border-color: #9f88b1; background: #fff; outline: none; }

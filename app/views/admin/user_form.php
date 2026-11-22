@@ -72,8 +72,9 @@ $dep = (string) $v('department');
 $pos = (string) $v('position');
 $cct = (string) $v('cct');
 $cat = (string) $v('cct_category');
-$depOther = $dep !== '' && !isset(AREAS[$dep]);
-$posList = AREAS[$dep] ?? [];
+$areas = catalog_areas();
+$depOther = $dep !== '' && !isset($areas[$dep]);
+$posList = $areas[$dep] ?? [];
 $posOther = $pos !== '' && !in_array($pos, $posList, true);
 $cctOther = $cct !== '' && !isset(CONVENIOS[$cct]);
 $catList = CATEGORIAS[$cct] ?? [];
@@ -82,13 +83,13 @@ $catOther = $cat !== '' && !in_array($cat, $catList, true);
     <label class="field"><span>Área</span>
       <select name="department" id="fDep" data-other="#fDepOther">
         <option value="">— Elegí el área —</option>
-        <?php foreach (array_keys(AREAS) as $a): ?><option <?= $dep === $a ? 'selected' : '' ?>><?= e($a) ?></option><?php endforeach ?>
+        <?php foreach (array_keys($areas) as $a): ?><option <?= $dep === $a ? 'selected' : '' ?>><?= e($a) ?></option><?php endforeach ?>
         <option value="__otro" <?= $depOther ? 'selected' : '' ?>>Otra (escribir)</option>
       </select>
       <input name="department_otro" id="fDepOther" value="<?= e($depOther ? $dep : '') ?>" maxlength="120" placeholder="Escribí el área" <?= $depOther ? '' : 'hidden' ?>>
     </label>
     <label class="field"><span>Puesto</span>
-      <select name="position" id="fPos" data-other="#fPosOther" data-areas='<?= e(json_encode(AREAS, JSON_UNESCAPED_UNICODE)) ?>'>
+      <select name="position" id="fPos" data-other="#fPosOther" data-areas='<?= e(json_encode($areas, JSON_UNESCAPED_UNICODE)) ?>'>
         <option value="">— Elegí el puesto —</option>
         <?php foreach ($posList as $p): ?><option <?= $pos === $p ? 'selected' : '' ?>><?= e($p) ?></option><?php endforeach ?>
         <option value="__otro" <?= $posOther ? 'selected' : '' ?>>Otro (escribir)</option>

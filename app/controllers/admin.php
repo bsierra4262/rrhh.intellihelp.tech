@@ -509,3 +509,99 @@ function admin_settings_test(): void
     }
     redirect('/admin/configuracion');
 }
+
+/**
+ * Áreas y puestos de la empresa.
+ */
+function admin_areas(): void
+{
+    require_role('hr', 'admin');
+    $areas = rows('SELECT a.*, (SELECT COUNT(*) FROM users u WHERE u.department = a.name) AS people FROM areas a ORDER BY a.name');
+    $positions = [];
+    foreach (rows('SELECT p.*, (SELECT COUNT(*) FROM users u WHERE u.position = p.name) AS people FROM positions p ORDER BY p.name') as $p) {
+        $positions[$p['area_id']][] = $p;
+    }
+    view('admin/areas', ['title' => 'Áreas y puestos', 'areas' => $areas, 'positions' => $positions]);
+}
+
+/**
+ * Alta, cambio de nombre y baja de áreas y puestos.
+ *
+ * Al cambiar un nombre se actualiza también en la ficha de quienes lo tienen asignado; un área o
+ * un puesto asignado a alguien no se puede eliminar.
+ */
+function admin_areas_save(): void
+{
+    require_role('hr', 'admin');
+    $name = mb_substr(preg_replace('/\s+/u', ' ', trim(post('name'))), 0, 120);
+    $back = '/admin/areas' . ((int) post('area_id') ? '#area-' . (int) post('area_id') : '');
+    switch (post('do')) {
+        case 'area_add':
+        case 'area_rename':
+            if ($name === '') {
+                flash('error', 'Escribí el nombre del área.');
+                break;
+            }
+            $id = (int) post('id');
+            $dup = val('SELECT id FROM areas WHERE name = ? AND id <> ?', [$name, $id]);
+            if ($dup) {
+                flash('error', "Ya existe el área «{$name}».");
+                break;
+            }
+            if ($id) {
+                $old = val('SELECT name FROM areas WHERE id = ?', [$id]);
+                q('UPDATE areas SET name = ? WHERE id = ?', [$name, $id]);
+                q('UPDATE users SET department = ? WHERE department = ?', [$name, $old]);
+                flash('success', 'Área actualizada.');
+                $back = "/admin/areas#area-$id";
+            } else {
+                $id = insert('areas', ['name' => $name]);
+                flash('success', "Área «{$name}» agregada.");
+                $back = "/admin/areas#area-$id";
+            }
+            break;
+        case 'area_delete':
+            $a = row('SELECT * FROM areas WHERE id = ?', [(int) post('id')]);
+            if ($a && ($n = (int) val('SELECT COUNT(*) FROM users WHERE department = ?', [$a['name']]))) {
+                flash('error', "No se puede eliminar «{$a['name']}»: la tienen asignada $n persona(s). Cambiales el área primero.");
+            } elseif ($a) {
+                q('DELETE FROM areas WHERE id = ?', [$a['id']]);
+                flash('success', "Área «{$a['name']}» eliminada con sus puestos.");
+            }
+            $back = '/admin/areas';
+            break;
+        case 'pos_add':
+        case 'pos_rename':
+            $areaId = (int) post('area_id');
+            if ($name === '' || !val('SELECT id FROM areas WHERE id = ?', [$areaId])) {
+                flash('error', 'Escribí el nombre del puesto.');
+                break;
+            }
+            $id = (int) post('id');
+            if (val('SELECT id FROM positions WHERE area_id = ? AND name = ? AND id <> ?', [$areaId, $name, $id])) {
+                flash('error', "El puesto «{$name}» ya está en esta área.");
+                break;
+            }
+            if ($id) {
+                $old = val('SELECT name FROM positions WHERE id = ?', [$id]);
+                $area = val('SELECT name FROM areas WHERE id = ?', [$areaId]);
+                q('UPDATE positions SET name = ? WHERE id = ?', [$name, $id]);
+                q('UPDATE users SET position = ? WHERE position = ? AND department = ?', [$name, $old, $area]);
+                flash('success', 'Puesto actualizado.');
+            } else {
+                insert('positions', ['area_id' => $areaId, 'name' => $name]);
+                flash('success', "Puesto «{$name}» agregado.");
+            }
+            break;
+        case 'pos_delete':
+            $p = row('SELECT p.*, a.name AS area FROM positions p JOIN areas a ON a.id = p.area_id WHERE p.id = ?', [(int) post('id')]);
+            if ($p && ($n = (int) val('SELECT COUNT(*) FROM users WHERE position = ? AND department = ?', [$p['name'], $p['area']]))) {
+                flash('error', "No se puede eliminar «{$p['name']}»: lo tienen asignado $n persona(s).");
+            } elseif ($p) {
+                q('DELETE FROM positions WHERE id = ?', [$p['id']]);
+                flash('success', "Puesto «{$p['name']}» eliminado.");
+            }
+            break;
+    }
+    redirect($back);
+}

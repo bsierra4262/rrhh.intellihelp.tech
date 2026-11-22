@@ -59,6 +59,7 @@ foreach (rows('SELECT date, name, region FROM holidays WHERE date BETWEEN ? AND 
           <a href="<?= url('/admin/reportes') ?>" class="<?= trim($active('/admin/reportes')) ?>"><?= icon('chart') ?><span>Reportes</span></a>
         <?php endif ?>
         <a href="<?= url('/admin/tipos') ?>" class="<?= trim($active('/admin/tipos')) ?>"><?= icon('tag') ?><span>Tipos de licencia</span></a>
+        <a href="<?= url('/admin/areas') ?>" class="<?= trim($active('/admin/areas')) ?>"><?= icon('users') ?><span>Áreas y puestos</span></a>
         <a href="<?= url('/admin/feriados') ?>" class="<?= trim($active('/admin/feriados')) ?>"><?= icon('flag') ?><span>Feriados</span></a>
         <a href="<?= url('/admin/configuracion') ?>" class="<?= trim($active('/admin/configuracion')) ?>"><?= icon('settings') ?><span>Configuración</span></a>
       <?php endif ?>

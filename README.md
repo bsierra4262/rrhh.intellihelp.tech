@@ -128,7 +128,7 @@ Los pedidos fuera del período habitual, como días sueltos, una semana y unos d
 
 ### Ficha de la persona y legajo electrónico
 
-Área y puesto se eligen de listas, con los puestos de cada área, y si no están se elige **Otro** y se escribe a mano. El **convenio colectivo** se elige entre los convenios nacionales de actividad, verificados en el [buscador oficial del Ministerio](https://convenios.trabajo.gob.ar/ConsultaWeb/consultaBasica.asp). Cualquier otro se carga con su número oficial (por ejemplo, 130/75), y cada convenio muestra sus **categorías oficiales**: las del CCT 130/75 salen de la escala FAECYS de octubre de 2026. Los teléfonos y los nombres se guardan siempre con el mismo formato, se escriban o se peguen como sea: `+54 9 11 5769-0543`.
+Área y puesto se eligen de listas, con los puestos de cada área, y si no están se elige **Otro** y se escribe a mano. Las listas se administran en **Administración → Áreas y puestos**: 23 áreas y 316 puestos iniciales, con las áreas según el Clasificador Nacional de Ocupaciones del INDEC (CNO-17) y los puestos según la CIUO-08 de la OIT, con los nombres que se usan en los avisos del mercado laboral. RRHH puede agregar, renombrar o eliminar cualquiera; al renombrar se actualiza la ficha de quienes lo tienen. El **convenio colectivo** se elige entre los convenios nacionales de actividad, verificados en el [buscador oficial del Ministerio](https://convenios.trabajo.gob.ar/ConsultaWeb/consultaBasica.asp). Cualquier otro se carga con su número oficial (por ejemplo, 130/75), y cada convenio muestra sus **categorías oficiales**: las del CCT 130/75 salen de la escala FAECYS de octubre de 2026. Los teléfonos y los nombres se guardan siempre con el mismo formato, se escriban o se peguen como sea: `+54 9 11 5769-0543`.
 
 El portal encuentra el **legajo electrónico** de cada persona en la carpeta de RRHH de Drive, respetando su estructura (`LEGAJOS ELECTRONICOS / grupo / NOMBRE`). Controla los 15 documentos de alta, crea la carpeta de quien ingresa y, al egreso, pasa el legajo a «1. DESAFECTADOS» y guarda el detalle de las vacaciones a liquidar en `LIQUIDACIONES / año / mes`.
 
@@ -136,6 +136,26 @@ El portal encuentra el **legajo electrónico** de cada persona en la carpeta de 
   <tr>
     <td width="50%"><b>Datos de la persona</b><br><img src="docs/screenshots/ficha-datos.png" alt="Ficha con área, puesto, convenio y categoría"></td>
     <td width="50%"><b>Legajo electrónico y documentación de alta</b><br><img src="docs/screenshots/ficha-legajo.png" alt="Legajo electrónico con control de documentos"></td>
+  </tr>
+</table>
+
+### Áreas y puestos
+
+<table>
+  <tr>
+    <td width="50%"><b>Listado de áreas</b><br><img src="docs/screenshots/areas-puestos.png" alt="Áreas y puestos"></td>
+    <td width="50%"><b>Edición de un área y sus puestos</b><br><img src="docs/screenshots/area-edicion.png" alt="Edición de área y puestos"></td>
+  </tr>
+</table>
+
+### Confirmaciones y validaciones propias
+
+Ninguna ventana del navegador: las confirmaciones, los mensajes de los campos obligatorios, las listas, los calendarios y el selector de color tienen el diseño del portal.
+
+<table>
+  <tr>
+    <td width="50%"><b>Confirmación</b><br><img src="docs/screenshots/confirmacion.png" alt="Cartel de confirmación"></td>
+    <td width="50%"><b>Campo obligatorio</b><br><img src="docs/screenshots/validacion.png" alt="Mensaje de validación"></td>
   </tr>
 </table>
 
@@ -200,6 +220,7 @@ Cada persona agrega sus calendarios de licencias en un clic: uno con las **autor
 - **Formatos unificados**: teléfonos en formato internacional (`+54 9 11 5769-0543`) y nombres con mayúsculas iniciales, sin importar cómo se escriban o peguen.
 - **Autoregistro** de colaboradores: los correos del dominio corporativo se activan solos; los de **personal tercerizado** quedan pendientes de aprobación por RRHH.
 - Cuentas sin confirmar: **reenvío del correo de confirmación** (también desde «¿La olvidaste?»), habilitación con contraseña temporal y eliminación de registros duplicados o con el correo mal escrito.
+- **Áreas y puestos** configurables (CNO-17 del INDEC y CIUO-08 de la OIT), con opción de escribir otro en la ficha.
 - **Tipos de licencia** configurables: autorización, documentación obligatoria y su plazo de entrega, topes, forma de conteo, regla del fin de semana, descuento de vacaciones y color.
 - **Reportes** (solo administradores): exportación a Excel de las licencias que impactan en vacaciones y envío mensual automático a una o más casillas.
 - **Feriados nacionales actualizados solos**: cada día se consulta el calendario oficial del año en curso y del siguiente. Se agregan los días puente y los feriados por decreto, los trasladables se reubican cuando se fija su fecha y RRHH recibe un correo con cada cambio y las solicitudes que conviene revisar. Se pueden sumar feriados provinciales a mano, indicando dónde rigen (por ejemplo, «solo Provincia de Buenos Aires»), para que se distingan de los nacionales en el calendario y en las solicitudes, y quitar un día puente que la empresa trabaja, sin que vuelva a agregarse.

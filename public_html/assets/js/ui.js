@@ -298,13 +298,14 @@
     pop.hidden = true;
     wrap.append(btn, pop);
 
-    const searchable = select.options.length > 8;
+    // La búsqueda aparece cuando la lista es larga (se evalúa al abrir: las opciones pueden cambiar).
+    const searchable = () => select.options.length > 8;
     let active = -1;
     let last = null;
 
     const items = () => [...pop.querySelectorAll('.ui-opt:not([hidden])')];
     const render = () => {
-      let h = searchable ? '<div class="ui-search"><input type="text" placeholder="Buscar…" aria-label="Buscar"></div>' : '';
+      let h = searchable() ? '<div class="ui-search"><input type="text" placeholder="Buscar…" aria-label="Buscar"></div>' : '';
       h += '<ul role="listbox">';
       [...select.options].forEach((o, i) => {
         h += '<li class="ui-opt' + (o.selected ? ' sel' : '') + '" role="option" data-i="' + i + '"' + (o.disabled ? ' aria-disabled="true"' : '') + '>'
@@ -405,7 +406,8 @@
     const lab = select.closest('label');
     if (lab) {
       lab.addEventListener('click', (e) => {
-        if (!e.target.closest('.ui-field')) {
+        // Los enlaces de la ayuda del campo (por ejemplo, el buscador oficial) se abren normalmente.
+        if (!e.target.closest('.ui-field') && !e.target.closest('a')) {
           e.preventDefault();
           btn.focus();
         }
@@ -452,6 +454,85 @@
     input.addEventListener('blur', fix);
     input.addEventListener('paste', () => setTimeout(fix, 0));
   });
+
+  // Selector de color con diseño propio (muestras predefinidas) en lugar de la paleta del sistema.
+  const SWATCHES = ['#663399', '#9f88b1', '#7d6b91', '#3d1f5c', '#2E86AB', '#00897B', '#e0a100', '#8C6A4F', '#D1495B', '#C2185B', '#B71C1C', '#455A64'];
+  document.querySelectorAll('input[type=color]').forEach((input) => {
+    const wrap = document.createElement('div');
+    wrap.className = 'ui-field ui-color';
+    input.parentNode.insertBefore(wrap, input);
+    wrap.appendChild(input);
+    input.classList.add('ui-native');
+    input.tabIndex = -1;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'ui-trigger';
+    const pop = document.createElement('div');
+    pop.className = 'ui-pop ui-swatches';
+    pop.hidden = true;
+    wrap.append(btn, pop);
+    const paint = () => { btn.innerHTML = '<span class="ui-swatch" style="background:' + input.value + '"></span><span class="ui-value">' + input.value.toUpperCase() + '</span>'; };
+    const colors = SWATCHES.map((c) => c.toLowerCase());
+    if (!colors.includes(input.value.toLowerCase())) colors.unshift(input.value.toLowerCase());
+    pop.innerHTML = colors.map((c) => '<button type="button" class="ui-swatch-btn" data-color="' + c + '" style="background:' + c + '" aria-label="' + c + '"></button>').join('');
+    const api = { close() { pop.hidden = true; wrap.classList.remove('open'); } };
+    btn.addEventListener('click', () => {
+      if (!pop.hidden) return closeOpen();
+      closeOpen(); pop.hidden = false; wrap.classList.add('open'); place(wrap, pop); openPop = api;
+    });
+    pop.addEventListener('click', (e) => {
+      const s = e.target.closest('[data-color]');
+      if (!s) return;
+      input.value = s.dataset.color;
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+      paint(); closeOpen(); btn.focus();
+    });
+    paint();
+  });
+
+  // Validación de formularios con mensajes propios debajo del campo (sin los globos del navegador).
+  const fieldMsg = (el) => {
+    const v = el.validity;
+    if (v.valueMissing) return el.tagName === 'SELECT' ? 'Elegí una opción.' : 'Completá este campo.';
+    if (v.typeMismatch) return el.type === 'email' ? 'Escribí un correo válido, por ejemplo nombre@intellihelp.tech.' : 'El formato no es válido.';
+    if (v.tooShort) return 'Tiene que tener al menos ' + el.minLength + ' caracteres.';
+    if (v.rangeUnderflow) return 'El valor mínimo es ' + el.min + '.';
+    if (v.rangeOverflow) return 'El valor máximo es ' + el.max + '.';
+    if (v.patternMismatch) return el.title || 'El formato no es válido.';
+    return el.validationMessage;
+  };
+  let firstInvalid = null;
+  document.addEventListener('invalid', (e) => {
+    const el = e.target;
+    e.preventDefault();
+    const box = el.closest('.field') || el.parentNode;
+    box.classList.add('is-invalid');
+    let msg = box.querySelector(':scope > .field-error');
+    if (!msg) {
+      msg = document.createElement('small');
+      msg.className = 'field-error';
+      box.appendChild(msg);
+    }
+    msg.textContent = fieldMsg(el);
+    if (!firstInvalid) {
+      firstInvalid = el;
+      setTimeout(() => {
+        const target = el.closest('.ui-field')?.querySelector('.ui-trigger, input:not(.ui-native)') || el;
+        (el.closest('.field') || el).scrollIntoView({ block: 'center', behavior: 'smooth' });
+        target.focus({ preventScroll: true });
+        firstInvalid = null;
+      }, 0);
+    }
+  }, true);
+  const clearInvalid = (e) => {
+    const box = e.target.closest?.('.field.is-invalid');
+    if (box && e.target.checkValidity?.()) {
+      box.classList.remove('is-invalid');
+      box.querySelector(':scope > .field-error')?.remove();
+    }
+  };
+  document.addEventListener('input', clearInvalid, true);
+  document.addEventListener('change', clearInvalid, true);
 
   // Listas con «Otro»: al elegirlo aparece el campo para escribirlo a mano.
   const otherToggle = (sel) => {
