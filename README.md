@@ -145,6 +145,10 @@ Los recibos se cargan tal como los emite el estudio contable: un PDF por persona
 
 En **Mis recibos** cada persona ve, descarga y firma sus recibos de conformidad o en disconformidad, con el motivo (LCT arts. 138 a 146). El portal estampa la firma electrónica en el recuadro «FIRMA DEL EMPLEADO», con fecha, hora y código de verificación del archivo original, y guarda la copia firmada junto al original. **En prueba:** por ahora «Mis recibos» lo ven solo los administradores; se habilita para todo el personal desde Configuración.
 
+Si el recibo llega con la **firma digital de la empresa** (PAdES), el portal la verifica al cargarlo: que el archivo no se haya modificado después de firmado y que el certificado pertenezca a un certificador licenciado (AC Raíz de la República Argentina, en `app/certs`). Un recibo alterado no se carga. En ese caso la conformidad del trabajador queda en una **constancia aparte**, que identifica el recibo por su código SHA-256, para no alterar la firma de la empresa.
+
+**Marco legal:** LCT art. 138 (recibo firmado por el trabajador), art. 139 según la Ley 27.802 (entrega mediante un sistema que permita su firma digital o electrónica), art. 143 según la Ley 27.802 (conservación de 2 años, y de 10 para obligaciones previsionales; los recibos digitalizados tienen la misma validez que en papel), Res. MTEySS 346/2019 (recibos digitales sin autorización previa, firma en disconformidad, descarga y copia por el trabajador) y Ley 25.506 de firma digital.
+
 <table>
   <tr>
     <td width="50%"><b>Carga y control (administradores)</b><br><img src="docs/screenshots/recibos-admin.png" alt="Recibos de sueldo"></td>
@@ -316,6 +320,7 @@ Aplicación **PHP 8.3 sin framework**, pensada para hosting compartido: sin proc
 │   │   └── whatsapp.php    # Conectores opcionales de WhatsApp
 │   ├── views/              # Plantillas PHP
 │   ├── sql/                # Esquema, datos iniciales y migraciones idempotentes
+│   ├── certs/              # Certificados oficiales de la AC Raíz de la República Argentina
 │   ├── cron.php            # Recordatorios, feriados, egresos y reporte mensual
 │   └── install.php         # Instalador por línea de comandos
 ├── public_html/            # Docroot: front controller, .htaccess y assets (ui.js: calendario y listas)
