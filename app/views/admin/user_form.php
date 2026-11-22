@@ -67,19 +67,62 @@ unset($_SESSION['new_password']);
     <label class="field"><span>Empresa</span><input name="company" value="<?= e($v('company', 'Intellihelp')) ?>" list="companies" maxlength="120" placeholder="Intellihelp o empresa del tercerizado">
       <datalist id="companies"><?php foreach ($companies as $c): ?><option value="<?= e($c) ?>"><?php endforeach ?></datalist>
     </label>
-    <label class="field"><span>Área</span><input name="department" value="<?= e($v('department')) ?>" list="deps" maxlength="120" placeholder="Soporte, Desarrollo, Comercial…">
-      <datalist id="deps"><?php foreach ($departments as $d): ?><option value="<?= e($d) ?>"><?php endforeach ?></datalist>
+<?php
+$dep = (string) $v('department');
+$pos = (string) $v('position');
+$cct = (string) $v('cct');
+$cat = (string) $v('cct_category');
+$depOther = $dep !== '' && !isset(AREAS[$dep]);
+$posList = AREAS[$dep] ?? [];
+$posOther = $pos !== '' && !in_array($pos, $posList, true);
+$cctOther = $cct !== '' && !isset(CONVENIOS[$cct]);
+$catList = CATEGORIAS[$cct] ?? [];
+$catOther = $cat !== '' && !in_array($cat, $catList, true);
+?>
+    <label class="field"><span>Área</span>
+      <select name="department" id="fDep" data-other="#fDepOther">
+        <option value="">— Elegí el área —</option>
+        <?php foreach (array_keys(AREAS) as $a): ?><option <?= $dep === $a ? 'selected' : '' ?>><?= e($a) ?></option><?php endforeach ?>
+        <option value="__otro" <?= $depOther ? 'selected' : '' ?>>Otra (escribir)</option>
+      </select>
+      <input name="department_otro" id="fDepOther" value="<?= e($depOther ? $dep : '') ?>" maxlength="120" placeholder="Escribí el área" <?= $depOther ? '' : 'hidden' ?>>
     </label>
-    <label class="field"><span>Puesto</span><input name="position" value="<?= e($v('position')) ?>" maxlength="120"></label>
-    <label class="field"><span>Celular (WhatsApp)</span><input name="phone" value="<?= e($v('phone')) ?>" placeholder="+54 9 11 1234 5678"></label>
+    <label class="field"><span>Puesto</span>
+      <select name="position" id="fPos" data-other="#fPosOther" data-areas='<?= e(json_encode(AREAS, JSON_UNESCAPED_UNICODE)) ?>'>
+        <option value="">— Elegí el puesto —</option>
+        <?php foreach ($posList as $p): ?><option <?= $pos === $p ? 'selected' : '' ?>><?= e($p) ?></option><?php endforeach ?>
+        <option value="__otro" <?= $posOther ? 'selected' : '' ?>>Otro (escribir)</option>
+      </select>
+      <input name="position_otro" id="fPosOther" value="<?= e($posOther ? $pos : '') ?>" maxlength="120" placeholder="Escribí el puesto" <?= $posOther ? '' : 'hidden' ?>>
+    </label>
+    <label class="field"><span>Celular (WhatsApp)</span><input name="phone" value="<?= e(fphone($v('phone'))) ?>" placeholder="+54 9 11 1234-5678" inputmode="tel"></label>
     <label class="field"><span>Fecha de ingreso</span><input type="date" name="hire_date" value="<?= e($v('hire_date')) ?>"><small class="muted">Define los días de vacaciones por antigüedad (LCT).</small></label>
     <label class="field"><span>Fecha de egreso</span><input type="date" name="exit_date" value="<?= e($v('exit_date')) ?>"><small class="muted">Solo al terminar la relación laboral: calcula las vacaciones a liquidar.</small></label>
     <label class="field"><span>Convenio colectivo</span>
-      <select name="cct">
-        <?php foreach (CCT_LABELS as $k => $l): ?><option value="<?= e($k) ?>" <?= (string) $v('cct') === (string) $k ? 'selected' : '' ?>><?= e($l) ?></option><?php endforeach ?>
+      <select name="cct" id="fCct" data-other="#fCctOther" data-cats='<?= e(json_encode(CATEGORIAS, JSON_UNESCAPED_UNICODE)) ?>'>
+        <?php foreach (CONVENIOS as $k => $l): ?><option value="<?= e($k) ?>" <?= $cct === (string) $k ? 'selected' : '' ?>><?= e($k === '' ? $l : "$k — $l") ?></option><?php endforeach ?>
+        <option value="__otro" <?= $cctOther ? 'selected' : '' ?>>Otro convenio (escribir el número)</option>
       </select>
-      <small class="muted">Según el puesto. En Comercio las vacaciones se avisan con 60 días de anticipación; si no, con 30.</small>
+      <input name="cct_otro" id="fCctOther" value="<?= e($cctOther ? $cct : '') ?>" maxlength="20" placeholder="Número oficial, por ejemplo 130/75" <?= $cctOther ? '' : 'hidden' ?>>
+      <small class="muted">Según el puesto. Define el aviso de vacaciones: 60 días en Comercio (art. 74 del CCT 130/75), 30 por la LCT. Si no está en la lista, buscalo en el <a href="<?= e(CONVENIOS_BUSCADOR) ?>" target="_blank" rel="noopener">buscador oficial de convenios</a>.</small>
     </label>
+    <label class="field" id="fCatWrap" <?= $cct === '' ? 'hidden' : '' ?>><span>Categoría del convenio</span>
+      <select name="cct_category" id="fCat" data-other="#fCatOther">
+        <option value="">— Elegí la categoría —</option>
+        <?php foreach ($catList as $c): ?><option <?= $cat === $c ? 'selected' : '' ?>><?= e($c) ?></option><?php endforeach ?>
+        <option value="__otro" <?= $catOther ? 'selected' : '' ?>>Otra (escribir)</option>
+      </select>
+      <input name="cct_category_otro" id="fCatOther" value="<?= e($catOther ? $cat : '') ?>" maxlength="80" placeholder="Categoría según el convenio" <?= $catOther ? '' : 'hidden' ?>>
+    </label>
+    <?php if ($groups): ?>
+    <label class="field"><span>Legajo electrónico (grupo)</span>
+      <select name="legajo_group">
+        <option value="">— Sin legajo —</option>
+        <?php foreach (array_keys($groups) as $g): ?><option <?= (string) $v('legajo_group') === $g ? 'selected' : '' ?>><?= e($g) ?></option><?php endforeach ?>
+      </select>
+      <small class="muted">Empresa o cliente: es la carpeta de LEGAJOS ELECTRONICOS donde está su legajo.</small>
+    </label>
+    <?php endif ?>
     <label class="field"><span>Último verano con vacaciones</span>
       <select name="last_summer_season">
         <option value="">Sin dato / según el portal</option>
@@ -97,6 +140,30 @@ unset($_SESSION['new_password']);
     <button class="btn btn-primary"><?= icon('check', 16) ?> Guardar</button>
   </div>
 </form>
+
+<?php if ($u && $groups): ?>
+<section class="card">
+  <div class="card-head"><h2><?= icon('file') ?> Legajo electrónico</h2>
+    <?php if ($legajo): ?><a class="link" href="<?= e($legajo['url']) ?>" target="_blank" rel="noopener">Abrir en Drive <?= icon('arrow-right', 14) ?></a><?php endif ?></div>
+  <?php if ($legajo): ?>
+    <p class="muted">LEGAJOS ELECTRONICOS / <?= e($legajo['group']) ?> / <b><?= e($legajo['name']) ?></b></p>
+    <?php $missing = array_keys(array_filter($checklist, fn ($ok) => !$ok)); ?>
+    <p><?= $missing ? 'Faltan <b>' . count($missing) . '</b> de los ' . count($checklist) . ' documentos de alta.' : 'Tiene los ' . count($checklist) . ' documentos de alta.' ?></p>
+    <ul class="checklist">
+      <?php foreach ($checklist as $doc => $ok): ?><li class="<?= $ok ? 'ok' : 'miss' ?>"><?= icon($ok ? 'check' : 'x', 14) ?> <?= e($doc) ?></li><?php endforeach ?>
+    </ul>
+    <small class="muted">Se reconoce cada documento por el nombre del archivo en su carpeta.</small>
+  <?php else: ?>
+    <p class="muted">No se encontró una carpeta con su nombre en LEGAJOS ELECTRONICOS.</p>
+    <?php if ($u['legajo_group']): ?>
+      <form method="post" action="<?= url('/admin/usuarios/' . $u['id'] . '/legajo') ?>"><?= csrf_field() ?><button class="btn btn-ghost btn-sm"><?= icon('plus', 16) ?> Crear su legajo en «<?= e($u['legajo_group']) ?>»</button></form>
+    <?php else: ?>
+      <p class="muted">Elegí el grupo del legajo arriba y guardá para poder crearlo.</p>
+    <?php endif ?>
+  <?php endif ?>
+  <?php if ($u['exit_date']): ?><p class="muted">Al llegar la fecha de egreso (<?= e(fdate($u['exit_date'])) ?>) la cuenta se desactiva, el legajo pasa a «1. DESAFECTADOS» y el detalle de las vacaciones a liquidar queda en LIQUIDACIONES.</p><?php endif ?>
+</section>
+<?php endif ?>
 
 <?php if ($u): ?>
 <section class="card">

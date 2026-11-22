@@ -745,3 +745,13 @@ body.modal-open { overflow: hidden; }
   .kv-list dd { margin-bottom: 8px; }
   .input-sm { width: 100%; }
 }
+
+/* Control de documentación del legajo */
+.checklist { list-style: none; margin: 10px 0 8px; padding: 0; columns: 2 240px; column-gap: 24px; }
+.checklist li { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 14px; break-inside: avoid; }
+.checklist li.ok { color: var(--primary-700); }
+.checklist li.ok svg { color: #663399; }
+.checklist li.miss { color: var(--muted, #6b6475); }
+.checklist li.miss svg { color: #9f88b1; }
+.field > input[hidden] { display: none; }
+.field > select + input, .field > .ui-select + input { margin-top: 8px; }

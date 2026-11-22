@@ -126,6 +126,19 @@ Los pedidos fuera del período habitual, como días sueltos, una semana y unos d
   </tr>
 </table>
 
+### Ficha de la persona y legajo electrónico
+
+Área y puesto se eligen de listas, con los puestos de cada área, y si no están se elige **Otro** y se escribe a mano. El **convenio colectivo** se elige entre los convenios nacionales de actividad, verificados en el [buscador oficial del Ministerio](https://convenios.trabajo.gob.ar/ConsultaWeb/consultaBasica.asp). Cualquier otro se carga con su número oficial (por ejemplo, 130/75), y cada convenio muestra sus **categorías oficiales**: las del CCT 130/75 salen de la escala FAECYS de octubre de 2026. Los teléfonos y los nombres se guardan siempre con el mismo formato, se escriban o se peguen como sea: `+54 9 11 5769-0543`.
+
+El portal encuentra el **legajo electrónico** de cada persona en la carpeta de RRHH de Drive, respetando su estructura (`LEGAJOS ELECTRONICOS / grupo / NOMBRE`). Controla los 15 documentos de alta, crea la carpeta de quien ingresa y, al egreso, pasa el legajo a «1. DESAFECTADOS» y guarda el detalle de las vacaciones a liquidar en `LIQUIDACIONES / año / mes`.
+
+<table>
+  <tr>
+    <td width="50%"><b>Datos de la persona</b><br><img src="docs/screenshots/ficha-datos.png" alt="Ficha con área, puesto, convenio y categoría"></td>
+    <td width="50%"><b>Legajo electrónico y documentación de alta</b><br><img src="docs/screenshots/ficha-legajo.png" alt="Legajo electrónico con control de documentos"></td>
+  </tr>
+</table>
+
 ### Reportes (administradores)
 
 Licencias aprobadas que impactan en vacaciones, con filtros por período y persona, **descarga en Excel con formato de tabla** y envío mensual automático por correo.
@@ -182,7 +195,9 @@ Cada persona agrega sus calendarios de licencias en un clic: uno con las **autor
 - Carga de licencias en nombre de un colaborador (con aprobación directa opcional).
 
 ### Administración
-- Alta de **personas** con rol, responsable directo, área, empresa, fecha de ingreso y egreso, convenio colectivo, último verano con vacaciones y días de vacaciones manuales opcionales. La ficha registra los acuerdos de acumulación y calcula las vacaciones a liquidar al egreso.
+- Alta de **personas** con rol, responsable directo, empresa, área y puesto (de listas, con opción de escribir otro), fecha de ingreso y egreso, convenio colectivo y su categoría oficial, grupo del legajo, último verano con vacaciones y días de vacaciones manuales opcionales. La ficha registra los acuerdos de acumulación y calcula las vacaciones a liquidar al egreso.
+- **Legajo electrónico** en Google Drive: vínculo automático con la carpeta de cada persona, control de los 15 documentos de alta, creación de la carpeta al ingreso y, al egreso, cuenta desactivada, legajo a «1. DESAFECTADOS» y detalle de vacaciones a liquidar en LIQUIDACIONES.
+- **Formatos unificados**: teléfonos en formato internacional (`+54 9 11 5769-0543`) y nombres con mayúsculas iniciales, sin importar cómo se escriban o peguen.
 - **Autoregistro** de colaboradores: los correos del dominio corporativo se activan solos; los de **personal tercerizado** quedan pendientes de aprobación por RRHH.
 - Cuentas sin confirmar: **reenvío del correo de confirmación** (también desde «¿La olvidaste?»), habilitación con contraseña temporal y eliminación de registros duplicados o con el correo mal escrito.
 - **Tipos de licencia** configurables: autorización, documentación obligatoria y su plazo de entrega, topes, forma de conteo, regla del fin de semana, descuento de vacaciones y color.
@@ -252,6 +267,8 @@ Aplicación **PHP 8.3 sin framework**, pensada para hosting compartido: sin proc
 │   │   ├── gcal.php        # Autenticación de Google (JWT) y Google Calendar
 │   │   ├── gdrive.php      # Almacenamiento de la documentación en Google Drive
 │   │   ├── reports.php     # Reportes de vacaciones en Excel y envío mensual
+│   │   ├── legajos.php     # Legajos electrónicos, egresos y carpetas de RRHH en Drive
+│   │   ├── catalogs.php    # Áreas, puestos, convenios colectivos y categorías
 │   │   ├── mailer.php      # Envío SMTP y plantilla de email
 │   │   ├── gchat.php       # Notificaciones a Google Chat
 │   │   ├── http.php        # Cliente HTTP (cURL)
@@ -259,7 +276,7 @@ Aplicación **PHP 8.3 sin framework**, pensada para hosting compartido: sin proc
 │   │   └── whatsapp.php    # Conectores opcionales de WhatsApp
 │   ├── views/              # Plantillas PHP
 │   ├── sql/                # Esquema, datos iniciales y migraciones idempotentes
-│   ├── cron.php            # Recordatorios y resincronización
+│   ├── cron.php            # Recordatorios, feriados, egresos y reporte mensual
 │   └── install.php         # Instalador por línea de comandos
 ├── public_html/            # Docroot: front controller, .htaccess y assets (ui.js: calendario y listas)
 └── docs/                   # Banner y capturas
@@ -332,7 +349,7 @@ Todo se configura desde **Administración → Configuración**, sin tocar códig
 | Registro | Habilitar autoregistro, dominios de confianza |
 | Email | Servidor SMTP, remitente, alcance de los avisos |
 | Google Calendar | ID del calendario, clave JSON de la cuenta de servicio, usuario a representar |
-| Google Drive | ID de la carpeta raíz de la documentación |
+| Google Drive | ID de la carpeta raíz de la documentación y de las carpetas de RRHH, LEGAJOS ELECTRONICOS y LIQUIDACIONES |
 | Google Chat | Webhook del espacio de aprobadores |
 
 <details>

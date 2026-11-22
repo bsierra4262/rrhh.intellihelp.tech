@@ -44,6 +44,8 @@ require APP_ROOT . '/lib/gdrive.php';
 require APP_ROOT . '/lib/notify.php';
 require APP_ROOT . '/lib/reports.php';
 require APP_ROOT . '/lib/holidays.php';
+require APP_ROOT . '/lib/catalogs.php';
+require APP_ROOT . '/lib/legajos.php';
 
 /**
  * Lee un valor de configuración con notación de puntos (ej. "db.host").

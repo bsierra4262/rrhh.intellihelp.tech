@@ -204,6 +204,61 @@ function flongdate(string $d): string
 }
 
 /**
+ * Normaliza un teléfono al formato internacional (E.164), como lo escriba o pegue la persona.
+ *
+ * Los celulares de Argentina quedan como +549 + código de área + número, sin el 0 ni el 15:
+ * «11 5769-0543», «011 15 5769 0543», «+54 9 11 5769 0543» y «5491157690543» dan +5491157690543.
+ * Un número de otro país se conserva con su código.
+ */
+function normalize_phone(?string $phone): ?string
+{
+    $raw = trim((string) $phone);
+    if ($raw === '') {
+        return null;
+    }
+    $d = preg_replace('/\D/', '', $raw);
+    if (str_starts_with($d, '00')) {
+        $d = substr($d, 2);
+        $raw = '+' . $d;
+    }
+    $intl = str_starts_with($raw, '+');
+    if ($intl && !str_starts_with($d, '54')) {
+        return '+' . $d;
+    }
+    if (str_starts_with($d, '54') && strlen($d) >= 12) {
+        $d = substr($d, 2);
+        if (str_starts_with($d, '9')) {
+            $d = substr($d, 1);
+        }
+    }
+    $d = ltrim($d, '0');
+    // Número nacional con el 15 del celular: se quita según el largo del código de área.
+    if (strlen($d) === 12) {
+        foreach ([2, 3, 4] as $area) {
+            if (substr($d, $area, 2) === '15') {
+                $d = substr($d, 0, $area) . substr($d, $area + 2);
+                break;
+            }
+        }
+    }
+
+    return strlen($d) === 10 ? '+549' . $d : '+' . $d;
+}
+
+/**
+ * Nombre propio con mayúsculas iniciales cuando se escribió todo en mayúsculas o en minúsculas.
+ */
+function normalize_name(string $name): string
+{
+    $name = preg_replace('/\s+/u', ' ', trim($name));
+    if ($name !== '' && ($name === mb_strtoupper($name) || $name === mb_strtolower($name))) {
+        $name = mb_convert_case(mb_strtolower($name), MB_CASE_TITLE);
+    }
+
+    return $name;
+}
+
+/**
  * Teléfono legible: los celulares de Argentina se muestran como +54 9 11 1234-5678.
  */
 function fphone(?string $phone): string

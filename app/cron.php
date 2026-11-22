@@ -53,6 +53,11 @@ if ($msg = holidays_sync_job()) {
     echo $msg . PHP_EOL;
 }
 
+// Egresos: cuenta desactivada, legajo a «1. DESAFECTADOS» y vacaciones a liquidar en LIQUIDACIONES.
+foreach (exit_job() as $msg) {
+    echo 'Egreso — ' . $msg . PHP_EOL;
+}
+
 // Reporte mensual de vacaciones por correo (si está activado y corresponde).
 [$sent, $msg] = send_monthly_report();
 if ($sent) {

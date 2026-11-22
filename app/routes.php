@@ -67,6 +67,7 @@ $routes = [
     ['POST', '/admin/usuarios/(\d+)', 'admin_user_save'],
     ['POST', '/admin/usuarios/(\d+)/password', 'admin_user_reset_password'],
     ['POST', '/admin/usuarios/(\d+)/acumulacion', 'admin_user_carryover'],
+    ['POST', '/admin/usuarios/(\d+)/legajo', 'admin_user_legajo'],
     ['POST', '/admin/usuarios/(\d+)/aprobar', 'admin_user_approve'],
     ['POST', '/admin/usuarios/(\d+)/activacion', 'admin_user_resend_activation'],
     ['POST', '/admin/usuarios/(\d+)/eliminar', 'admin_user_delete_unconfirmed'],

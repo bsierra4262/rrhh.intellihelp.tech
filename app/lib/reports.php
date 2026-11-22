@@ -193,6 +193,12 @@ function send_monthly_report(bool $force = false): array
         'type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     ]], null, $error);
 
+    // Copia en la carpeta de RRHH: NOVEDADES / AAAA / NOVEDADES INTERNAS / VACACIONES.
+    $folder = novedades_vacaciones_folder((int) date('Y', strtotime($from)));
+    if ($folder) {
+        drive_put($xlsx, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Vacaciones ITH - ' . mb_strtoupper(MESES[(int) date('n', strtotime($from))]) . ' ' . date('Y', strtotime($from)) . '.xlsx', $folder);
+    }
     if ($ok) {
         save_setting('report_last_sent', date('Y-m'));
         log_line('reports.log', 'Reporte ' . $month . ' enviado a ' . implode(', ', $recipients));

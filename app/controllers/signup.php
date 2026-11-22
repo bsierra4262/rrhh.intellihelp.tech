@@ -68,7 +68,7 @@ function register_submit(): void
         redirect('/login');
     }
     remember_input();
-    $name = mb_substr(preg_replace('/\s+/', ' ', post('name')), 0, 120);
+    $name = mb_substr(normalize_name(post('name')), 0, 120);
     $email = mb_strtolower(post('email'));
     $company = mb_substr(post('company'), 0, 120);
     $trusted = is_trusted_email($email);

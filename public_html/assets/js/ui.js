@@ -401,6 +401,16 @@
       if (li) highlight(items().indexOf(li));
     });
     select.addEventListener('change', sync);
+    // Un clic en el título del campo enfoca la lista con diseño, no la nativa.
+    const lab = select.closest('label');
+    if (lab) {
+      lab.addEventListener('click', (e) => {
+        if (!e.target.closest('.ui-field')) {
+          e.preventDefault();
+          btn.focus();
+        }
+      });
+    }
     syncers.push(sync);
     sync();
   }
@@ -408,9 +418,77 @@
   document.addEventListener('click', (e) => {
     if (openPop && !e.target.closest('.ui-field.open')) closeOpen();
   });
+  // Los campos están dentro de un <label>: un clic en la lista o el calendario no debe activar el
+  // control nativo oculto (abriría la lista o el calendario del navegador, sin diseño).
+  document.addEventListener('click', (e) => {
+    if (e.target.closest('.ui-pop') && !e.target.closest('input, textarea')) e.preventDefault();
+  }, true);
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') closeOpen();
   });
+
+  // Teléfonos: se muestran siempre igual (+54 9 11 5769-0543), se escriban o se peguen como sea.
+  function phoneFormat(v) {
+    const raw = v.trim();
+    if (!raw) return '';
+    let d = raw.replace(/\D/g, '');
+    let intl = raw.startsWith('+');
+    if (d.startsWith('00')) { d = d.slice(2); intl = true; }
+    if (intl && !d.startsWith('54')) return '+' + d;
+    if (d.startsWith('54') && d.length >= 12) { d = d.slice(2); if (d.startsWith('9')) d = d.slice(1); }
+    d = d.replace(/^0+/, '');
+    if (d.length === 12) {
+      for (const a of [2, 3, 4]) if (d.substr(a, 2) === '15') { d = d.slice(0, a) + d.slice(a + 2); break; }
+    }
+    if (d.length !== 10) return (intl || d.length > 10 ? '+' : '') + d;
+    const area = d.startsWith('11') ? 2 : 3;
+    const local = d.slice(area);
+    return '+54 9 ' + d.slice(0, area) + ' ' + local.slice(0, local.length - 4) + '-' + local.slice(-4);
+  }
+  document.querySelectorAll('input[name=phone], input[data-phone]').forEach((input) => {
+    input.setAttribute('inputmode', 'tel');
+    const fix = () => { input.value = phoneFormat(input.value); };
+    fix();
+    input.addEventListener('blur', fix);
+    input.addEventListener('paste', () => setTimeout(fix, 0));
+  });
+
+  // Listas con «Otro»: al elegirlo aparece el campo para escribirlo a mano.
+  const otherToggle = (sel) => {
+    const box = document.querySelector(sel.dataset.other);
+    if (!box) return;
+    box.hidden = sel.value !== '__otro';
+    box.required = !box.hidden;
+    if (!box.hidden && document.activeElement !== box) setTimeout(() => box.focus(), 0);
+  };
+  const fillOptions = (sel, list, placeholder, otherLabel) => {
+    const cur = sel.value;
+    sel.innerHTML = '';
+    sel.add(new Option(placeholder, ''));
+    list.forEach((t) => sel.add(new Option(t, t)));
+    sel.add(new Option(otherLabel, '__otro'));
+    sel.value = list.includes(cur) || cur === '__otro' ? cur : '';
+    otherToggle(sel);
+    sel.dispatchEvent(new Event('change', { bubbles: true }));
+  };
+  document.querySelectorAll('select[data-other]').forEach((sel) => {
+    sel.addEventListener('change', () => otherToggle(sel));
+  });
+  const dep = document.getElementById('fDep');
+  const pos = document.getElementById('fPos');
+  if (dep && pos) {
+    const areas = JSON.parse(pos.dataset.areas || '{}');
+    dep.addEventListener('change', () => fillOptions(pos, areas[dep.value] || [], '— Elegí el puesto —', 'Otro (escribir)'));
+  }
+  const cct = document.getElementById('fCct');
+  const cat = document.getElementById('fCat');
+  if (cct && cat) {
+    const cats = JSON.parse(cct.dataset.cats || '{}');
+    cct.addEventListener('change', () => {
+      document.getElementById('fCatWrap').hidden = cct.value === '';
+      fillOptions(cat, cats[cct.value] || [], '— Elegí la categoría —', 'Otra (escribir)');
+    });
+  }
 
   document.querySelectorAll('input[type=date]:not([data-native])').forEach(enhanceDate);
   document.querySelectorAll('select:not([data-native]):not([multiple])').forEach(enhanceSelect);

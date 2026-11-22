@@ -79,3 +79,10 @@ CREATE TABLE IF NOT EXISTS vacation_carryovers (
   UNIQUE KEY uq_carry (user_id, from_year),
   CONSTRAINT fk_carry_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Ficha: categoría del convenio y legajo electrónico en Drive.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS cct_category VARCHAR(80) NULL AFTER cct;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS legajo_group VARCHAR(80) NULL AFTER cct_category;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS legajo_folder_id VARCHAR(80) NULL AFTER legajo_group;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS exit_processed_at DATETIME NULL AFTER exit_date;
+INSERT IGNORE INTO settings (k, v) VALUES ('drive_rrhh_folder', ''), ('drive_legajos_folder', ''), ('drive_liquidaciones_folder', '');

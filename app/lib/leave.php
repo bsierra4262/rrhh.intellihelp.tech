@@ -264,16 +264,9 @@ function vacation_entitlement(array $user, int $year): int
 }
 
 /**
- * Convenios colectivos que modifican las reglas de vacaciones.
- */
-const CCT_LABELS = [
-    '' => 'Fuera de convenio (LCT)',
-    '130/75' => 'Comercio (CCT 130/75)',
-];
-
-/**
  * Anticipación mínima con que se notifica la fecha de inicio de las vacaciones (art. 154): 30 días
- * por la LCT y 60 para quienes están en el convenio de Comercio.
+ * por la LCT y 60 para quienes están en el convenio de Comercio (art. 74 del CCT 130/75; el art. 154
+ * permite que los convenios fijen otro plazo).
  */
 function vacation_notice_days(array $user): int
 {

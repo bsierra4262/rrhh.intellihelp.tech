@@ -113,6 +113,10 @@
     <label class="field"><span>ID de la carpeta raíz</span><input name="drive_root_folder" value="<?= e($s['drive_root_folder']) ?>" placeholder="1mGrbjfLIWUjCPssk9BSZvZ3ATiwRlO-K">
       <small class="muted">Es la parte final del enlace de la carpeta: drive.google.com/drive/folders/<b>ID</b>.</small>
     </label>
+    <p class="muted" style="margin:18px 0 14px">Carpeta de RRHH: el portal respeta su estructura. Vincula a cada persona con su legajo y controla la documentación de alta. Cuando alguien ingresa, crea su carpeta en el grupo que corresponda. Al egreso, pasa el legajo a «1. DESAFECTADOS» y guarda el detalle de las vacaciones a liquidar en LIQUIDACIONES. El reporte mensual de vacaciones también queda en NOVEDADES.</p>
+    <label class="field"><span>Carpeta de RRHH</span><input name="drive_rrhh_folder" value="<?= e($s['drive_rrhh_folder'] ?? '') ?>" placeholder="ID de la carpeta RRHH"></label>
+    <label class="field"><span>Legajos electrónicos</span><input name="drive_legajos_folder" value="<?= e($s['drive_legajos_folder'] ?? '') ?>" placeholder="ID de LEGAJOS ELECTRONICOS"></label>
+    <label class="field"><span>Liquidaciones</span><input name="drive_liquidaciones_folder" value="<?= e($s['drive_liquidaciones_folder'] ?? '') ?>" placeholder="ID de LIQUIDACIONES"></label>
   </section>
 
   <section class="card">

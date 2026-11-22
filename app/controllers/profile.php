@@ -84,7 +84,7 @@ function profile_form(): void
 function profile_submit(): void
 {
     $u = require_login();
-    $phone = preg_replace('/[^\d+]/', '', post('phone'));
+    $phone = normalize_phone(post('phone'));
     q('UPDATE users SET phone = ?, wa_apikey = ?, notify_email = ?, notify_whatsapp = ? WHERE id = ?', [
         $phone ?: null,
         mb_substr(post('wa_apikey'), 0, 60) ?: null,

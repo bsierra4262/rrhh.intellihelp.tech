@@ -45,6 +45,11 @@ function admin_user_form(int $id = 0): void
         abort(404);
     }
     $year = (int) date('Y');
+    $groups = legajo_groups();
+    $legajo = $u && $groups ? legajo_of($u) : null;
+    if ($legajo && $legajo['group'] !== '' && $legajo['group'] !== LEGAJO_ARCHIVE) {
+        $u['legajo_group'] = $legajo['group'];
+    }
     view('admin/user_form', [
         'title' => $u ? 'Editar persona' : 'Nueva persona',
         'u' => $u,
@@ -53,6 +58,9 @@ function admin_user_form(int $id = 0): void
         'carryLimit' => $u ? vacation_carry_limit($u, $year) : 0,
         'settlement' => $u ? vacation_exit_settlement($u) : null,
         'summerDue' => $u ? summer_due($u) : false,
+        'groups' => $groups,
+        'legajo' => $legajo,
+        'checklist' => $legajo ? legajo_checklist($legajo['id']) : [],
         'managers' => rows("SELECT id, name FROM users WHERE active = 1 AND role IN ('manager','hr','admin')" . ($id ? ' AND id <> ' . $id : '') . ' ORDER BY name'),
         'companies' => array_column(rows('SELECT DISTINCT company FROM users WHERE company IS NOT NULL AND company <> "" ORDER BY company'), 'company'),
         'departments' => array_column(rows('SELECT DISTINCT department FROM users WHERE department IS NOT NULL AND department <> "" ORDER BY department'), 'department'),
@@ -71,22 +79,31 @@ function admin_user_save(int $id = 0): void
     $email = mb_strtolower(post('email'));
     $role = post('role');
     $data = [
-        'name' => mb_substr(post('name'), 0, 120),
+        'name' => mb_substr(normalize_name(post('name')), 0, 120),
         'email' => $email,
         'role' => isset(ROLE_LABELS[$role]) ? $role : 'employee',
         'manager_id' => (int) post('manager_id') ?: null,
-        'department' => mb_substr(post('department'), 0, 120) ?: null,
+        'department' => catalog_value('department'),
         'company' => mb_substr(post('company'), 0, 120) ?: null,
-        'position' => mb_substr(post('position'), 0, 120) ?: null,
-        'phone' => preg_replace('/[^\d+]/', '', post('phone')) ?: null,
+        'position' => catalog_value('position'),
+        'phone' => normalize_phone(post('phone')),
         'hire_date' => valid_date(post('hire_date')) ? post('hire_date') : null,
         'exit_date' => valid_date(post('exit_date')) ? post('exit_date') : null,
-        'cct' => isset(CCT_LABELS[post('cct')]) && post('cct') !== '' ? post('cct') : null,
+        'cct' => catalog_value('cct', 20),
+        'cct_category' => catalog_value('cct_category', 80),
+        'legajo_group' => catalog_value('legajo_group', 80),
         'last_summer_season' => (int) post('last_summer_season') ?: null,
         'vacation_days_override' => post('vacation_days_override') === '' ? null : max(0, (int) post('vacation_days_override')),
         'vacation_override_year' => post('vacation_days_override') === '' ? null : (int) date('Y'),
         'active' => isset($_POST['active']) ? 1 : 0,
     ];
+    if ($data['cct'] !== null && !preg_match('#^\d{1,4}/\d{2}( E)?$#', $data['cct'])) {
+        flash('error', 'El número de convenio tiene que tener el formato oficial: número/año, por ejemplo 130/75.');
+        redirect($back);
+    }
+    if (!$data['cct']) {
+        $data['cct_category'] = null;
+    }
     if ($data['exit_date'] && $data['hire_date'] && $data['exit_date'] < $data['hire_date']) {
         flash('error', 'La fecha de egreso no puede ser anterior a la de ingreso.');
         redirect($back);
@@ -133,11 +150,34 @@ function admin_user_save(int $id = 0): void
         $data['must_change_password'] = 1;
         $data['calendar_token'] = bin2hex(random_bytes(20));
         $id = insert('users', $data);
+        // Quien ingresa con grupo de legajo: se vincula su carpeta o se crea en ese grupo.
+        if (!empty($data['legajo_group']) && legajos_enabled()) {
+            $nu = row('SELECT * FROM users WHERE id = ?', [$id]);
+            legajo_of($nu) ?? legajo_create($nu);
+        }
         $sent = isset($_POST['send_welcome']) && send_welcome($data, $pass);
         $_SESSION['new_password'] = ['name' => $data['name'], 'email' => $email, 'pass' => $pass, 'sent' => $sent];
         flash('success', 'Persona creada.');
     }
     forget_input();
+    redirect("/admin/usuarios/$id");
+}
+
+/**
+ * Crea la carpeta del legajo electrónico de una persona en su grupo.
+ */
+function admin_user_legajo(int $id): void
+{
+    require_role('hr', 'admin');
+    $u = row('SELECT * FROM users WHERE id = ?', [$id]) ?: abort(404);
+    $err = null;
+    if (legajo_of($u)) {
+        flash('success', 'La persona ya tiene su legajo vinculado.');
+    } elseif (legajo_create($u, $err)) {
+        flash('success', 'Legajo creado en «' . $u['legajo_group'] . '».');
+    } else {
+        flash('error', 'No se pudo crear el legajo: ' . $err);
+    }
     redirect("/admin/usuarios/$id");
 }
 
@@ -341,7 +381,7 @@ function admin_holidays_sync(): void
 const SETTING_KEYS = ['company_name', 'hr_email', 'mail_driver', 'mail_from', 'mail_from_name', 'smtp_host', 'smtp_port', 'smtp_secure', 'smtp_user', 'smtp_pass',
     'wa_driver', 'wa_cloud_token', 'wa_cloud_phone_id', 'wa_cloud_template', 'wa_cloud_lang', 'reminder_hours',
     'wa_gw_url', 'wa_gw_key', 'wa_gw_instance', 'gchat_webhook', 'default_approver_id', 'signup_enabled', 'signup_domain',
-    'event_email', 'gcal_calendar_id', 'gcal_sa_json', 'support_email', 'ai_smtp_user', 'ai_smtp_pass', 'gcal_impersonate', 'drive_root_folder',
+    'event_email', 'gcal_calendar_id', 'gcal_sa_json', 'support_email', 'ai_smtp_user', 'ai_smtp_pass', 'gcal_impersonate', 'drive_root_folder', 'drive_rrhh_folder', 'drive_legajos_folder', 'drive_liquidaciones_folder',
     'google_client_id', 'google_client_secret', 'vacation_contacts'];
 
 /**
