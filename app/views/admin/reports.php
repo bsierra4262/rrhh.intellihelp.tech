@@ -13,7 +13,7 @@ $query = array_filter(['desde' => $from, 'hasta' => $to, 'persona' => $user]);
     <label class="field sm grow"><span>Persona</span>
       <select name="persona">
         <option value="">Todas las personas</option>
-        <?php foreach ($people as $p): ?><option value="<?= (int) $p['id'] ?>" <?= $user === (int) $p['id'] ? 'selected' : '' ?>><?= e($p['name']) ?></option><?php endforeach ?>
+        <?php foreach ($people as $p): ?><option value="<?= (int) $p['id'] ?>" <?= $user === (int) $p['id'] ? 'selected' : '' ?>><?= e($p['name']) ?><?= $p['gone'] ? ' (desafectado)' : '' ?></option><?php endforeach ?>
       </select>
     </label>
     <button class="btn btn-ghost btn-sm"><?= icon('search', 16) ?> Filtrar</button>

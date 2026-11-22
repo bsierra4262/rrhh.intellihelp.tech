@@ -44,8 +44,8 @@ function admin_payslips(): void
         'periods' => $periods,
         'period' => $period,
         'person' => $person,
-        // Solo personas registradas y activas en el portal.
-        'people' => rows('SELECT id, name, cuil FROM users WHERE active = 1 AND pending_activation = 0 AND pending_approval = 0 ORDER BY name'),
+        // Personas registradas y activas y, al final, las desafectadas (conservan sus recibos).
+        'people' => people_options(),
         'enabled' => setting('payslips_employees') === '1',
     ]);
 }

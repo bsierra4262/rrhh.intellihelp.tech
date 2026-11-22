@@ -243,6 +243,7 @@ Cada persona agrega sus calendarios de licencias en un clic: uno con las **autor
 - **Diseño adaptable a cualquier pantalla**: aprovecha el ancho en monitores Full HD, 2K y 4K (con escala para que se lea cómodo), y se acomoda a laptops (1366 y 1280), tablets y celulares (hasta 360 px), sin desbordes.
 - **Listados paginados**: 25 elementos por página con números para navegar (solicitudes, licencias, autorizaciones, notificaciones, personas, reportes y recibos), conservando los filtros.
 - **Listas de personas** con solo quienes están registrados y activos en el portal; quienes se registran se suman solos.
+- **Personas desafectadas**: quien tiene fecha de egreso no se borra; deja de aparecer en el día a día y se consulta en la pestaña «Desafectadas» de Personas, con su ficha, legajo, recibos e historial (LCT art. 143). En recibos y reportes figura al final, marcada como desafectada.
 - **Recibos de sueldo** (en prueba, solo administradores): carga de los PDF del estudio contable, identificación por CUIL, guardado en el legajo electrónico y firma de conformidad con sello en el recibo.
 - **CUIL y N.º de legajo** en la ficha, con el formato oficial y validación del dígito verificador.
 - **Áreas y puestos** configurables (CNO-17 del INDEC y CIUO-08 de la OIT), con opción de escribir otro en la ficha.

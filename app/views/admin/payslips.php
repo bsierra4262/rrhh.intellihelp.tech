@@ -36,7 +36,7 @@ $periodLabel = function (string $p): string {
           <td>
             <form method="post" action="<?= url('/admin/recibos/' . $p['id'] . '/asignar') ?>" class="inline-form" style="margin:0">
               <?= csrf_field() ?>
-              <label class="field sm grow"><select name="user_id" required><option value="">— Elegí la persona —</option><?php foreach ($people as $u): ?><option value="<?= (int) $u['id'] ?>"><?= e($u['name']) ?><?= $u['cuil'] ? ' · ' . e($u['cuil']) : '' ?></option><?php endforeach ?></select></label>
+              <label class="field sm grow"><select name="user_id" required><option value="">— Elegí la persona —</option><?php foreach ($people as $u): ?><option value="<?= (int) $u['id'] ?>"><?= e($u['name']) ?><?= $u['gone'] ? ' (desafectado)' : '' ?><?= $u['cuil'] ? ' · ' . e($u['cuil']) : '' ?></option><?php endforeach ?></select></label>
               <button class="btn btn-ghost btn-sm"><?= icon('check', 16) ?> Asignar</button>
             </form>
           </td>
@@ -52,7 +52,7 @@ $periodLabel = function (string $p): string {
   <div class="card-head"><h2><?= icon('list') ?> Recibos cargados</h2><span class="muted"><?= $pg['total'] ?> recibo(s) · <?= $signed ?> firmado(s)</span></div>
   <form method="get" class="filters">
     <label class="field sm"><span>Período</span><select name="periodo"><option value="">Todos</option><?php foreach ($periods as $pp): ?><option value="<?= e($pp) ?>" <?= $period === $pp ? 'selected' : '' ?>><?= e($periodLabel($pp)) ?></option><?php endforeach ?></select></label>
-    <label class="field sm"><span>Persona</span><select name="persona"><option value="0">Todas</option><?php foreach ($people as $u): ?><option value="<?= (int) $u['id'] ?>" <?= $person === (int) $u['id'] ? 'selected' : '' ?>><?= e($u['name']) ?></option><?php endforeach ?></select></label>
+    <label class="field sm"><span>Persona</span><select name="persona"><option value="0">Todas</option><?php foreach ($people as $u): ?><option value="<?= (int) $u['id'] ?>" <?= $person === (int) $u['id'] ? 'selected' : '' ?>><?= e($u['name']) ?><?= $u['gone'] ? ' (desafectado)' : '' ?></option><?php endforeach ?></select></label>
     <button class="btn btn-ghost btn-sm"><?= icon('search', 16) ?> Filtrar</button>
   </form>
   <?php if ($list): ?>

@@ -40,7 +40,7 @@ function reports_page(): void
         'from' => $from,
         'to' => $to,
         'user' => $user,
-        'people' => rows('SELECT id, name FROM users WHERE active = 1 AND pending_activation = 0 AND pending_approval = 0 ORDER BY name'),
+        'people' => people_options(),
         'enabled' => setting('report_enabled') === '1',
         'recipients' => setting('report_recipients'),
         'day' => (int) setting('report_day', '1'),

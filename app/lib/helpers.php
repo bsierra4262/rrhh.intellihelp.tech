@@ -657,3 +657,22 @@ function page_url(int $page): string
 
     return $path . ($q ? '?' . http_build_query($q) : '');
 }
+
+/**
+ * Condición SQL (alias «u») de una persona desafectada: tiene fecha de egreso y ya está inactiva o
+ * llegó esa fecha. Su ficha y su historial se conservan (LCT art. 143).
+ */
+const DESAFECTADO_SQL = '(u.exit_date IS NOT NULL AND (u.active = 0 OR u.exit_date <= CURDATE()))';
+
+/**
+ * Personas para elegir en filtros y asignaciones: las activas y registradas y, al final, las
+ * desafectadas (marcadas), que conservan sus recibos y su historial.
+ *
+ * @return array<int, array{id: int, name: string, cuil: ?string, gone: int}>
+ */
+function people_options(bool $withFormer = true): array
+{
+    return rows('SELECT u.id, u.name, u.cuil, ' . DESAFECTADO_SQL . ' AS gone FROM users u
+        WHERE (u.active = 1 AND u.pending_activation = 0 AND u.pending_approval = 0' . ($withFormer ? ' OR ' . DESAFECTADO_SQL : '') . ')
+        ORDER BY gone, u.name');
+}

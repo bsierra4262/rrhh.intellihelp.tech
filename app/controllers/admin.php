@@ -18,13 +18,24 @@ function admin_users(): void
 {
     require_role('hr', 'admin');
     $q = trim((string) ($_GET['q'] ?? ''));
-    $sql = 'SELECT u.*, m.name AS manager_name FROM users u LEFT JOIN users m ON m.id = u.manager_id';
+    // Activas (por defecto), desafectadas (con egreso: se conservan su ficha y su historial) o todas.
+    $tab = in_array($_GET['estado'] ?? '', ['desafectadas', 'todas'], true) ? $_GET['estado'] : 'activas';
+    $where = [];
     $p = [];
     if ($q !== '') {
-        $sql .= ' WHERE u.name LIKE ? OR u.email LIKE ? OR u.department LIKE ? OR u.company LIKE ?';
+        $where[] = '(u.name LIKE ? OR u.email LIKE ? OR u.department LIKE ? OR u.company LIKE ?)';
         $p = ["%$q%", "%$q%", "%$q%", "%$q%"];
     }
-    $users = rows($sql . ' ORDER BY u.pending_approval DESC, u.active DESC, u.name', $p);
+    $base = $where;
+    if ($tab === 'activas') {
+        $where[] = 'NOT ' . DESAFECTADO_SQL;
+    } elseif ($tab === 'desafectadas') {
+        $where[] = DESAFECTADO_SQL;
+    }
+    $sql = 'SELECT u.*, m.name AS manager_name, ' . DESAFECTADO_SQL . ' AS gone FROM users u LEFT JOIN users m ON m.id = u.manager_id';
+    $users = rows($sql . ($where ? ' WHERE ' . implode(' AND ', $where) : '') . ' ORDER BY u.pending_approval DESC, u.active DESC, u.name', $p);
+    $count = fn (string $cond) => (int) val('SELECT COUNT(*) FROM users u WHERE ' . implode(' AND ', [...$base, $cond]), $p);
+    $counts = ['activas' => $count('NOT ' . DESAFECTADO_SQL), 'desafectadas' => $count(DESAFECTADO_SQL), 'todas' => $count('1')];
     $year = (int) date('Y');
     foreach ($users as &$u) {
         $u['vac_total'] = vacation_total($u, $year);
@@ -32,7 +43,7 @@ function admin_users(): void
     }
     unset($u);
     $pg = paginate_array($users);
-    view('admin/users', ['title' => 'Personas', 'users' => $pg['rows'], 'pg' => $pg, 'q' => $q]);
+    view('admin/users', ['title' => 'Personas', 'users' => $pg['rows'], 'pg' => $pg, 'q' => $q, 'tab' => $tab, 'counts' => $counts]);
 }
 
 /**
