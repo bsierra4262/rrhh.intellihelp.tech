@@ -539,11 +539,79 @@ function days_used(int $userId, int $typeId, int $year, ?int $excludeId = null):
 /**
  * Días de vacaciones del año en los estados indicados.
  */
-function vacation_used(int $userId, int $year, string $statuses = "'approved'"): float
+function vacation_used(int $userId, int $year, string $statuses = "'approved'", ?int $excludeId = null): float
 {
-    return (float) val("SELECT COALESCE(SUM(r.days),0) FROM leave_requests r JOIN leave_types t ON t.id = r.type_id
-        WHERE r.user_id = ? AND (t.uses_vacation_balance = 1 OR r.deduct_vacation = 1)
-          AND COALESCE(r.vacation_year, YEAR(r.start_date)) = ? AND r.status IN ($statuses)", [$userId, $year]);
+    $wanted = array_map(fn ($s) => trim($s, " '"), explode(',', $statuses));
+    $sum = 0.0;
+    foreach (vacation_allocation($userId, $excludeId) as $a) {
+        if (in_array($a['status'], $wanted, true)) {
+            $sum += $a['years'][$year] ?? 0;
+        }
+    }
+
+    return $sum;
+}
+
+/**
+ * Reparte los pedidos de vacaciones (aprobados y pendientes) entre los períodos anuales.
+ *
+ * Las vacaciones de cada año se gozan entre el 1 de octubre y el 30 de abril del año siguiente
+ * (art. 154 de la LCT). Por eso un pedido que empieza entre el 1 de enero y el 30 de abril se
+ * descuenta primero de los días del año anterior que quedan sin usar y el resto, del año nuevo.
+ * Los pedidos se toman en orden de fecha, y los días reprogramados por enfermedad se imputan al
+ * año que indica el pedido.
+ *
+ * @return array<int, array{status: string, years: array<int, float>}> Por pedido, días por año.
+ */
+function vacation_allocation(int $userId, ?int $excludeId = null): array
+{
+    $user = row('SELECT * FROM users WHERE id = ?', [$userId]);
+    if (!$user) {
+        return [];
+    }
+    $drawn = [];
+    $capacity = [];
+    $out = [];
+    foreach (rows("SELECT r.id, r.start_date, r.days, r.status, r.vacation_year FROM leave_requests r JOIN leave_types t ON t.id = r.type_id
+        WHERE r.user_id = ? AND (t.uses_vacation_balance = 1 OR r.deduct_vacation = 1) AND r.status IN ('approved','pending')
+        ORDER BY r.start_date, r.id", [$userId]) as $r) {
+        if ($excludeId && (int) $r['id'] === $excludeId) {
+            continue;
+        }
+        $days = (float) $r['days'];
+        $year = (int) substr($r['start_date'], 0, 4);
+        if ($r['vacation_year'] !== null) {
+            $years = [(int) $r['vacation_year'] => $days];
+        } elseif (substr($r['start_date'], 5) <= '04-30') {
+            $prev = $year - 1;
+            $capacity[$prev] ??= vacation_total($user, $prev) - vacation_carryover($userId, $prev);
+            $fromPrev = min($days, max(0, $capacity[$prev] - ($drawn[$prev] ?? 0)));
+            $years = array_filter([$prev => $fromPrev, $year => $days - $fromPrev]);
+        } else {
+            $years = [$year => $days];
+        }
+        foreach ($years as $y => $d) {
+            $drawn[$y] = ($drawn[$y] ?? 0) + $d;
+        }
+        $out[(int) $r['id']] = ['status' => $r['status'], 'years' => $years];
+    }
+
+    return $out;
+}
+
+/**
+ * Días del año anterior que todavía se pueden usar con vacaciones que empiezan en la fecha
+ * indicada: solo hasta el 30 de abril (art. 154).
+ */
+function vacation_previous_left(array $user, string $from, ?int $excludeId = null): float
+{
+    if (substr($from, 5) > '04-30') {
+        return 0.0;
+    }
+    $prev = (int) substr($from, 0, 4) - 1;
+
+    return max(0, vacation_total($user, $prev) - vacation_carryover((int) $user['id'], $prev)
+        - vacation_used((int) $user['id'], $prev, "'approved','pending'", $excludeId));
 }
 
 /**
@@ -562,6 +630,9 @@ function balances(array $user, int $year): array
         'total' => $entitled, 'used' => $approved, 'pending' => $pending,
         'left' => max(0, $entitled - $approved - $pending),
         'carried' => vacation_carryover((int) $user['id'], $year - 1),
+        // Hasta el 30 de abril todavía se pueden usar los días del año anterior (art. 154).
+        'previous' => $year === (int) date('Y') ? vacation_previous_left($user, date('Y-m-d')) : 0,
+        'previous_year' => $year - 1,
     ];
     foreach (rows('SELECT * FROM leave_types WHERE active = 1 AND max_days_per_year IS NOT NULL AND uses_vacation_balance = 0 ORDER BY sort') as $t) {
         $used = (float) val("SELECT COALESCE(SUM(days),0) FROM leave_requests WHERE user_id = ? AND type_id = ? AND YEAR(start_date) = ? AND status IN ('approved','registered')", [$user['id'], $t['id'], $year]);
@@ -651,13 +722,12 @@ function validate_request(array $user, array $type, string $from, string $to, ?i
     }
     $year = (int) substr($from, 0, 4);
     if ($type['uses_vacation_balance']) {
-        $ent = vacation_total($user, $year);
-        $used = vacation_used((int) $user['id'], $year, "'approved','pending'");
-        if ($excludeId) {
-            $used -= (float) val('SELECT days FROM leave_requests WHERE id = ?', [$excludeId]);
-        }
-        if ($used + $days > $ent) {
-            $msg = 'No alcanzan los días de vacaciones disponibles de ' . $year . ': quedan ' . fdays(max(0, $ent - $used)) . '.';
+        $current = vacation_left($user, $year, $excludeId);
+        $previous = vacation_previous_left($user, $from, $excludeId);
+        if ($days > $current + $previous) {
+            $msg = $previous > 0
+                ? 'No alcanzan los días de vacaciones disponibles: quedan ' . fdays($previous) . ' de ' . ($year - 1) . ' (hasta el 30 de abril) y ' . fdays($current) . ' de ' . $year . '.'
+                : 'No alcanzan los días de vacaciones disponibles de ' . $year . ': quedan ' . fdays($current) . '.';
             $byHr ? $warnings[] = $msg : $errors[] = $msg;
         }
     } elseif ($type['max_days_per_year']) {
@@ -965,13 +1035,16 @@ function store_uploads(int $requestId, int $userId, array $files): array
  */
 function vacation_left(array $user, int $year, ?int $excludeId = null): float
 {
-    $used = vacation_used((int) $user['id'], $year, "'approved','pending'");
-    if ($excludeId) {
-        $used -= (float) val('SELECT days FROM leave_requests r JOIN leave_types t ON t.id = r.type_id
-            WHERE r.id = ? AND (t.uses_vacation_balance = 1 OR r.deduct_vacation = 1)', [$excludeId]);
-    }
+    return max(0, vacation_total($user, $year) - vacation_used((int) $user['id'], $year, "'approved','pending'", $excludeId));
+}
 
-    return max(0, vacation_total($user, $year) - $used);
+/**
+ * Días de vacaciones disponibles para un pedido que empieza en la fecha indicada: los del año y,
+ * hasta el 30 de abril, los que quedan del año anterior.
+ */
+function vacation_available(array $user, string $from, ?int $excludeId = null): float
+{
+    return vacation_left($user, (int) substr($from, 0, 4), $excludeId) + vacation_previous_left($user, $from, $excludeId);
 }
 
 /**

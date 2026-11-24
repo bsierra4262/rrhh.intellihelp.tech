@@ -15,7 +15,8 @@
       </div>
       <?php if ($b['pending'] > 0): ?><small class="muted"><?= e(fdays($b['pending'])) ?> en revisión</small><?php endif ?>
       <?php if (!empty($b['carried'])): ?><small class="muted">Incluye <?= e(fdays($b['carried'])) ?> acumulados del año anterior</small><?php endif ?>
-      <?php if ($b['code'] === 'vacaciones'): ?><small class="muted">No se pagan en dinero, salvo al terminar la relación laboral.</small><?php endif ?>
+      <?php if (!empty($b['previous'])): ?><small class="muted">Además quedan <?= e(fdays($b['previous'])) ?> de <?= (int) $b['previous_year'] ?>, para vacaciones que empiecen hasta el 30 de abril</small><?php endif ?>
+      <?php if ($b['code'] === 'vacaciones'): ?><small class="muted">Se pueden usar hasta el 30 de abril del año siguiente y no se pagan en dinero, salvo al terminar la relación laboral.</small><?php endif ?>
     </div>
   <?php endforeach ?>
 </div>

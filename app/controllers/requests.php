@@ -203,7 +203,7 @@ function request_show(int $id): void
         'docs' => rows('SELECT d.*, u.name AS uploader FROM documents d JOIN users u ON u.id = d.user_id WHERE d.request_id = ? ORDER BY d.created_at', [$id]),
         'events' => rows('SELECT e.*, u.name AS user_name FROM request_events e LEFT JOIN users u ON u.id = e.user_id WHERE e.request_id = ? ORDER BY e.created_at, e.id', [$id]),
         'balances' => (can_decide($r) || is_hr()) ? balances($owner, $year) : [],
-        'vacation_left' => (can_decide($r) && !empty($r['vacation_optional'])) ? vacation_left($owner, $year, $r['id']) : null,
+        'vacation_left' => (can_decide($r) && !empty($r['vacation_optional'])) ? vacation_available($owner, $r['start_date'], (int) $r['id']) : null,
         'overlaps' => $overlaps,
         'can_decide' => can_decide($r),
         'can_cancel' => can_cancel($r),
@@ -270,7 +270,7 @@ function request_decide(int $id): void
     $deduct = $decision === 'approved' && !empty($r['vacation_optional']) && post('deduct_vacation') === '1';
     if ($deduct) {
         $owner = row('SELECT * FROM users WHERE id = ?', [$r['user_id']]);
-        $left = vacation_left($owner, (int) substr($r['start_date'], 0, 4), $id);
+        $left = vacation_available($owner, $r['start_date'], $id);
         if ($left < (float) $r['days']) {
             flash('error', "No se puede descontar de vacaciones: a {$r['user_name']} le quedan " . fdays($left) . ' disponibles.');
             redirect('/solicitudes/' . $id);
@@ -285,7 +285,7 @@ function request_decide(int $id): void
         $days = count_days($r['start_date'], $endDate, $r['counting']);
         if ($r['uses_vacation_balance']) {
             $owner = row('SELECT * FROM users WHERE id = ?', [$r['user_id']]);
-            $left = vacation_left($owner, (int) substr($r['start_date'], 0, 4), $id);
+            $left = vacation_available($owner, $r['start_date'], $id);
             if ($left < $days) {
                 flash('error', "No se puede computar la semana completa: a {$r['user_name']} le quedan " . fdays($left) . ' de vacaciones disponibles.');
                 redirect('/solicitudes/' . $id);
