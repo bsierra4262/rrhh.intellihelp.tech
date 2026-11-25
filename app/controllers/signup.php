@@ -49,6 +49,7 @@ function signup_open(): bool
  */
 function register_form(): void
 {
+    deny_if_ithub();
     if (current_user()) {
         redirect('/');
     }
@@ -64,6 +65,7 @@ function register_form(): void
  */
 function register_submit(): void
 {
+    deny_if_ithub();
     if (!signup_open()) {
         redirect('/login');
     }
@@ -197,6 +199,7 @@ function find_activation(string $token): ?array
  */
 function activate_form(): void
 {
+    deny_if_ithub();
     $t = (string) ($_GET['t'] ?? '');
     $a = find_activation($t);
     if (!$a) {
@@ -211,6 +214,7 @@ function activate_form(): void
  */
 function activate_submit(): void
 {
+    deny_if_ithub();
     $t = post('token');
     $a = find_activation($t);
     if (!$a) {

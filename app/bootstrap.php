@@ -33,6 +33,7 @@ if (is_file(APP_ROOT . '/vendor/autoload.php')) {
 require APP_ROOT . '/lib/helpers.php';
 require APP_ROOT . '/lib/db.php';
 require APP_ROOT . '/lib/auth.php';
+require APP_ROOT . '/lib/ithub.php';
 require APP_ROOT . '/lib/leave.php';
 require APP_ROOT . '/lib/ics.php';
 require APP_ROOT . '/lib/mailer.php';

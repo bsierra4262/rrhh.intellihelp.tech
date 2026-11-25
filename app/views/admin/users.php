@@ -2,6 +2,9 @@
   <div><h1>Personas</h1><p class="muted"><?= $counts['activas'] ?> activas · <?= $counts['desafectadas'] ?> desafectadas</p></div>
   <a class="btn btn-primary" href="<?= url('/admin/usuarios/nuevo') ?>"><?= icon('plus', 16) ?> Agregar persona</a>
 </div>
+<?php if (ithub_enabled()): ?>
+<div class="alert alert-info"><?= icon('info') ?><span>El acceso al portal y el rol de cada persona se administran en <a href="<?= e(ithub_cfg()['issuer'] . '/permisos') ?>" target="_blank" rel="noopener"><b>ITHub → Permisos</b></a>. Un cambio de rol hecho acá vale hasta su próximo ingreso, en el que se aplica el que diga ITHub. Responsable, área, puesto y legajo se administran acá.</span></div>
+<?php endif ?>
 <section class="card">
   <nav class="tabs" aria-label="Estado">
     <?php foreach (['activas' => 'Activas', 'desafectadas' => 'Desafectadas', 'todas' => 'Todas'] as $k => $l): ?>
