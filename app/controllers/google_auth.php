@@ -20,6 +20,19 @@ function google_login_enabled(): bool
 }
 
 /**
+ * Indica si se muestra «Continuar con Google» en el ingreso. Con ITHub, solo si algún dominio de
+ * confianza no es el interno (el personal interno entra por ITHub).
+ */
+function google_button_visible(): bool
+{
+    if (!google_login_enabled()) {
+        return false;
+    }
+
+    return !ithub_enabled() || array_filter(trusted_domains(), fn ($d) => $d !== ithub_internal_domain()) !== [];
+}
+
+/**
  * Dirección a la que Google devuelve al usuario; debe estar autorizada en el cliente OAuth.
  */
 function google_redirect_uri(): string
@@ -32,7 +45,6 @@ function google_redirect_uri(): string
  */
 function google_start(): void
 {
-    deny_if_ithub();
     if (!google_login_enabled()) {
         redirect('/login');
     }
@@ -60,7 +72,6 @@ function google_start(): void
  */
 function google_callback(): void
 {
-    deny_if_ithub();
     $flow = $_SESSION['google_oauth'] ?? null;
     unset($_SESSION['google_oauth']);
     $fail = function (string $msg): never {
@@ -105,6 +116,8 @@ function google_callback(): void
         $fail('El ingreso con Google es solo para cuentas @' . implode(', @', trusted_domains()) . '. Si sos personal externo, ingresá con tu correo y contraseña.');
     }
 
+    // Con ITHub, el personal interno no entra con Google directo: tiene que pasar por ITHub.
+    deny_internal_if_ithub($email);
     $u = row('SELECT * FROM users WHERE email = ?', [$email]);
     if ($u && !$u['active'] && !$u['pending_activation']) {
         $fail('Tu cuenta del portal está desactivada. Comunicate con RRHH.');

@@ -3,7 +3,7 @@
   <a class="btn btn-primary" href="<?= url('/admin/usuarios/nuevo') ?>"><?= icon('plus', 16) ?> Agregar persona</a>
 </div>
 <?php if (ithub_enabled()): ?>
-<div class="alert alert-info"><?= icon('info') ?><span>El acceso al portal y el rol de cada persona se administran en <a href="<?= e(ithub_cfg()['issuer'] . '/permisos') ?>" target="_blank" rel="noopener"><b>ITHub → Permisos</b></a>. Un cambio de rol hecho acá vale hasta su próximo ingreso, en el que se aplica el que diga ITHub. Responsable, área, puesto y legajo se administran acá.</span></div>
+<div class="alert alert-info"><?= icon('info') ?><span>El personal @<?= e(ithub_internal_domain()) ?> ingresa con ITHub: su acceso y su rol se administran en <a href="<?= e(ithub_cfg()['issuer'] . '/permisos') ?>" target="_blank" rel="noopener"><b>ITHub → Permisos</b></a> y un cambio de rol hecho acá vale hasta su próximo ingreso. Las personas de otras empresas siguen con correo y contraseña y el rol que se les asigna acá. Responsable, área, puesto y legajo se administran acá para todos.</span></div>
 <?php endif ?>
 <section class="card">
   <nav class="tabs" aria-label="Estado">

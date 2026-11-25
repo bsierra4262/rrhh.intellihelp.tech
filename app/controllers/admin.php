@@ -169,8 +169,9 @@ function admin_user_save(int $id = 0): void
     } else {
         $pass = random_password();
         $data['password_hash'] = password_hash($pass, PASSWORD_DEFAULT);
-        // Con ITHub no hay contraseña que compartir: la persona entra con su cuenta de Google.
-        $data['must_change_password'] = ithub_enabled() ? 0 : 1;
+        // Con ITHub, el personal interno no tiene contraseña que compartir: entra con su cuenta de Google.
+        $viaIthub = !local_login_allowed($email);
+        $data['must_change_password'] = $viaIthub ? 0 : 1;
         $data['calendar_token'] = bin2hex(random_bytes(20));
         $id = insert('users', $data);
         // Quien ingresa con grupo de legajo: se vincula su carpeta o se crea en ese grupo.
@@ -178,7 +179,7 @@ function admin_user_save(int $id = 0): void
             $nu = row('SELECT * FROM users WHERE id = ?', [$id]);
             legajo_of($nu) ?? legajo_create($nu);
         }
-        if (ithub_enabled()) {
+        if ($viaIthub) {
             flash('success', 'Persona creada. Para que pueda ingresar, dale acceso a Capital Humano en ITHub → Permisos con el mismo rol.');
         } else {
             $sent = isset($_POST['send_welcome']) && send_welcome($data, $pass);
@@ -268,11 +269,11 @@ function admin_user_reset_password(int $id): void
 {
     $me = require_login();
     require_role('hr', 'admin');
-    deny_if_ithub("/admin/usuarios/$id");
     $u = row('SELECT * FROM users WHERE id = ?', [$id]);
     if (!$u) {
         abort(404);
     }
+    deny_internal_if_ithub($u['email'], "/admin/usuarios/$id");
     if ($u['role'] === 'admin' && $me['role'] !== 'admin') {
         abort(403);
     }

@@ -39,7 +39,7 @@
     </form>
   </section>
 
-  <?php if (!ithub_enabled()): ?>
+  <?php if (local_login_allowed($u['email'])): ?>
   <section class="card" id="password">
     <div class="card-head"><h2><?= icon('key') ?> Cambiar contraseña</h2></div>
     <?php if ($u['must_change_password']): ?><div class="alert alert-warning inline"><?= icon('alert') ?><span>Estás usando una contraseña temporal. Cambiala ahora.</span></div><?php endif ?>
