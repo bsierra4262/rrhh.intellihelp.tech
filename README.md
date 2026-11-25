@@ -50,6 +50,10 @@ Las licencias que no requieren autorización (por ejemplo, enfermedad) se **info
 
 <p align="center"><img src="docs/screenshots/login.png" alt="Pantalla de ingreso" width="100%"></p>
 
+Con ITHub configurado, el ingreso es solo por la sesión única de Intellihelp (la pantalla se ve únicamente cuando hay un aviso que mostrar):
+
+<p align="center"><img src="docs/screenshots/login-ithub.png" alt="Pantalla de ingreso con ITHub" width="100%"></p>
+
 ### Inicio — vista del responsable
 
 Solicitudes por autorizar, ausentes del día y próximos 14 días, y días disponibles propios.
@@ -274,6 +278,8 @@ Cada persona agrega sus calendarios de licencias en un clic: uno con las **autor
 | Recursos Humanos | Ve y autoriza todo, verifica documentación, administra personas y tipos |
 | Administrador/a | Todo lo anterior más la configuración del sistema y los reportes |
 
+Con ITHub, el rol (`admin`, `hr`, `manager` o `employee`) llega en el token y se aplica en cada ingreso. Responsable de equipo es un rol asignado, no se deduce de tener personas a cargo: quién reporta a quién, área, puesto y legajo siguen administrándose en el portal y ITHub no los toca.
+
 ## Circuito de una solicitud
 
 ```mermaid
@@ -364,6 +370,7 @@ Aplicación **PHP 8.3 sin framework**, pensada para hosting compartido: sin proc
 - Documentación almacenada en **Google Drive** (nunca en el servidor web), servida desde el portal solo a usuarios autorizados; se valida el tipo real del archivo (PDF, JPG o PNG) y su tamaño.
 - **Secretos cifrados** en base de datos (AES-256-GCM): contraseña SMTP, clave de la cuenta de servicio, webhooks.
 - Validación de correo por enlace en el autoregistro y aprobación manual para dominios externos.
+- **Ingreso con ITHub** (opcional): OpenID Connect con código + PKCE; el `id_token` se valida entero (firma RS256 con la clave pública de ITHub, emisor, destinatario, vencimiento y nonce). Salir cierra la sesión única y ITHub avisa los cierres por detrás (`/ithub-logout`).
 - HTTPS forzado, HSTS y cabeceras `X-Frame-Options`, `X-Content-Type-Options` y `Referrer-Policy`.
 
 ## Instalación y despliegue
@@ -390,6 +397,28 @@ cd app && composer install --no-dev
 # 4. Base de datos y usuario administrador (idempotente: también aplica migraciones)
 php install.php "Nombre Apellido" admin@intellihelp.tech
 ```
+
+### Ingreso con ITHub (sesión única)
+
+Con la sección `ithub` en `app/config.php` (ver `config.sample.php`), el portal no tiene ingreso propio: `/login` manda a ITHub y, si la persona ya entró ahí, pasa sin ver ninguna pantalla. El formulario de contraseña, «Creá tu cuenta», el recupero de contraseña, «Continuar con Google», el cambio de contraseña del perfil y «Restablecer contraseña» de la ficha quedan ocultos y bloqueados del lado del servidor. El acceso y el rol se administran en **ITHub → Permisos**; una persona desactivada o desafectada en el portal no entra aunque tenga permiso en ITHub.
+
+1. En **ITHub → Aplicaciones → Capital Humano** (`rrhh`):
+
+   | Campo | Valor |
+   | --- | --- |
+   | Roles | `admin, hr, manager, employee` (super admin: `admin`) |
+   | URIs de vuelta | `https://rrhh.intellihelp.tech/ithub-callback` |
+   | URIs después de salir | `https://rrhh.intellihelp.tech/login` |
+   | Aviso de cierre | `https://rrhh.intellihelp.tech/ithub-logout` |
+
+   y **Generar secreto** (se muestra una sola vez).
+2. En `app/config.php`, la sección `ithub` con `client_id` `rrhh` y ese secreto.
+3. Tabla `ithub_closed_sessions` (está en `sql/migrate.sql`): ahí anota `/ithub-logout` las sesiones que ITHub avisa cerradas y el portal corta las suyas en el pedido siguiente.
+4. Antes de activarlo, cada persona activa tiene que tener permiso en ITHub con su rol del portal. ITHub solo acepta cuentas de Google del dominio: quien no tenga una no va a poder entrar.
+
+Sin la sección `ithub`, el portal sigue con correo y contraseña y «Continuar con Google» como siempre.
+
+Pruebas del ingreso con ITHub (sin base de datos): `php tests/ithub.php`.
 
 ### Tarea programada
 

@@ -39,6 +39,7 @@
     </form>
   </section>
 
+  <?php if (!ithub_enabled()): ?>
   <section class="card" id="password">
     <div class="card-head"><h2><?= icon('key') ?> Cambiar contraseña</h2></div>
     <?php if ($u['must_change_password']): ?><div class="alert alert-warning inline"><?= icon('alert') ?><span>Estás usando una contraseña temporal. Cambiala ahora.</span></div><?php endif ?>
@@ -51,6 +52,7 @@
       <button class="btn btn-primary">Actualizar contraseña</button>
     </form>
   </section>
+  <?php endif ?>
 
   <section class="card card-soft" id="calendario">
     <div class="card-head"><h2><?= icon('calendar') ?> Sincronizar con tu calendario</h2></div>

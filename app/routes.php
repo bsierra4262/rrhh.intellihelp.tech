@@ -14,6 +14,7 @@ declare(strict_types=1);
 require APP_ROOT . '/controllers/auth.php';
 require APP_ROOT . '/controllers/signup.php';
 require APP_ROOT . '/controllers/google_auth.php';
+require APP_ROOT . '/controllers/ithub_auth.php';
 require APP_ROOT . '/controllers/dashboard.php';
 require APP_ROOT . '/controllers/requests.php';
 require APP_ROOT . '/controllers/calendar.php';
@@ -37,6 +38,9 @@ $routes = [
     ['POST', '/activar', 'activate_submit'],
     ['GET',  '/auth/google', 'google_start'],
     ['GET',  '/auth/google/callback', 'google_callback'],
+    ['GET',  '/ithub-login', 'ithub_start'],
+    ['GET',  '/ithub-callback', 'ithub_callback'],
+    ['POST', '/ithub-logout', 'ithub_backchannel_logout'],
     ['GET',  '/restablecer', 'reset_form'],
     ['POST', '/restablecer', 'reset_submit'],
 
@@ -109,7 +113,8 @@ function dispatch(array $routes): void
     $path = '/' . trim(parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/', '/');
     foreach ($routes as [$m, $pattern, $handler]) {
         if ($m === $method && preg_match('#^' . $pattern . '$#', $path, $mt)) {
-            if ($method === 'POST') {
+            // El aviso de cierre de ITHub llega de servidor a servidor: se valida la firma del token.
+            if ($method === 'POST' && $handler !== 'ithub_backchannel_logout') {
                 verify_csrf();
             }
             $handler(...array_map('intval_if_numeric', array_slice($mt, 1)));

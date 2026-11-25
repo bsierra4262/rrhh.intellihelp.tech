@@ -19,6 +19,12 @@ function login_form(): void
     if (current_user()) {
         redirect('/');
     }
+    // Con ITHub la pantalla de ingreso no hace falta: se va directo a la sesión única y, si ya
+    // estaba abierta, se entra sin ver nada. Se muestra solo cuando hay algo que explicar (un
+    // aviso o un error que volvió de ITHub con ?manual=1), con el botón «Ingresar con ITHub».
+    if (ithub_enabled() && !isset($_GET['manual']) && empty($_SESSION['flash'])) {
+        redirect('/ithub-login');
+    }
     view('auth/login', ['title' => 'Ingresar'], 'auth_layout');
 }
 
@@ -27,6 +33,7 @@ function login_form(): void
  */
 function login_submit(): void
 {
+    deny_if_ithub();
     $email = mb_strtolower(post('email'));
     if (too_many_attempts($email)) {
         flash('error', 'Demasiados intentos fallidos. Esperá 15 minutos e intentá de nuevo.');
@@ -59,7 +66,14 @@ function login_submit(): void
  */
 function logout_submit(): void
 {
+    // Si se entró con ITHub, salir cierra también la sesión única (y con ella todas las apps).
+    $idToken = (string) ($_SESSION['ithub_id_token'] ?? '');
+    $byIthub = ithub_enabled() && !empty($_SESSION['ithub_sid']);
     logout_user();
+    if ($byIthub) {
+        flash('success', 'Cerraste la sesión.');
+        redirect(ithub_logout_url($idToken !== '' ? $idToken : null));
+    }
     redirect('/login');
 }
 
@@ -68,6 +82,7 @@ function logout_submit(): void
  */
 function forgot_form(): void
 {
+    deny_if_ithub();
     view('auth/forgot', ['title' => 'Recuperar contraseña'], 'auth_layout');
 }
 
@@ -76,6 +91,7 @@ function forgot_form(): void
  */
 function forgot_submit(): void
 {
+    deny_if_ithub();
     $email = mb_strtolower(post('email'));
     if (too_many_attempts($email)) {
         flash('error', 'Demasiados intentos. Esperá unos minutos.');
@@ -125,6 +141,7 @@ function find_reset(string $token): ?array
  */
 function reset_form(): void
 {
+    deny_if_ithub();
     $t = (string) ($_GET['t'] ?? '');
     if (!find_reset($t)) {
         flash('error', 'El enlace no es válido o ya venció. Pedí uno nuevo.');
@@ -138,6 +155,7 @@ function reset_form(): void
  */
 function reset_submit(): void
 {
+    deny_if_ithub();
     $t = post('token');
     $pr = find_reset($t);
     if (!$pr) {

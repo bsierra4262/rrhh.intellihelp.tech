@@ -1,3 +1,9 @@
+<?php if (ithub_enabled()): ?>
+<h2>Iniciar sesión</h2>
+<p class="muted">Ingresá con tu cuenta de Intellihelp a través de ITHub.</p>
+<a class="btn btn-primary btn-block btn-lg" href="<?= url('/ithub-login') ?>">Ingresar con ITHub <?= icon('arrow-right', 18) ?></a>
+<p class="auth-google-note">Sesión única de Intellihelp: si ya entraste a ITHub, no te pide nada más.</p>
+<?php else: ?>
 <h2>Iniciar sesión</h2>
 <p class="muted">Ingresá con tu correo corporativo.</p>
 <form method="post" action="<?= url('/login') ?>" class="form">
@@ -22,4 +28,5 @@
 <?php endif ?>
 <?php if (setting('signup_enabled', '1') === '1'): ?>
   <p class="auth-signup">¿Todavía no tenés cuenta? <a href="<?= url('/registro') ?>">Creá tu cuenta</a></p>
+<?php endif ?>
 <?php endif ?>

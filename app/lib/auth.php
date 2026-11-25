@@ -46,6 +46,11 @@ function current_user(): ?array
     static $user = false;
     if ($user === false) {
         $user = null;
+        // Sesión abierta con ITHub que ITHub ya cerró (aviso por detrás en /ithub-logout): se corta acá.
+        if (!empty($_SESSION['uid']) && !empty($_SESSION['ithub_sid']) && ithub_sid_closed((string) $_SESSION['ithub_sid'])) {
+            log_line('auth.log', 'ITHub: sesión cerrada desde ITHub (usuario ' . (int) $_SESSION['uid'] . ')');
+            logout_user();
+        }
         if (!empty($_SESSION['uid'])) {
             $user = row('SELECT * FROM users WHERE id = ? AND active = 1', [$_SESSION['uid']]);
             if (!$user) {

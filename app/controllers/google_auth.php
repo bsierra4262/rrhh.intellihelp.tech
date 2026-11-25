@@ -32,6 +32,7 @@ function google_redirect_uri(): string
  */
 function google_start(): void
 {
+    deny_if_ithub();
     if (!google_login_enabled()) {
         redirect('/login');
     }
@@ -59,6 +60,7 @@ function google_start(): void
  */
 function google_callback(): void
 {
+    deny_if_ithub();
     $flow = $_SESSION['google_oauth'] ?? null;
     unset($_SESSION['google_oauth']);
     $fail = function (string $msg): never {

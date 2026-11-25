@@ -140,3 +140,10 @@ ALTER TABLE payslips ADD COLUMN IF NOT EXISTS employer_sig_issuer VARCHAR(160) N
 ALTER TABLE payslips ADD COLUMN IF NOT EXISTS employer_signed_at DATETIME NULL AFTER employer_sig_issuer;
 -- Código de la copia firmada, para verificar el PDF firmado en /verificar.
 ALTER TABLE payslips ADD COLUMN IF NOT EXISTS signed_sha256 CHAR(64) NULL AFTER signed_drive_id;
+-- Ingreso con ITHub: sesiones únicas que ITHub avisó cerradas (aviso por detrás en /ithub-logout).
+-- current_user() corta la sesión del portal abierta con ese sid en el pedido siguiente.
+CREATE TABLE IF NOT EXISTS ithub_closed_sessions (
+  sid CHAR(32) NOT NULL PRIMARY KEY,
+  closed_at DATETIME NOT NULL,
+  KEY idx_closed_at (closed_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
