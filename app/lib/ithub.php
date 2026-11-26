@@ -5,12 +5,17 @@
  *
  * Ingreso con ITHub (sesión única de Intellihelp, OpenID Connect).
  *
- * Con la sección `ithub` en config.php (client_id y client_secret), el portal deja de tener
- * ingreso propio: /login manda a ITHub, que ya validó la cuenta de Google y el dominio, decide
- * si la persona tiene acceso a Capital Humano y con qué rol (claim `rol`: admin | hr | manager |
- * employee) y vuelve a /ithub-callback con un código. Si ya había sesión en ITHub, la persona
- * entra sin ver ninguna pantalla. El formulario de contraseña, el alta de cuentas, el recupero
- * de contraseña y «Continuar con Google» quedan ocultos y bloqueados del lado del servidor.
+ * Ingreso mixto. Con la sección `ithub` en config.php (client_id y client_secret), el personal
+ * del dominio interno (@intellihelp.tech) entra solo con ITHub: «Ingresar con ITHub» manda a
+ * ITHub, que ya validó la cuenta de Google y el dominio, decide si la persona tiene acceso a
+ * Capital Humano y con qué rol (claim `rol`: admin | hr | manager | employee) y vuelve a
+ * /ithub-callback con un código. Si ya había sesión en ITHub, entra sin ver ninguna pantalla.
+ * Para esos correos, el formulario de contraseña, el alta de cuentas, el recupero, el cambio de
+ * contraseña y el ingreso directo con Google se rechazan del lado del servidor.
+ *
+ * Las personas de otras empresas (contratistas, consultoras) no tienen cuenta del dominio y no
+ * pueden pasar por ITHub: siguen con correo y contraseña, alta de cuenta y recupero como siempre,
+ * con el rol que les asigna RRHH en el portal.
  *
  * ITHub decide solo el rol y si se entra. La estructura (responsable, área, puesto, legajo,
  * empresa, fechas) y el estado de la persona (activa o desafectada) siguen siendo de RRHH: al
@@ -61,14 +66,44 @@ function ithub_enabled(): bool
 }
 
 /**
- * Corta las acciones del ingreso propio (contraseña, alta de cuentas, recupero, Google) cuando
- * el ingreso es por ITHub, aunque alguien las llame directamente sin pasar por la pantalla.
+ * Dominio del personal interno, que entra solo con ITHub ('ithub' → 'domain', por defecto
+ * intellihelp.tech).
  */
-function deny_if_ithub(string $back = '/login'): void
+function ithub_internal_domain(): string
 {
-    if (ithub_enabled()) {
-        flash('info', 'El ingreso al portal es con ITHub, la sesión única de Intellihelp. Las contraseñas y las cuentas se administran ahí.');
-        redirect($back === '/login' ? '/login?manual=1' : $back);
+    return mb_strtolower(trim((string) config('ithub.domain', 'intellihelp.tech'), " @	
+"));
+}
+
+/**
+ * Indica si el correo es del personal interno (dominio exacto, sin subdominios).
+ */
+function ithub_is_internal(string $email): bool
+{
+    $email = mb_strtolower(trim($email));
+    $at = strrpos($email, '@');
+
+    return $at !== false && substr($email, $at + 1) === ithub_internal_domain();
+}
+
+/**
+ * Indica si ese correo puede usar el ingreso propio del portal (contraseña, alta, recupero,
+ * Google directo): siempre sin ITHub; con ITHub, solo las cuentas de otras empresas.
+ */
+function local_login_allowed(string $email): bool
+{
+    return !ithub_enabled() || !ithub_is_internal($email);
+}
+
+/**
+ * Corta una acción del ingreso propio para un correo del personal interno cuando el ingreso es
+ * por ITHub, aunque alguien la llame directamente sin pasar por la pantalla.
+ */
+function deny_internal_if_ithub(string $email, string $back = '/login'): void
+{
+    if (!local_login_allowed($email)) {
+        flash('info', 'El personal de @' . ithub_internal_domain() . ' ingresa con ITHub, la sesión única de Intellihelp: usá «Ingresar con ITHub». La cuenta y la contraseña se administran ahí, con tu cuenta de Google.');
+        redirect($back);
     }
 }
 

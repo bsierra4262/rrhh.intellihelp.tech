@@ -103,7 +103,7 @@ function profile_submit(): void
 function profile_password(): void
 {
     $u = require_login();
-    deny_if_ithub('/perfil');
+    deny_internal_if_ithub($u['email'], '/perfil');
     $current = (string) ($_POST['current'] ?? '');
     $p = (string) ($_POST['password'] ?? '');
     if (!password_verify($current, $u['password_hash'])) {

@@ -19,12 +19,9 @@ function login_form(): void
     if (current_user()) {
         redirect('/');
     }
-    // Con ITHub la pantalla de ingreso no hace falta: se va directo a la sesión única y, si ya
-    // estaba abierta, se entra sin ver nada. Se muestra solo cuando hay algo que explicar (un
-    // aviso o un error que volvió de ITHub con ?manual=1), con el botón «Ingresar con ITHub».
-    if (ithub_enabled() && !isset($_GET['manual']) && empty($_SESSION['flash'])) {
-        redirect('/ithub-login');
-    }
+    // Con ITHub la pantalla muestra primero «Ingresar con ITHub» (personal interno) y debajo el
+    // acceso con correo y contraseña para personas de otras empresas. /ithub-login (y la tarjeta
+    // de ITHub, que apunta ahí) entra directo sin pasar por esta pantalla.
     view('auth/login', ['title' => 'Ingresar'], 'auth_layout');
 }
 
@@ -33,8 +30,8 @@ function login_form(): void
  */
 function login_submit(): void
 {
-    deny_if_ithub();
     $email = mb_strtolower(post('email'));
+    deny_internal_if_ithub($email);
     if (too_many_attempts($email)) {
         flash('error', 'Demasiados intentos fallidos. Esperá 15 minutos e intentá de nuevo.');
         redirect('/login');
@@ -82,7 +79,6 @@ function logout_submit(): void
  */
 function forgot_form(): void
 {
-    deny_if_ithub();
     view('auth/forgot', ['title' => 'Recuperar contraseña'], 'auth_layout');
 }
 
@@ -91,8 +87,8 @@ function forgot_form(): void
  */
 function forgot_submit(): void
 {
-    deny_if_ithub();
     $email = mb_strtolower(post('email'));
+    deny_internal_if_ithub($email);
     if (too_many_attempts($email)) {
         flash('error', 'Demasiados intentos. Esperá unos minutos.');
         redirect('/olvide');
@@ -141,12 +137,13 @@ function find_reset(string $token): ?array
  */
 function reset_form(): void
 {
-    deny_if_ithub();
     $t = (string) ($_GET['t'] ?? '');
-    if (!find_reset($t)) {
+    $pr = find_reset($t);
+    if (!$pr) {
         flash('error', 'El enlace no es válido o ya venció. Pedí uno nuevo.');
         redirect('/olvide');
     }
+    deny_internal_if_ithub((string) val('SELECT email FROM users WHERE id = ?', [$pr['user_id']]));
     view('auth/reset', ['title' => 'Nueva contraseña', 'token' => $t], 'auth_layout');
 }
 
@@ -155,13 +152,13 @@ function reset_form(): void
  */
 function reset_submit(): void
 {
-    deny_if_ithub();
     $t = post('token');
     $pr = find_reset($t);
     if (!$pr) {
         flash('error', 'El enlace no es válido o ya venció.');
         redirect('/olvide');
     }
+    deny_internal_if_ithub((string) val('SELECT email FROM users WHERE id = ?', [$pr['user_id']]));
     $p = (string) ($_POST['password'] ?? '');
     $problems = password_problems($p);
     if ($problems || $p !== ($_POST['password_confirm'] ?? '')) {

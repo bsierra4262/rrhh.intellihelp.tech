@@ -49,7 +49,6 @@ function signup_open(): bool
  */
 function register_form(): void
 {
-    deny_if_ithub();
     if (current_user()) {
         redirect('/');
     }
@@ -65,13 +64,13 @@ function register_form(): void
  */
 function register_submit(): void
 {
-    deny_if_ithub();
     if (!signup_open()) {
         redirect('/login');
     }
     remember_input();
     $name = mb_substr(normalize_name(post('name')), 0, 120);
     $email = mb_strtolower(post('email'));
+    deny_internal_if_ithub($email);
     $company = mb_substr(post('company'), 0, 120);
     $trusted = is_trusted_email($email);
     if (mb_strlen($name) < 3 || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
@@ -199,13 +198,13 @@ function find_activation(string $token): ?array
  */
 function activate_form(): void
 {
-    deny_if_ithub();
     $t = (string) ($_GET['t'] ?? '');
     $a = find_activation($t);
     if (!$a) {
         flash('error', 'El enlace de activación no es válido o ya fue usado.');
         redirect('/login');
     }
+    deny_internal_if_ithub($a['user']['email']);
     view('auth/activate', ['title' => 'Activar cuenta', 'token' => $t, 'name' => $a['user']['name'], 'trusted' => is_trusted_email($a['user']['email'])], 'auth_layout');
 }
 
@@ -214,13 +213,13 @@ function activate_form(): void
  */
 function activate_submit(): void
 {
-    deny_if_ithub();
     $t = post('token');
     $a = find_activation($t);
     if (!$a) {
         flash('error', 'El enlace de activación no es válido o ya fue usado.');
         redirect('/login');
     }
+    deny_internal_if_ithub($a['user']['email']);
     $p = (string) ($_POST['password'] ?? '');
     $problems = password_problems($p);
     if ($problems || $p !== ($_POST['password_confirm'] ?? '')) {

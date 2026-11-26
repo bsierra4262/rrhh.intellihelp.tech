@@ -4,8 +4,8 @@
  * Portal de Recursos Humanos — Intellihelp
  *
  * Pruebas sin base de datos del ingreso con ITHub (app/lib/ithub.php): el PEM armado desde el
- * JWK, la validación del id_token y del logout_token, la URL de autorización (PKCE S256) y la de
- * salida. Se firma con una clave RSA generada en el momento; no se llama a ITHub (las claves se le
+ * JWK, la validación del id_token y del logout_token, la URL de autorización (PKCE S256), la de
+ * salida y la regla del ingreso mixto (personal interno por ITHub, otras empresas con contraseña). Se firma con una clave RSA generada en el momento; no se llama a ITHub (las claves se le
  * pasan a ithub_validate_jwt directamente).
  *
  * Uso: php tests/ithub.php   (necesita las extensiones openssl y mbstring; sale con 1 si algo falla)
@@ -133,6 +133,22 @@ $out = ithub_logout_url('tok.en.x');
 ok('la salida va a /oauth/logout de ITHub', str_starts_with($out, 'https://ithub.intellihelp.tech/oauth/logout?'));
 ok('con el id_token como pista (no pregunta)', str_contains($out, 'id_token_hint=tok.en.x'));
 ok('y vuelve al ingreso del portal', str_contains($out, 'post_logout_redirect_uri=' . rawurlencode('https://rrhh.intellihelp.tech/login')));
+
+// ---- Ingreso mixto: personal interno por ITHub, otras empresas con contraseña ----
+eq('el dominio interno por defecto es intellihelp.tech', ithub_internal_domain(), 'intellihelp.tech');
+ok('un correo @intellihelp.tech es interno (sin importar mayúsculas)', ithub_is_internal(' JPerez@IntelliHelp.tech '));
+ok('un correo de otra empresa no es interno', !ithub_is_internal('spasqua@strix.com.ar'));
+ok('un subdominio no es el dominio interno', !ithub_is_internal('x@mail.intellihelp.tech'));
+ok('un dominio que solo termina parecido no es interno', !ithub_is_internal('x@notintellihelp.tech'));
+ok('con ITHub, el formulario de contraseña rechaza un correo interno', !local_login_allowed('bsierra@intellihelp.tech'));
+ok('con ITHub, el formulario de contraseña acepta un correo externo', local_login_allowed('tlombardo@strix.com.ar'));
+$GLOBALS['config']['ithub']['domain'] = '@Otra.com ';
+ok('el dominio interno se puede configurar', ithub_is_internal('a@otra.com') && !ithub_is_internal('a@intellihelp.tech'));
+unset($GLOBALS['config']['ithub']['domain']);
+$cfgIthub = $GLOBALS['config']['ithub'];
+unset($GLOBALS['config']['ithub']);
+ok('sin ITHub, el correo interno sigue entrando con contraseña', local_login_allowed('bsierra@intellihelp.tech'));
+$GLOBALS['config']['ithub'] = $cfgIthub;
 
 // ---- Roles ----
 eq('los roles del portal son los del catálogo de ITHub (de mayor a menor)', array_reverse(array_keys(ROLE_LABELS)), ['admin', 'hr', 'manager', 'employee']);

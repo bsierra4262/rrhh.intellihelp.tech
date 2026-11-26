@@ -139,7 +139,7 @@ $catOther = $cat !== '' && !in_array($cat, $catList, true);
   </div>
   <div class="form-foot">
     <label class="switch"><input type="checkbox" name="active" <?= (!$u || $u['active']) ? 'checked' : '' ?>><span></span> Activa</label>
-    <?php if (!$u && !ithub_enabled()): ?><label class="switch"><input type="checkbox" name="send_welcome" checked><span></span> Enviar email de bienvenida con la contraseña</label><?php endif ?>
+    <?php if (!$u): ?><label class="switch"><input type="checkbox" name="send_welcome" checked><span></span> Enviar email de bienvenida con la contraseña<?= ithub_enabled() ? ' (solo personas de otras empresas: el personal @' . e(ithub_internal_domain()) . ' entra con ITHub)' : '' ?></label><?php endif ?>
     <button class="btn btn-primary"><?= icon('check', 16) ?> Guardar</button>
   </div>
 </form>
@@ -214,8 +214,8 @@ $catOther = $cat !== '' && !in_array($cat, $catList, true);
 <section class="card">
   <div class="card-head"><h2><?= icon('key') ?> Acceso</h2></div>
   <p class="muted">Último ingreso: <?= e(fdatetime($u['last_login'])) ?></p>
-  <?php if (ithub_enabled()): ?>
-  <p class="muted">El ingreso es con ITHub, la sesión única de Intellihelp: el acceso y el rol se administran en <a href="<?= e(ithub_cfg()['issuer'] . '/permisos') ?>" target="_blank" rel="noopener">ITHub → Permisos</a>. Responsable, área y legajo se siguen cargando acá.</p>
+  <?php if (!local_login_allowed($u['email'])): ?>
+  <p class="muted">Personal interno: ingresa con ITHub, la sesión única de Intellihelp, sin contraseña del portal. El acceso y el rol se administran en <a href="<?= e(ithub_cfg()['issuer'] . '/permisos') ?>" target="_blank" rel="noopener">ITHub → Permisos</a>. Responsable, área y legajo se siguen cargando acá.</p>
   <?php else: ?>
   <form method="post" action="<?= url('/admin/usuarios/' . $u['id'] . '/password') ?>" class="btn-row">
     <?= csrf_field() ?>
